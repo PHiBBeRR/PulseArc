@@ -1,0 +1,20 @@
+[package]
+name = "pulsearc-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Internal dependencies
+pulsearc-shared = { workspace = true }
+
+# Workspace dependencies
+serde = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# Async support
+async-trait = "0.1"

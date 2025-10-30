@@ -1,0 +1,16 @@
+# Treat warnings as errors everywhere.
+[build]
+rustflags = ["-Dwarnings"]
+
+[alias]
+# Strict linting helpers (use: `cargo lint`)
+lint = "clippy -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery"
+fmt-check = "fmt --all -- --check"
+
+# Extra hardening for Linux (ignored on macOS/Windows)
+[target.'cfg(target_os = "linux")']
+rustflags = [
+  "-C", "link-arg=-Wl,-z,relro",
+  "-C", "link-arg=-Wl,-z,now",
+  "-C", "link-arg=-Wl,--as-needed",
+]

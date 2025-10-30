@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+
+# Build outputs
+/dist
+/target
+
+# Database files (SQLCipher)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# IDE & Tools
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# Cargo cache
+.cargo/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cargo lock (for applications, include it; for libraries, ignore it)
+# Cargo.lock
+
+# Test coverage
+coverage/
+
+# Temporary files & sensitive data
+tmp/
+temp/
+.tokens.json
+*.tokens.json
+
+# Legacy/archived code
+legacy/

@@ -1,0 +1,97 @@
+# Clippy configuration for enterprise-grade applications
+# https://rust-lang.github.io/rust-clippy/master/index.html
+#
+# This configuration balances code quality with development practicality.
+# Strict enough for production, sane enough for rapid development.
+
+# ===== Complexity Thresholds =====
+
+# Cognitive complexity - keep functions understandable
+# Enterprise-grade: functions should be easy to maintain and test
+cognitive-complexity-threshold = 15
+
+# Type complexity - prevent deeply nested types that are hard to understand
+# Lower threshold ensures cleaner API design
+type-complexity-threshold = 100
+
+# Function parameters - too many params indicate poor API design
+# 5 is a good balance between flexibility and clarity
+too-many-arguments-threshold = 5
+
+# Boolean parameters - more than 2-3 booleans usually need a config struct
+max-fn-params-bools = 3
+
+# Lines of code in a function - keep functions focused
+# Sane limit that encourages modularity without being overly restrictive
+too-many-lines-threshold = 100
+
+# ===== Documentation =====
+
+# Require documentation for public items
+# Critical for enterprise code that will be maintained by teams
+missing-docs-in-crate-items = true
+
+# ===== Style & Naming =====
+
+# Enum variant naming consistency
+enum-variant-name-threshold = 3
+
+# Single character bindings - allow some for idiomatic Rust (i, x, y in loops)
+# But warn if too many accumulate
+single-char-binding-names-threshold = 4
+
+# Struct field naming
+max-struct-bools = 3
+
+# ===== Performance & Memory =====
+
+# Large arrays on the stack should be boxed
+array-size-threshold = 512000
+
+# Large types in vec should be boxed for efficiency
+vec-box-size-threshold = 4096
+
+# Stack frame size threshold
+stack-size-threshold = 512000
+
+# ===== Security & Safety =====
+
+# Disallowed methods - prevent unsafe patterns in enterprise code
+disallowed-methods = [
+    # Environment variable mutation - allowed for development
+    # Uncomment for production to enforce structured config management:
+    # { path = "std::env::set_var", reason = "Use structured config management; set_var is not thread-safe" },
+    # { path = "std::env::remove_var", reason = "Use structured config management; remove_var is not thread-safe" },
+
+    # Unsafe process operations
+    { path = "std::process::exit", reason = "Use proper error handling and graceful shutdown" },
+    { path = "std::process::abort", reason = "Use proper error handling and graceful shutdown" },
+
+    # Random number generation without cryptographic security (when security matters)
+    # Uncomment if you need cryptographically secure randomness everywhere:
+    # { path = "rand::thread_rng", reason = "Use cryptographically secure RNG for security-sensitive operations" },
+]
+
+# Disallowed types - prevent problematic types
+disallowed-types = [
+    # Prefer anyhow::Result for applications, thiserror for libraries
+    # { path = "std::result::Result", reason = "Use anyhow::Result for better error context" },
+]
+
+# ===== Allowed Exceptions =====
+# These are commonly needed during development
+# They're still tracked but won't break CI
+
+# Allow unwrap/expect in test code - reduces noise during rapid development
+allow-unwrap-in-tests = true
+
+# Allow dbg! in test code - useful for debugging tests
+allow-dbg-in-tests = true
+
+# Allow print statements in tests - sometimes useful for test output
+allow-print-in-tests = true
+
+# ===== Additional Thresholds =====
+
+# Suppress lints for test code patterns
+suppress-restriction-lint-in-const = false

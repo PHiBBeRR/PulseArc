@@ -1,0 +1,133 @@
+#!/bin/sh
+################################################################################
+# FAST PRE-COMMIT HOOK - Optimized for speed                                   #
+################################################################################
+
+# Early exit if SKIP_TESTS=1 is set (for emergency commits)
+if [ "$SKIP_TESTS" = "1" ]; then
+  echo "⚠️  SKIP_TESTS=1 detected - bypassing all checks"
+  exit 0
+fi
+
+# Get staged files ONCE (only tracked files, excludes .gitignore by default)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Early exit if no files
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# Categorize files (single pass)
+FRONTEND_CHANGED=$(echo "$STAGED_FILES" | grep -E '^(frontend/|package\.json|vite\.config|tsconfig)' || true)
+RUST_CHANGED=$(echo "$STAGED_FILES" | grep -E '^crates/' || true)
+
+# Count files
+FRONTEND_COUNT=$(echo "$FRONTEND_CHANGED" | grep -c . || echo "0")
+RUST_COUNT=$(echo "$RUST_CHANGED" | grep -c . || echo "0")
+
+echo "📊 Staged: Frontend=$FRONTEND_COUNT Rust=$RUST_COUNT"
+echo ""
+
+# Exit code tracking
+FAILED=0
+
+# ============================================================================
+# FRONTEND CHECKS (parallel when possible)
+# ============================================================================
+if [ "$FRONTEND_COUNT" -gt 0 ]; then
+  echo "🎨 Frontend checks..."
+
+  # TypeScript check
+  echo "  → TypeScript..."
+  TS_OUTPUT=$(npx tsc --noEmit 2>&1 | grep "error TS" || true)
+  if [ -z "$TS_OUTPUT" ]; then
+    echo "    ✅ Types OK"
+  else
+    echo "    ❌ Type errors found"
+    echo "$TS_OUTPUT" | head -5
+    echo "    Run: npx tsc --noEmit"
+    FAILED=1
+  fi
+
+  # ESLint (exclude tools/docs/reusable from .gitignore)
+  echo "  → ESLint..."
+  ESLINT_OUTPUT=$(npx eslint . --quiet 2>&1 || true)
+  if [ -z "$ESLINT_OUTPUT" ]; then
+    echo "    ✅ Lint OK"
+  else
+    echo "    ❌ Lint errors found"
+    echo "$ESLINT_OUTPUT" | head -10
+    echo "    Run: npx eslint . --fix"
+    FAILED=1
+  fi
+
+  # Frontend tests - SKIP (too slow for pre-commit, rely on CI/manual runs)
+  echo "  → Tests skipped (run manually: npm run test)"
+
+  echo ""
+fi
+
+# ============================================================================
+# RUST CHECKS (parallel when possible)
+# ============================================================================
+if [ "$RUST_COUNT" -gt 0 ]; then
+  echo "🦀 Rust checks..."
+
+  # Clippy (check only, no auto-fix) - workspace level
+  echo "  → Clippy..."
+  if cargo clippy --workspace --quiet 2>&1 | grep -E "^error"; then
+    echo "    ❌ Clippy errors"
+    echo "    Run: cargo clippy --workspace"
+    FAILED=1
+  else
+    echo "    ✅ Clippy OK"
+  fi
+
+  # Format check - workspace level
+  echo "  → Format..."
+  if cargo fmt --all --check 2>&1 | grep -E "^Diff"; then
+    echo "    ❌ Format issues"
+    echo "    Run: cargo fmt --all"
+    FAILED=1
+  else
+    echo "    ✅ Format OK"
+  fi
+
+  # Compilation check (smart strategy)
+  RUST_TEST_FILES=$(echo "$RUST_CHANGED" | grep '^crates/.*/tests/' || true)
+  if [ -z "$RUST_TEST_FILES" ]; then
+    echo "  → Compile (workspace)..."
+    if ! cargo check --workspace --quiet 2>&1; then
+      echo "    ❌ Compilation failed"
+      echo "    Run: cargo check --workspace"
+      FAILED=1
+    else
+      echo "    ✅ Compile OK"
+    fi
+  else
+    echo "  → Compile (all targets)..."
+    if ! cargo check --workspace --all-targets --quiet 2>&1; then
+      echo "    ❌ Compilation failed"
+      echo "    Run: cargo check --workspace --all-targets"
+      FAILED=1
+    else
+      echo "    ✅ Compile OK"
+    fi
+  fi
+
+  # Tests - SKIP (too slow for pre-commit, rely on CI/manual runs)
+  echo "  → Tests skipped (run manually: cargo test)"
+
+  echo ""
+fi
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+if [ $FAILED -ne 0 ]; then
+  echo "❌ COMMIT BLOCKED - Fix errors above"
+  exit 1
+fi
+
+echo "✅ All checks passed - committing..."
+exit 0

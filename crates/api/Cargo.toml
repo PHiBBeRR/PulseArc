@@ -1,0 +1,118 @@
+[package]
+name = "pulsearc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+name = "pulsearc_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "pulsearc"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.5", features = [] }
+
+[dependencies]
+# Internal crates
+pulsearc-shared = { workspace = true }
+pulsearc-core = { workspace = true }
+pulsearc-infra = { workspace = true }
+
+# Tauri
+tauri = { version = "2.9", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-opener = "2"
+
+# Workspace dependencies - Core
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+uuid = { workspace = true }
+
+# Workspace dependencies - Async
+async-trait = { workspace = true }
+futures = { workspace = true }
+
+# Workspace dependencies - Database
+rusqlite = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+
+# Workspace dependencies - HTTP & API
+reqwest = { workspace = true }
+tokio-postgres = { workspace = true }
+postgres-native-tls = { workspace = true }
+native-tls = { workspace = true }
+
+# Workspace dependencies - Crypto & Security
+blake3 = { workspace = true }
+hex = { workspace = true }
+keyring = { workspace = true }
+rand = { workspace = true }
+
+# Workspace dependencies - Image
+image = { workspace = true }
+
+# Workspace dependencies - Config & Environment
+dotenvy = { workspace = true }
+toml = { workspace = true }
+
+# Workspace dependencies - Utilities
+regex = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+
+# Workspace dependencies - OAuth & HTTP Server
+oauth2 = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+url = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+urlencoding = { workspace = true }
+
+# Workspace dependencies - Type Generation
+serde_with = { workspace = true }
+
+# Additional dependencies
+env_logger = "0.11"
+tracing = { workspace = true }
+sysinfo = "0.37"
+lazy_static = "1.4"
+ts-rs = { version = "11", optional = true, default-features = false, features = ["serde-compat", "format", "uuid-impl", "chrono-impl"] }
+
+# macOS specific dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+block2 = "0.6"
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+core-graphics = "0.25"
+io-kit-sys = "0.4"
+libc = "0.2"
+cocoa = "0.25"
+
+[dev-dependencies]
+tempfile = "3.8"
+ctor = "0.6"
+insta = { version = "1.40", features = ["json", "redactions"] }
+tokio-test = "0.4"
+serial_test = "3.2"
+
+[features]
+default = ["sqlcipher"]
+custom-protocol = ["tauri/custom-protocol"]
+sqlcipher = []
+ts-gen = ["dep:ts-rs"]

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PulseArc",
+  "version": "0.1.0",
+  "identifier": "com.pulsearc.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-window-capabilities",
+          "windows": ["main", "activity-tracker"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-size",
+            "core:window:allow-set-min-size",
+            "core:window:allow-set-max-size",
+            "core:window:allow-set-resizable",
+            "core:window:allow-center",
+            "core:window:allow-set-always-on-top",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-minimize",
+            "core:window:allow-set-position",
+            "core:window:allow-outer-position",
+            "core:window:allow-inner-size",
+            "core:window:allow-set-focus",
+            "core:window:allow-is-visible",
+            "core:window:allow-is-focused",
+            "core:window:allow-set-effects",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:allow-unlisten",
+            {
+              "identifier": "opener:allow-open-url",
+              "allow": [
+                {
+                  "url": "https://accounts.google.com/*"
+                },
+                {
+                  "url": "https://login.microsoftonline.com/*"
+                },
+                {
+                  "url": "https://dev-q6f8uk0tlxem2tpc.us.auth0.com/*"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "PulseArc",
+        "width": 460,
+        "height": 300,
+        "minWidth": 420,
+        "minHeight": 260,
+        "maxWidth": 1600,
+        "maxHeight": 1200,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "dragDropEnabled": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": false,
+        "hiddenTitle": true
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": false
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "macOS": {
+      "entitlements": null,
+      "minimumSystemVersion": "10.13"
+    }
+  }
+}

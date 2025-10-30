@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+target/
+.tauri/
+
+# Rust workspace - don't format Rust with Prettier
+crates/
+Cargo.toml
+Cargo.lock
+*.rs
+*.toml
+
+# Git
+.git/
+.husky/
+
+# IDE & Tools
+.vscode/
+.idea/
+.claude/
+
+# Cache
+.cache/
+.cargo/
+
+# Generated files
+frontend/shared/types/generated/
+*.generated.ts
+
+# Legacy/archived code
+legacy/
+
+# Config files that should maintain specific formatting
+pnpm-lock.yaml
+yarn.lock
+
+# Documentation that might have specific formatting
+CHANGELOG.md

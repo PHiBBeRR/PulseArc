@@ -1,0 +1,49 @@
+[package]
+name = "pulsearc-infra"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+# Internal dependencies
+pulsearc-shared = { workspace = true }
+pulsearc-core = { workspace = true }
+
+# Workspace dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
+async-trait = { workspace = true }
+
+# Database
+rusqlite = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+
+# HTTP Client
+reqwest = { workspace = true }
+
+# OAuth
+oauth2 = { workspace = true }
+
+# Keychain
+keyring = { workspace = true }
+
+# Cryptography
+rand = { workspace = true }
+hex = { workspace = true }
+
+# macOS Platform APIs (optional, only on macOS)
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+cocoa = "0.25"
+core-foundation = "0.10"
+core-graphics = "0.25"
+io-kit-sys = "0.4"

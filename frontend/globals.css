@@ -1,0 +1,484 @@
+@import 'tailwindcss';
+@import 'react-day-picker/style.css';
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+html,
+body,
+#root {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+:root {
+  --font-size: 16px;
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+
+  /* True Glassmorphic Palette - Dark with warm accents */
+  --background: #1a1a1a;
+  --foreground: #e5e5e5;
+  --card: rgba(40, 40, 40, 0.25);
+  --card-foreground: #e5e5e5;
+  --popover: rgba(40, 40, 40, 0.85);
+  --popover-foreground: #e5e5e5;
+
+  /* Primary: Dark Grey */
+  --primary: #3a3a3a;
+  --primary-dark: #2a2a2a;
+  --primary-light: #4a4a4a;
+  --primary-foreground: #ffffff;
+
+  /* Secondary: Light grey for highlights */
+  --secondary: #e5e5e5;
+  --secondary-dark: #d4d4d4;
+  --secondary-light: #f5f5f5;
+  --secondary-foreground: #1a1a1a;
+
+  /* Neutrals - Very transparent for glass */
+  --muted: rgba(255, 255, 255, 0.03);
+  --muted-foreground: #9a9a9a;
+  --accent: rgba(255, 255, 255, 0.05);
+  --accent-foreground: #e5e5e5;
+
+  /* Semantic Colors - Subtle color hints */
+  --destructive: #525252;
+  --destructive-foreground: #ffffff;
+  --success: 134 239 172; /* green-300 */
+  --success-foreground: #1a1a1a;
+  --warning: 253 224 71; /* yellow-300 */
+  --warning-foreground: #1a1a1a;
+  --error: 252 165 165; /* red-300 */
+  --error-foreground: #1a1a1a;
+  --info: #737373;
+  --info-foreground: #ffffff;
+
+  /* Border and Input - Subtle glass borders */
+  --border: rgba(255, 255, 255, 0.1);
+  --input: transparent;
+  --input-background: rgba(255, 255, 255, 0.05);
+  --switch-background: rgba(255, 255, 255, 0.2);
+
+  /* Glassmorphic shadows - softer */
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-shadow-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.25);
+  --glass-shadow-lg: 0 16px 48px 0 rgba(0, 0, 0, 0.45);
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  --ring: rgba(229, 229, 229, 0.5);
+
+  /* Chart Colors - Pure Monochrome */
+  --chart-1: #3a3a3a;
+  --chart-2: #6a6a6a;
+  --chart-3: #9a9a9a;
+  --chart-4: #d4d4d4;
+  --chart-5: #525252;
+
+  --radius: 16px;
+
+  /* Sidebar - Glass */
+  --sidebar: rgba(40, 40, 40, 0.25);
+  --sidebar-foreground: #e5e5e5;
+  --sidebar-primary: #3a3a3a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.05);
+  --sidebar-accent-foreground: #e5e5e5;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: rgba(229, 229, 229, 0.5);
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #f5f5f5;
+  --card: rgba(50, 50, 50, 0.3);
+  --card-foreground: #f5f5f5;
+  --popover: rgba(50, 50, 50, 0.9);
+  --popover-foreground: #f5f5f5;
+  --primary: #4a4a4a;
+  --primary-dark: #3a3a3a;
+  --primary-light: #5a5a5a;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-dark: #e5e5e5;
+  --secondary-light: #fafafa;
+  --secondary-foreground: #1a1a1a;
+  --muted: rgba(255, 255, 255, 0.04);
+  --muted-foreground: #b5b5b5;
+  --accent: rgba(255, 255, 255, 0.06);
+  --accent-foreground: #f5f5f5;
+  --destructive: #737373;
+  --destructive-foreground: #ffffff;
+  --success: 134 239 172; /* green-300 */
+  --success-foreground: #1a1a1a;
+  --warning: 253 224 71; /* yellow-300 */
+  --warning-foreground: #1a1a1a;
+  --error: 252 165 165; /* red-300 */
+  --error-foreground: #1a1a1a;
+  --info: #9a9a9a;
+  --info-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: transparent;
+  --input-background: rgba(255, 255, 255, 0.06);
+  --switch-background: rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  --glass-shadow-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.35);
+  --glass-shadow-lg: 0 16px 48px 0 rgba(0, 0, 0, 0.6);
+  --ring: rgba(245, 245, 245, 0.5);
+  --chart-1: #4a4a4a;
+  --chart-2: #7a7a7a;
+  --chart-3: #b5b5b5;
+  --chart-4: #e5e5e5;
+  --chart-5: #525252;
+  --sidebar: rgba(50, 50, 50, 0.3);
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #4a4a4a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.06);
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: rgba(245, 245, 245, 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-dark: var(--secondary-dark);
+  --color-secondary-light: var(--secondary-light);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply text-foreground;
+    background: transparent !important;
+    font-family: var(--font-family-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .font-mono {
+    font-family: var(--font-family-mono) !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Ensure all elements inherit font properly */
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  /* Semantic color text utilities */
+  .text-success {
+    color: rgb(var(--success)) !important;
+  }
+  .text-warning {
+    color: rgb(var(--warning)) !important;
+  }
+  .text-error {
+    color: rgb(var(--error)) !important;
+  }
+
+  /* Semantic color background utilities with transparency */
+  .bg-success {
+    background-color: rgb(var(--success) / 0.2) !important;
+  }
+  .bg-warning {
+    background-color: rgb(var(--warning) / 0.2) !important;
+  }
+  .bg-error {
+    background-color: rgb(var(--error) / 0.2) !important;
+  }
+
+  /* Semantic color border utilities with transparency */
+  .border-success {
+    border-color: rgb(var(--success) / 0.5) !important;
+  }
+  .border-warning {
+    border-color: rgb(var(--warning) / 0.5) !important;
+  }
+  .border-error {
+    border-color: rgb(var(--error) / 0.5) !important;
+  }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none !important;  /* IE and Edge */
+    scrollbar-width: none !important;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none !important;  /* Chrome, Safari, and Opera */
+  }
+
+  /* Marquee animation for continuous scrolling text */
+  .animate-marquee {
+    animation: marquee linear infinite;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not([class*='text-']):not([class*=' text-'])) {
+    h1 {
+      font-size: 2.25rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: 1.875rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: 1.125rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: 1rem;
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: 1rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: 1rem;
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: 1rem;
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Optimized Glassmorphic utility classes - reduced blur for better performance */
+.glass {
+  background: rgba(40, 40, 40, 0.25);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-sm {
+  background: rgba(40, 40, 40, 0.2);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.25);
+}
+
+.glass-lg {
+  background: rgba(40, 40, 40, 0.3);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.45);
+}
+
+.glass-nav {
+  background: rgba(40, 40, 40, 0.25);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* View transition animations for smooth switching */
+.view-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: auto;
+  /* Force container to never exceed window bounds */
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+.view-transition {
+  animation: fadeSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  width: 100%;
+  height: 100%;
+  /* Only apply will-change during animation, then remove it */
+  animation-fill-mode: forwards;
+  /* Constrain to actual window size, not larger */
+  max-width: 100vw;
+  max-height: 100vh;
+  pointer-events: auto;
+  /* Prevent any overflow */
+  overflow: hidden;
+}
+
+/* Apply will-change only during active animation */
+.view-transition {
+  will-change: transform, opacity;
+}
+
+/* Remove will-change after animation completes to prevent ghost shadows */
+@keyframes fadeSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  99% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    will-change: auto;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+/* Performance optimization: GPU acceleration only on interaction */
+button:hover,
+button:active,
+[role='button']:hover,
+[role='button']:active,
+a:hover,
+a:active,
+.interactive:hover,
+.interactive:active {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .view-transition {
+    animation: none;
+    transition: none;
+  }
+
+  @keyframes fadeSlideIn {
+    0%,
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* Force hardware layer cleanup to prevent ghost shadows */
+.view-container > * {
+  isolation: isolate;
+}
+
+/* Ensure clean compositing for backdrop-filter elements */
+[class*='backdrop-blur'] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* CRITICAL: Ensure all view content is strictly bounded by window size */
+.view-transition > * {
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  box-sizing: border-box;
+}
+
+/* Ensure root elements never exceed viewport */
+body,
+html,
+#root {
+  max-width: 100vw;
+  max-height: 100vh;
+  overflow: hidden;
+}
