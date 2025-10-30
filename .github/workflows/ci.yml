@@ -68,15 +68,8 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
-    name: Test Suite (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        include:
-          - name: Ubuntu
-            runner: ubuntu-latest
-          - name: macOS
-            runner: [self-hosted, macOS]
+    name: Test Suite (macOS)
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
@@ -113,15 +106,8 @@ jobs:
         run: cargo test --workspace --all-features
 
   build:
-    name: Build (Dev - ${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      matrix:
-        include:
-          - name: Ubuntu
-            runner: ubuntu-latest
-          - name: macOS
-            runner: [self-hosted, macOS]
+    name: Build (Dev - macOS)
+    runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
 
