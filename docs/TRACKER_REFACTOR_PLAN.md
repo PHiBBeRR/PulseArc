@@ -1205,7 +1205,7 @@ pub async fn get_activity(
 - [ ] `pause_tracker` stops activity tracking
 - [ ] `resume_tracker` restarts activity tracking
 - [ ] Frontend UI shows live activity updates
-- [ ] Manual testing: `npm run tauri:dev`
+- [ ] Manual testing: `pnpm tauri:dev`
 
 ---
 

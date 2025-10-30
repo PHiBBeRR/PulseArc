@@ -3,9 +3,16 @@
 rustflags = ["-Dwarnings"]
 
 [alias]
-# Strict linting helpers (use: `cargo lint`)
+# Strict linting helpers
 lint = "clippy -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery"
 fmt-check = "fmt --all -- --check"
+
+# Development automation tasks (use: `cargo xtask <command>`)
+xtask = "run --package xtask --"
+
+# Convenient shortcuts for common xtask commands
+ci = "xtask ci"
+check-all = "xtask ci"
 
 # Extra hardening for Linux (ignored on macOS/Windows)
 [target.'cfg(target_os = "linux")']

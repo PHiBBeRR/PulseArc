@@ -2,8 +2,9 @@
 //!
 //! Main entry point for the Tauri application.
 
-use pulsearc_lib::AppContext;
 use std::sync::Arc;
+
+use pulsearc_lib::AppContext;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::Manager;
 

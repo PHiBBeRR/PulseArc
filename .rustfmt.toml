@@ -1,6 +1,9 @@
 edition = "2021"
 newline_style = "Unix"
 use_small_heuristics = "Max"
+
+# Nightly-only features below (use: cargo +nightly fmt)
+# Note: Compilation uses stable Rust 1.77, but rustfmt uses nightly for better formatting
 group_imports = "StdExternalCrate"
 format_code_in_doc_comments = true
 wrap_comments = true

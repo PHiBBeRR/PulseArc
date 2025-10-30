@@ -1,7 +1,8 @@
 //! Classification service - core business logic
 
-use pulsearc_shared::{ActivitySnapshot, Result, TimeEntry};
 use std::sync::Arc;
+
+use pulsearc_shared::{ActivitySnapshot, Result, TimeEntry};
 
 use super::ports::{Classifier, TimeEntryRepository};
 

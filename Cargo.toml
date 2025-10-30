@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/infra",
     "crates/api",
+    "xtask",
 ]
 resolver = "2"
 

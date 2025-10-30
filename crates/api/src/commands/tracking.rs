@@ -1,9 +1,11 @@
 //! Activity tracking commands
 
-use crate::AppContext;
-use pulsearc_shared::{ActivityContext, Result};
 use std::sync::Arc;
+
+use pulsearc_shared::{ActivityContext, Result};
 use tauri::State;
+
+use crate::AppContext;
 
 /// Get the current activity context
 #[tauri::command]

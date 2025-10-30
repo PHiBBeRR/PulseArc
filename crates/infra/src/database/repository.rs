@@ -1,10 +1,11 @@
 //! Repository implementations for core domain
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use pulsearc_core::{ActivityRepository, TimeEntryRepository};
 use pulsearc_shared::{ActivitySnapshot, PulseArcError, Result, TimeEntry};
-use std::sync::Arc;
 use uuid::Uuid;
 
 use super::manager::DbManager;

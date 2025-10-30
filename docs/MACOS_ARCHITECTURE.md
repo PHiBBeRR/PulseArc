@@ -1564,8 +1564,8 @@ SKIP_KEYCHAIN_INIT=true  # Skip keychain in debug mode
 ```json
 {
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
     "devPath": "http://localhost:5173",
     "distDir": "../dist"
   },
@@ -1649,11 +1649,11 @@ tree-classifier = ["dep:linfa", "dep:linfa-trees", "dep:linfa-logistic"]
 #### Development Build
 ```bash
 # Install dependencies
-npm install
+pnpm install
 cd src-tauri && cargo build
 
 # Run in development mode
-npm run dev
+pnpm dev
 
 # In another terminal (if needed)
 cd src-tauri && cargo run
@@ -1662,14 +1662,14 @@ cd src-tauri && cargo run
 #### Production Build
 ```bash
 # Build frontend
-npm run build
+pnpm build
 
 # Build Tauri app
 cd src-tauri
 cargo build --release
 
 # Create macOS app bundle
-npm run tauri build
+pnpm tauri build
 ```
 
 **Output**:

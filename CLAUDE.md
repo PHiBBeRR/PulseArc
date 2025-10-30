@@ -83,12 +83,65 @@ If a task conflicts with these rules, **stop and request human approval** with a
 ## 12) Git Hygiene & Reviews
 - Conventional Commits in messages (`feat:`, `fix:`, `perf:`, `refactor:`, etc.).
 - Small, focused PRs with description, risk assessment, and rollback plan.
-- Include “How I tested this” with steps and sample logs.
+- Include "How I tested this" with steps and sample logs.
+
+## 13) Developer Workflow (`xtask`)
+- Use **`cargo xtask`** for development automation tasks.
+- Available commands:
+  - `cargo xtask ci` (or `cargo ci`) — Run **all** CI checks locally before pushing
+  - `cargo xtask fmt` — Check code formatting
+  - `cargo xtask clippy` — Run Clippy lints
+  - `cargo xtask test` — Run all workspace tests
+  - `cargo xtask deny` — Check dependencies with cargo-deny
+  - `cargo xtask audit` — Audit dependencies for security vulnerabilities
+- The `xtask` crate lives at `xtask/` and is a standard Rust binary; not a published crate.
+- **Exception:** `xtask` allows `println!`/`eprintln!` as it is a CLI tool for developer-facing output.
 
 ---
 
 ### Local Compliance Checklist (run before opening a PR)
+**Quick method:**
+```bash
+cargo ci
+```
+
+**Manual method (equivalent):**
 ```bash
 cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test --workspace && cargo deny check && cargo audit
 ```
-If any rule requires an exception, add a short “Deviation” section in the PR with: *rule*, *reason*, *mitigation*, *owner*, *sunset date*.
+
+If any rule requires an exception, add a short "Deviation" section in the PR with: *rule*, *reason*, *mitigation*, *owner*, *sunset date*.
+
+---
+
+## Project-Specific Notes
+
+### Formatting
+- **Nightly rustfmt** for formatting (`cargo +nightly fmt`), **stable 1.77** for compilation
+- CI uses `cargo +nightly fmt --all -- --check`
+- Enables better formatting: `group_imports`, `wrap_comments`, `imports_granularity`
+
+### Package Manager
+- **pnpm** for frontend (not npm)
+- Config: `.npmrc` with `shamefully-hoist=true`, `ignore-scripts=false`
+- Lockfile: `pnpm-lock.yaml` (tracked in git)
+
+### Build Locations
+- Frontend: builds to `frontend/dist/` (not root `dist/`)
+- Tauri config: `frontendDist: "../../frontend/dist"`
+- Gitignore: `/frontend/dist`, `.pnpm-store`
+
+### Makefile
+- **Use `make` for common tasks** (preferred over raw commands)
+- `make help` — Show all available commands
+- `make ci` — Run full CI pipeline locally
+- `make check` — Quick checks (fmt, lint, test)
+- `make build` — Build everything (frontend + backend)
+- `make dev` — Run Tauri dev server
+- `make audit` — Security audits (cargo-audit + cargo-deny)
+
+### Platform
+- **macOS-only** Tauri app (no Linux/Windows builds)
+- Linux deps in `Cargo.lock` are **not compiled** for macOS targets
+- Security audits ignore Linux-only advisories (`.cargo/audit.toml`)
+- `xtask` crate excluded from clippy (`make lint` skips it)

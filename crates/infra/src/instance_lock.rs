@@ -3,9 +3,10 @@
 //! Prevents multiple instances of PulseArc from running simultaneously,
 //! which can cause database locking issues.
 
-use pulsearc_shared::{PulseArcError, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use pulsearc_shared::{PulseArcError, Result};
 
 /// Single-instance lock manager
 pub struct InstanceLock {
@@ -82,8 +83,9 @@ impl Drop for InstanceLock {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
+    use super::*;
 
     #[test]
     fn test_single_instance() {

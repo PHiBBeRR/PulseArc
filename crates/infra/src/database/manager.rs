@@ -1,9 +1,10 @@
 //! Database connection manager with pooling
 
+use std::path::Path;
+
 use pulsearc_shared::{PulseArcError, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use std::path::Path;
 
 /// Database manager with connection pooling
 pub struct DbManager {

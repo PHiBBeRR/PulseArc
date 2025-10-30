@@ -1,8 +1,9 @@
 # Dependencies
 node_modules
+.pnpm-store
 
 # Build outputs
-/dist
+/frontend/dist
 /target
 
 # Database files (SQLCipher)

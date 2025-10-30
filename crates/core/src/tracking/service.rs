@@ -1,8 +1,9 @@
 //! Activity tracking service - core business logic
 
+use std::sync::Arc;
+
 use chrono::Utc;
 use pulsearc_shared::{ActivitySnapshot, Result};
-use std::sync::Arc;
 use uuid::Uuid;
 
 use super::ports::{ActivityEnricher, ActivityProvider, ActivityRepository};
