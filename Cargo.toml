@@ -87,7 +87,7 @@ urlencoding = "2.1"
 serde_with = "3"
 
 # Platform-specific dependencies (declare here, crates opt-in with target cfg)
-objc2 = "0.5"
+objc2 = "0.6"
 icrate = { version = "0.1", features = ["Foundation", "AppKit"] }
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
 
