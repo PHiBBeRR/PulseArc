@@ -42,10 +42,7 @@ impl Default for Config {
                 pool_size: 8,
                 encryption_key: None,
             },
-            sync: SyncConfig {
-                interval_seconds: 10,
-                enabled: true,
-            },
+            sync: SyncConfig { interval_seconds: 10, enabled: true },
             tracking: TrackingConfig {
                 snapshot_interval_seconds: 30,
                 idle_threshold_seconds: 300,

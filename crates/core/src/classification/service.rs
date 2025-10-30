@@ -1,6 +1,6 @@
 //! Classification service - core business logic
 
-use pulsearc_shared::{ActivitySnapshot, TimeEntry, Result};
+use pulsearc_shared::{ActivitySnapshot, Result, TimeEntry};
 use std::sync::Arc;
 
 use super::ports::{Classifier, TimeEntryRepository};
@@ -13,21 +13,12 @@ pub struct ClassificationService {
 
 impl ClassificationService {
     /// Create a new classification service
-    pub fn new(
-        classifier: Arc<dyn Classifier>,
-        repository: Arc<dyn TimeEntryRepository>,
-    ) -> Self {
-        Self {
-            classifier,
-            repository,
-        }
+    pub fn new(classifier: Arc<dyn Classifier>, repository: Arc<dyn TimeEntryRepository>) -> Self {
+        Self { classifier, repository }
     }
 
     /// Classify snapshots into a time entry and save it
-    pub async fn classify_and_save(
-        &self,
-        snapshots: Vec<ActivitySnapshot>,
-    ) -> Result<TimeEntry> {
+    pub async fn classify_and_save(&self, snapshots: Vec<ActivitySnapshot>) -> Result<TimeEntry> {
         // Classify the snapshots
         let entry = self.classifier.classify(snapshots).await?;
 

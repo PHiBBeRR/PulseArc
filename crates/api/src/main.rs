@@ -4,8 +4,8 @@
 
 use pulsearc_lib::AppContext;
 use std::sync::Arc;
-use tauri::Manager;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 // Allow std::process::exit in tauri::generate_context! macro - it's part of Tauri's
@@ -40,9 +40,9 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_effects(
                     EffectsBuilder::new()
-                        .effect(Effect::UnderWindowBackground)  // macOS native blur
+                        .effect(Effect::UnderWindowBackground) // macOS native blur
                         .state(EffectState::Active)
-                        .radius(40.0)  // Corner radius for main timer
+                        .radius(40.0) // Corner radius for main timer
                         .build(),
                 );
                 log::info!("Applied native window effects to main window");

@@ -48,11 +48,6 @@ impl AppContext {
         // Create tracking service
         let tracking_service = Arc::new(TrackingService::new(provider, repository));
 
-        Ok(Self {
-            config,
-            db,
-            tracking_service,
-            _instance_lock: instance_lock,
-        })
+        Ok(Self { config, db, tracking_service, _instance_lock: instance_lock })
     }
 }

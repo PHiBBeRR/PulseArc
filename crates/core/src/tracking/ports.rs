@@ -36,10 +36,7 @@ pub trait ActivityRepository: Send + Sync {
     ) -> Result<Vec<ActivitySnapshot>>;
 
     /// Delete snapshots older than the specified date
-    async fn delete_old_snapshots(
-        &self,
-        before: chrono::DateTime<chrono::Utc>,
-    ) -> Result<usize>;
+    async fn delete_old_snapshots(&self, before: chrono::DateTime<chrono::Utc>) -> Result<usize>;
 }
 
 /// Trait for enriching activity context with additional metadata

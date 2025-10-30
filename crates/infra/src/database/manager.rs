@@ -12,7 +12,11 @@ pub struct DbManager {
 
 impl DbManager {
     /// Create a new database manager with optional encryption
-    pub fn new<P: AsRef<Path>>(db_path: P, pool_size: u32, encryption_key: Option<&str>) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(
+        db_path: P,
+        pool_size: u32,
+        encryption_key: Option<&str>,
+    ) -> Result<Self> {
         let path_str = db_path.as_ref().display().to_string();
         let key = encryption_key.map(|k| k.to_string());
 
@@ -22,25 +26,24 @@ impl DbManager {
             log::info!("Creating unencrypted database at: {}", path_str);
         }
 
-        let manager = SqliteConnectionManager::file(db_path)
-            .with_init(move |conn| {
-                // Set up SQLCipher encryption if key is provided
-                // MUST be the first thing before any other operation
-                if let Some(ref key) = key {
-                    // Set the encryption key - this must be done before any other operations
-                    log::debug!("Setting SQLCipher encryption key");
-                    conn.pragma_update(None, "key", key)?;
-                }
+        let manager = SqliteConnectionManager::file(db_path).with_init(move |conn| {
+            // Set up SQLCipher encryption if key is provided
+            // MUST be the first thing before any other operation
+            if let Some(ref key) = key {
+                // Set the encryption key - this must be done before any other operations
+                log::debug!("Setting SQLCipher encryption key");
+                conn.pragma_update(None, "key", key)?;
+            }
 
-                // Configure database settings after key is set
-                conn.execute_batch(
-                    "PRAGMA journal_mode = WAL;
+            // Configure database settings after key is set
+            conn.execute_batch(
+                "PRAGMA journal_mode = WAL;
                      PRAGMA synchronous = NORMAL;
                      PRAGMA cache_size = -64000;
                      PRAGMA busy_timeout = 5000;",
-                )?;
-                Ok(())
-            });
+            )?;
+            Ok(())
+        });
 
         let pool = Pool::builder()
             .max_size(pool_size)

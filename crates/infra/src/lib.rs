@@ -15,15 +15,15 @@
 
 pub mod database;
 pub mod http;
-pub mod platform;
+pub mod instance_lock;
 pub mod integrations;
 pub mod key_manager;
-pub mod instance_lock;
+pub mod platform;
 
 // Re-export commonly used items
 pub use database::*;
 pub use http::*;
-pub use platform::*;
+pub use instance_lock::*;
 pub use integrations::*;
 pub use key_manager::*;
-pub use instance_lock::*;
+pub use platform::*;

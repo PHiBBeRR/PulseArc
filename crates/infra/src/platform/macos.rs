@@ -1,9 +1,9 @@
 //! macOS-specific platform implementations
 
 use async_trait::async_trait;
+use chrono::Utc;
 use pulsearc_core::ActivityProvider;
 use pulsearc_shared::{ActivityContext, Result};
-use chrono::Utc;
 
 /// macOS activity provider using Accessibility API
 pub struct MacOsActivityProvider {

@@ -13,6 +13,7 @@ edition = "2021"
 authors = ["PulseArc Team"]
 rust-version = "1.77"
 publish = false
+license = "MIT OR Apache-2.0"
 description = "PulseArc workspace baseline (enterprise defaults)"
 
 [workspace.dependencies]
@@ -32,6 +33,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 # Async utilities
 async-trait = "0.1"
 futures = "0.3"
+futures-core = "0.3"
+tokio-util = "0.7"
 
 # Database
 rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl", "limits"] }
@@ -65,6 +68,12 @@ once_cell = "1.19"
 parking_lot = "0.12"
 dashmap = "6.1"
 
+# Caching & Metrics
+moka = { version = "0.12", features = ["sync", "future"] }
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+tracing-appender = "0.2"
+
 # OAuth & HTTP server
 oauth2 = "5.0"
 axum = "0.8"
@@ -77,10 +86,50 @@ urlencoding = "2.1"
 # Type generation
 serde_with = "3"
 
+# Platform-specific dependencies (declare here, crates opt-in with target cfg)
+objc2 = "0.5"
+icrate = { version = "0.1", features = ["Foundation", "AppKit"] }
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
+
 # Internal crates
 pulsearc-shared = { path = "crates/shared" }
 pulsearc-core = { path = "crates/core" }
 pulsearc-infra = { path = "crates/infra" }
+
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+unused_must_use = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+# Lint groups (lower priority so individual lints can override)
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+# Error handling
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+unwrap_in_result = "deny"
+# Code quality
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+todo = "warn"
+unimplemented = "deny"
+# Complexity
+cognitive_complexity = "warn"
+too_many_arguments = "warn"
+type_complexity = "warn"
+# Performance
+large_stack_arrays = "warn"
+large_enum_variant = "warn"
+# Style
+wildcard_imports = "warn"
 
 [profile.release]
 panic = "abort"

@@ -1,11 +1,11 @@
 //! Activity tracking service - core business logic
 
+use chrono::Utc;
 use pulsearc_shared::{ActivitySnapshot, Result};
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::Utc;
 
-use super::ports::{ActivityProvider, ActivityRepository, ActivityEnricher};
+use super::ports::{ActivityEnricher, ActivityProvider, ActivityRepository};
 
 /// Activity tracking service
 pub struct TrackingService {
@@ -20,11 +20,7 @@ impl TrackingService {
         provider: Arc<dyn ActivityProvider>,
         repository: Arc<dyn ActivityRepository>,
     ) -> Self {
-        Self {
-            provider,
-            repository,
-            enrichers: Vec::new(),
-        }
+        Self { provider, repository, enrichers: Vec::new() }
     }
 
     /// Add an enricher to the service
@@ -44,11 +40,7 @@ impl TrackingService {
         }
 
         // Create snapshot
-        let snapshot = ActivitySnapshot {
-            id: Uuid::new_v4(),
-            timestamp: Utc::now(),
-            context,
-        };
+        let snapshot = ActivitySnapshot { id: Uuid::new_v4(), timestamp: Utc::now(), context };
 
         // Save to repository
         self.repository.save_snapshot(snapshot.clone()).await?;

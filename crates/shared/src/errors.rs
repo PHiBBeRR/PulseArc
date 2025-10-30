@@ -1,6 +1,6 @@
 //! Error types used throughout the application
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Main error type for PulseArc

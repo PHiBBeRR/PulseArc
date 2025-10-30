@@ -1,10 +1,10 @@
 //! Repository implementations for core domain
 
 use async_trait::async_trait;
-use pulsearc_core::{ActivityRepository, TimeEntryRepository};
-use pulsearc_shared::{ActivitySnapshot, TimeEntry, Result, PulseArcError};
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use pulsearc_core::{ActivityRepository, TimeEntryRepository};
+use pulsearc_shared::{ActivitySnapshot, PulseArcError, Result, TimeEntry};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::manager::DbManager;
@@ -31,11 +31,7 @@ impl ActivityRepository for SqliteActivityRepository {
 
             conn.execute(
                 "INSERT INTO activity_snapshots (id, timestamp, context) VALUES (?1, ?2, ?3)",
-                (
-                    snapshot.id.to_string(),
-                    snapshot.timestamp.timestamp(),
-                    context_json,
-                ),
+                (snapshot.id.to_string(), snapshot.timestamp.timestamp(), context_json),
             )
             .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
@@ -226,11 +222,8 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute(
-                "DELETE FROM time_entries WHERE id = ?1",
-                [id.to_string()],
-            )
-            .map_err(|e| PulseArcError::Database(e.to_string()))?;
+            conn.execute("DELETE FROM time_entries WHERE id = ?1", [id.to_string()])
+                .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             Ok(())
         })

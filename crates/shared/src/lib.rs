@@ -13,11 +13,11 @@
 //! - Only external dependencies allowed
 //! - Pure data structures and utilities
 
-pub mod types;
-pub mod errors;
 pub mod config;
+pub mod errors;
+pub mod types;
 
 // Re-export commonly used items
-pub use types::*;
-pub use errors::*;
 pub use config::*;
+pub use errors::*;
+pub use types::*;

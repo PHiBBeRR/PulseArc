@@ -1,32 +1,69 @@
 # docs: https://embarkstudios.github.io/cargo-deny/
 [advisories]
-vulnerability = "deny"
-unmaintained = "deny"
-unsound = "deny"
-yanked = "deny"
-ignore = []
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Ignore specific advisories (transitive Tauri dependencies we can't control)
+ignore = [
+    # Unmaintained unic-* crates from Tauri dependencies
+    "RUSTSEC-2024-0370",
+    "RUSTSEC-2024-0384",
+    "RUSTSEC-2024-0388",
+    "RUSTSEC-2024-0411",
+    "RUSTSEC-2024-0412",
+    "RUSTSEC-2024-0413",
+    "RUSTSEC-2024-0414",
+    "RUSTSEC-2024-0415",
+    "RUSTSEC-2024-0416",
+    "RUSTSEC-2024-0417",
+    "RUSTSEC-2024-0418",
+    "RUSTSEC-2024-0419",
+    "RUSTSEC-2024-0420",
+    "RUSTSEC-2024-0429",
+    "RUSTSEC-2024-0436",
+    "RUSTSEC-2025-0057",
+    "RUSTSEC-2025-0075",
+    "RUSTSEC-2025-0080",
+    "RUSTSEC-2025-0081",
+    "RUSTSEC-2025-0098",
+    "RUSTSEC-2025-0100",
+]
 
 [bans]
-multiple-versions = "deny"
+# Warn on multiple versions (deny is too strict with transitive deps)
+multiple-versions = "warn"
 wildcards = "deny"
+# Allow workspace dependencies (they appear as wildcards but are managed)
+allow-wildcard-paths = true
+# Deny problematic crates (empty for now, Tauri requires some that we'd prefer to avoid)
 deny = []
 skip = []
 skip-tree = []
 
 [licenses]
-# Default stance: deny unless allowed
-default = "deny"
-copyleft = "deny"
+version = 2
+# Confidence threshold for license detection (0.0 to 1.0)
+confidence-threshold = 0.8
+# List of allowed licenses
 allow = [
     "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
     "MIT",
-    "BSD-3-Clause",
     "BSD-2-Clause",
+    "BSD-3-Clause",
     "ISC",
     "Zlib",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "Unlicense",
+    "NCSA",
+    "CDLA-Permissive-2.0",
 ]
-exceptions = []
+# License exceptions for specific crates
+exceptions = [
+    { allow = ["OpenSSL"], crate = "ring" },
+]
 
 [sources]
 unknown-registry = "deny"

@@ -13,15 +13,9 @@
 //! - All external dependencies via traits
 //! - Pure, testable business logic
 
-pub mod tracking;
 pub mod classification;
+pub mod tracking;
 
 // Re-export specific items to avoid ambiguity
-pub use tracking::{
-    ActivityProvider, ActivityRepository, ActivityEnricher,
-    TrackingService,
-};
-pub use classification::{
-    Classifier, TimeEntryRepository,
-    ClassificationService,
-};
+pub use classification::{ClassificationService, Classifier, TimeEntryRepository};
+pub use tracking::{ActivityEnricher, ActivityProvider, ActivityRepository, TrackingService};

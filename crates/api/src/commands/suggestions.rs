@@ -36,11 +36,7 @@ pub async fn get_proposed_blocks(
     day_epoch: i64,
     status: Option<String>,
 ) -> Result<Vec<ProposedBlock>> {
-    log::info!(
-        "get_proposed_blocks command called (day_epoch={}, status={:?})",
-        day_epoch,
-        status
-    );
+    log::info!("get_proposed_blocks command called (day_epoch={}, status={:?})", day_epoch, status);
     // TODO: Implement proposed blocks fetching from database
     // This should return consolidated 30+ minute activity blocks
     Ok(vec![])

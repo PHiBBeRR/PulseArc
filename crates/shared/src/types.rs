@@ -1,7 +1,7 @@
 //! Common data types used throughout the application
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Activity context captured from the operating system
