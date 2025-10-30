@@ -1,85 +1,94 @@
-## General Rules
-- **NEVER** commit or push with errors or failing tests
-- **NEVER** bypass the pre-commit hook
-- **NEVER** make up facts or make assumptions
-- **NEVER** indicate completion if you did not meet all acceptance requirements
-- **NEVER** create documentation unless specifically requested
-- **NEVER** take short cuts - always ensure code follows best practices
-- Always update tickets following implementation of a step or phase
-- Always ask for confirmation if you are unsure or have conflicting decisions
+# CLAUDE.md — PulseArc Rust Workspace Rules (Strict)
 
-## Testing
-- Put unit tests in the same modu#le file under src/ using #[cfg(test)] mod tests { ... }.
-- Unit tests may exercise private items; keep them small and focused on the module's behavior.
-- Put integration tests in the top-level tests/ directory; each *.rs there is a separate crate.
-- Integration tests should import your crate like a user would and test public API only.
-- Share helpers for integration tests in tests/common/mod.rs (and tests/data/ for fixtures).
-- Keep file/fixture paths stable by resolving from CARGO_MANIFEST_DIR.
-- Place benchmarks in benches/ (e.g., with Criterion) — separate from tests.
-- Put runnable examples in examples/; they double as documentation.
-- Write doc tests in /// or //! comments; they run with cargo test.
-- For binaries, keep src/main.rs thin; put real logic in src/lib.rs so tests can use it.
-- For multiple binaries, use src/bin/*.rs; still test via the library crate.
-- Use [dev-dependencies] for test-only crates and gate test modules with #[cfg(test)].
+These are **non‑negotiable rules** for agents (and humans) working in the PulseArc Rust monorepo.
+They assume the workspace is configured as follows: Rust **1.77** (stable), `publish = false`,
+workspace dependencies, `tracing` for logs, and strict profiles (debug: unwind; release: abort; overflow checks on).
 
+If a task conflicts with these rules, **stop and request human approval** with a short rationale.
 
-## Enforcement Levels
+---
 
-### 🚫 DENY - Blocks CI/Builds
-- `unimplemented!()` - No incomplete code in production
-- `unwrap_in_result()` - Never unwrap inside Result functions
-- `panic_in_result_fn` - Results must propagate errors
-- `correctness` - Bug detection (always fails build)
-- `unused_must_use` - Never ignore Result/Option returns
+## 1) Toolchain & Build
+- Use `rustc` **1.77** (pinned by `rust-toolchain.toml`). Do **not** change toolchain/channel.
+- Build with the workspace root only. Do **not** inject per-crate profiles.
+- Respect profiles:
+  - **dev/test**: `panic = unwind`, `debug = 2`, `overflow-checks = true`.
+  - **release/bench**: `panic = abort`, ThinLTO, `codegen-units = 1`, `opt-level = 3`, `overflow-checks = true`.
+- Never disable `overflow-checks` or `-D warnings` flags.
 
-### ⚠️ WARN - Fix Before Merge
-**Error Handling:**
-- `.unwrap()`, `.expect()` → Use `?` operator
-- `panic!()` → Return `Result<T, E>`
-- `todo!()` → Track and complete
-- `arr[idx]` → Use `.get(idx)?` for safety
-- `.get().unwrap()` → Defeats the purpose of `.get()`
+## 2) Dependencies (Supply‑Chain)
+- Prefer existing **`[workspace.dependencies]`**. Add deps there; use `*.workspace = true` in member crates.
+- **Forbidden:** wildcards (`"*"`) • unknown git sources • yanked crates • unlicensed/unknown licenses.
+- New dependency policy:
+  1. Confirm license is **allow‑listed** in `deny.toml`.
+  2. Add minimal features only; avoid enabling large `full` feature sets.
+  3. Run `cargo deny check` and `cargo audit` locally; include outputs in the PR.
+- Do **not** publish crates (`publish = false` stays). External path/git deps require human approval with justification.
 
-**Code Quality:**
-- `dbg!()` → Remove debug code
-- `println!()` / `eprintln!()` → Use `tracing`
-- `exit()` / `abort()` → Graceful shutdown
-- Complex functions → Refactor (complexity > 15)
-- Too many params → Use config structs (> 5 params)
-- Large functions → Break down (> 100 lines)
+## 3) Logging & Observability
+- Use **`tracing`** exclusively. No `println!` and no `log::*` macros.
+- Structure every log with fields (e.g., `info!(user_id, op = "create", ...)`). Favor spans for request/Task scopes.
+- **Never** log secrets, tokens, credentials, or PII. Redact or hash identifiers when possible.
+- Production output must be JSON via `tracing-subscriber` with `env-filter` controls.
 
-**Performance:**
-- Large stack arrays → Box them (> 500KB)
-- Large Vec types → Box variants (> 4KB)
-- Clone on Arc/Rc → Cheap, avoid `&Arc`
+## 4) Errors & Panics
+- Library crates: prefer `thiserror` for typed errors. Application boundaries: use `anyhow` only at the **outermost** layer.
+- **Disallowed in non‑test code:** `unwrap()`, `expect()`, `panic!()` (except truly impossible cases with proof).
+- Convert `Option`/`Result` explicitly; bubble errors upward; never swallow errors.
+- Use `Result<T, E>` returns from public async fns; document error variants and expected recovery paths.
 
-**Style:**
-- Wildcard imports → Be explicit
-- String concatenation → Use `format!()` or `.push_str()`
+## 5) Async & Concurrency
+- Runtime: **Tokio** (multi‑thread). No blocking inside async contexts.
+  - Use `tokio::task::spawn_blocking` for CPU‑heavy or blocking IO.
+  - Track every spawned task via handles; do not detach fire‑and‑forget work.
+  - Use timeouts (`tokio::time::timeout`) and cancellation (`select!`, `CancellationToken`) for all external calls.
+- Avoid global mutable state. Prefer passing contexts; guard shared state with `Arc<Mutex/RwLock>` only when necessary.
 
-### ✅ ALLOWED - Development Flexibility
-- Private item docs (encourage but don't require)
-- Similar variable names (x1, x2 acceptable in context)
-- Some false-positive pedantic lints
+## 6) Testing
+- Must include **unit tests** and, when applicable, **integration tests**.
+- Async tests use `#[tokio::test(flavor = "multi_thread")]`.
+- Tests must be deterministic (no network, clock, or randomness without seeding/mocking).
+- Coverage of error paths is required for new logic (happy path + at least one failure path).
 
-## Complexity Thresholds
+## 7) Lints, Style, and Formatting
+- Formatting: `cargo fmt --all -- --check` must pass.
+- Lints: `cargo clippy --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery` must pass.
+- Do **not** add `#[allow(...)]` except with a **commented justification** and a TODO/issue link.
+- Disallow `unsafe` by default. Any `unsafe` must be isolated, documented, and covered by tests.
 
-| Metric | Limit | Rationale |
-|--------|-------|-----------|
-| Cognitive complexity | 15 | Maintainable functions |
-| Type complexity | 100 | Clean API design |
-| Function parameters | 5 | Use structs beyond this |
-| Boolean parameters | 3 | Use config structs |
-| Function lines | 100 | Focused, testable code |
+## 8) API & Crate Boundaries
+- Public APIs are minimal and documented (`///` + examples). Avoid `pub use` re‑exports without rationale.
+- Keep semver‑safe changes; breaking API changes require a migration note.
+- New crate setup:
+  - Lives under `crates/<name>/` with `version/edition/rust-version/publish` inherited from the workspace.
+  - Dependencies reference workspace entries via `.workspace = true`.
 
-## Disallowed Patterns
+## 9) Configuration & Secrets
+- No secrets in code, tests, or logs. Load configuration from env/files; validate at startup with clear errors.
+- Use `serde` for config structs and implement a `validate()` step for ranges/URLs/credentials presence.
 
-```rust
-// ❌ Don't use - prevents graceful shutdown
-std::process::exit()
-std::process::abort()
+## 10) CI Gates (PR must pass)
+1. `cargo fmt --all -- --check`
+2. `cargo clippy --all-targets --all-features -- -D warnings`
+3. `cargo test --workspace`
+4. `cargo deny check`
+5. `cargo audit`
+6. (Optional) benchmarks behind explicit flags; results posted as artifacts.
 
-// ⚠️ Allowed in dev, but be careful - not thread-safe
-std::env::set_var()    // Use sparingly, consider config management for production
-std::env::remove_var()
+## 11) Performance & Footprint
+- Prefer zero‑cost abstractions; avoid heap allocations in hot paths.
+- Don’t add background tasks, threads, or timers without clear ownership and shutdown logic.
+- Avoid gratuitous logging on hot paths; use TRACE/DEBUG judiciously with sampling where needed.
+
+## 12) Git Hygiene & Reviews
+- Conventional Commits in messages (`feat:`, `fix:`, `perf:`, `refactor:`, etc.).
+- Small, focused PRs with description, risk assessment, and rollback plan.
+- Include “How I tested this” with steps and sample logs.
+
+---
+
+### Local Compliance Checklist (run before opening a PR)
+```bash
+cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test --workspace && cargo deny check && cargo audit
 ```
+If any rule requires an exception, add a short “Deviation” section in the PR with: *rule*, *reason*, *mitigation*, *owner*, *sunset date*.
