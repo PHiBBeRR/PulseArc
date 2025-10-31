@@ -1,6 +1,6 @@
-//! Block generation scheduler for inference workloads.
+//! Classification job scheduler for activity classification workloads.
 //!
-//! Provides a cron-based scheduler that triggers a user-supplied job at fixed
+//! Provides a cron-based scheduler that triggers classification jobs at fixed
 //! intervals. The implementation follows the runtime rules captured in
 //! `CLAUDE.md`: join handles are tracked, cancellation is explicit, and every
 //! asynchronous operation is wrapped in a timeout.
@@ -14,13 +14,13 @@
 //! use async_trait::async_trait;
 //! use pulsearc_infra::observability::metrics::PerformanceMetrics;
 //! use pulsearc_infra::scheduling::{
-//!     BlockJob, BlockScheduler, BlockSchedulerConfig, SchedulerResult,
+//!     ClassificationJob, ClassificationScheduler, ClassificationSchedulerConfig, SchedulerResult,
 //! };
 //!
-//! struct NoopJob;
+//! struct NoopClassificationJob;
 //!
 //! #[async_trait]
-//! impl BlockJob for NoopJob {
+//! impl ClassificationJob for NoopClassificationJob {
 //!     async fn run(&self) -> Result<(), pulsearc_infra::errors::InfraError> {
 //!         Ok(())
 //!     }
@@ -28,15 +28,16 @@
 //!
 //! # async fn example() -> SchedulerResult<()> {
 //! let metrics = Arc::new(PerformanceMetrics::new());
-//! let job = Arc::new(NoopJob);
-//! let mut scheduler = BlockScheduler::with_config(
-//!     BlockSchedulerConfig {
-//!         cron_expression: "0 */5 * * * *".into(), // every 5 minutes
+//! let job = Arc::new(NoopClassificationJob);
+//! let mut scheduler = ClassificationScheduler::with_config(
+//!     ClassificationSchedulerConfig {
+//!         cron_expression: "0 */10 * * * *".into(), // every 10 minutes
 //!         ..Default::default()
 //!     },
 //!     job,
 //!     metrics,
-//! )?;
+//! )
+//! .await?;
 //!
 //! scheduler.start().await?;
 //! // ... application runs ...
@@ -49,6 +50,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tokio_util::sync::CancellationToken;
@@ -59,16 +61,16 @@ use crate::observability::metrics::PerformanceMetrics;
 use crate::observability::MetricsResult;
 use crate::scheduling::error::{SchedulerError, SchedulerResult};
 
-/// Trait representing a block generation job.
+/// Trait representing a classification job.
 #[async_trait]
-pub trait BlockJob: Send + Sync {
-    /// Execute the job.
+pub trait ClassificationJob: Send + Sync {
+    /// Execute the classification job.
     async fn run(&self) -> Result<(), InfraError>;
 }
 
-/// Configuration for the block scheduler.
+/// Configuration for the classification scheduler.
 #[derive(Debug, Clone)]
-pub struct BlockSchedulerConfig {
+pub struct ClassificationSchedulerConfig {
     /// Cron expression describing the execution schedule.
     pub cron_expression: String,
     /// Timeout applied to a single job execution.
@@ -81,11 +83,11 @@ pub struct BlockSchedulerConfig {
     pub join_timeout: Duration,
 }
 
-impl Default for BlockSchedulerConfig {
+impl Default for ClassificationSchedulerConfig {
     fn default() -> Self {
         Self {
-            cron_expression: "0 */15 * * * *".into(), // every 15 minutes
-            job_timeout: Duration::from_secs(300),
+            cron_expression: "0 */10 * * * *".into(), // every 10 minutes
+            job_timeout: Duration::from_secs(600),    // 10 minutes
             start_timeout: Duration::from_secs(5),
             stop_timeout: Duration::from_secs(5),
             join_timeout: Duration::from_secs(5),
@@ -93,35 +95,35 @@ impl Default for BlockSchedulerConfig {
     }
 }
 
-/// Block scheduler with explicit lifecycle management.
-pub struct BlockScheduler {
-    scheduler: Option<JobScheduler>,
-    config: BlockSchedulerConfig,
+/// Classification scheduler with explicit lifecycle management.
+pub struct ClassificationScheduler {
+    scheduler: Arc<RwLock<Option<JobScheduler>>>,
+    config: ClassificationSchedulerConfig,
     monitor_handle: Option<JoinHandle<()>>,
     cancellation: CancellationToken,
     metrics: Arc<PerformanceMetrics>,
-    job: Arc<dyn BlockJob>,
+    job: Arc<dyn ClassificationJob>,
 }
 
-impl BlockScheduler {
+impl ClassificationScheduler {
     /// Create a scheduler with the default configuration.
-    pub fn new(
+    pub async fn new(
         cron_expression: String,
-        job: Arc<dyn BlockJob>,
+        job: Arc<dyn ClassificationJob>,
         metrics: Arc<PerformanceMetrics>,
     ) -> SchedulerResult<Self> {
-        let config = BlockSchedulerConfig { cron_expression, ..Default::default() };
-        Self::with_config(config, job, metrics)
+        let config = ClassificationSchedulerConfig { cron_expression, ..Default::default() };
+        Self::with_config(config, job, metrics).await
     }
 
     /// Create a scheduler with a custom configuration.
-    pub fn with_config(
-        config: BlockSchedulerConfig,
-        job: Arc<dyn BlockJob>,
+    pub async fn with_config(
+        config: ClassificationSchedulerConfig,
+        job: Arc<dyn ClassificationJob>,
         metrics: Arc<PerformanceMetrics>,
     ) -> SchedulerResult<Self> {
         let scheduler = Self {
-            scheduler: None,
+            scheduler: Arc::new(RwLock::new(None)),
             config,
             monitor_handle: None,
             cancellation: CancellationToken::new(),
@@ -149,7 +151,10 @@ impl BlockScheduler {
 
         start_result.map_err(|source| SchedulerError::StartFailed { source })?;
 
-        self.scheduler = Some(scheduler_instance);
+        {
+            let mut guard = self.scheduler.write().await;
+            *guard = Some(scheduler_instance);
+        }
 
         let cancel = self.cancellation.clone();
         let metrics = self.metrics.clone();
@@ -158,8 +163,8 @@ impl BlockScheduler {
         });
 
         self.monitor_handle = Some(handle);
-        info!("Block scheduler started");
-        log_metric(self.metrics.record_call(), "scheduler.block.start");
+        info!("Classification scheduler started");
+        log_metric(self.metrics.record_call(), "scheduler.classification.start");
         Ok(())
     }
 
@@ -172,7 +177,12 @@ impl BlockScheduler {
 
         self.cancellation.cancel();
 
-        let mut scheduler = match self.scheduler.take() {
+        let scheduler = {
+            let mut guard = self.scheduler.write().await;
+            guard.take()
+        };
+
+        let mut scheduler = match scheduler {
             Some(scheduler) => scheduler,
             None => return Err(SchedulerError::NotRunning),
         };
@@ -189,17 +199,16 @@ impl BlockScheduler {
             let join_timeout = self.config.join_timeout;
             tokio::time::timeout(join_timeout, handle)
                 .await
-                .map_err(|source| SchedulerError::Timeout { duration: join_timeout, source })??
+                .map_err(|source| SchedulerError::Timeout { duration: join_timeout, source })??;
         }
 
-        info!("Block scheduler stopped");
-        self.cancellation = CancellationToken::new();
+        info!("Classification scheduler stopped");
         Ok(())
     }
 
-    /// Returns true when a scheduler instance is active.
+    /// Returns true when the monitor task is active.
     pub fn is_running(&self) -> bool {
-        self.scheduler.is_some()
+        self.monitor_handle.as_ref().is_some_and(|handle| !handle.is_finished())
     }
 
     async fn build_scheduler(&self) -> SchedulerResult<JobScheduler> {
@@ -216,28 +225,34 @@ impl BlockScheduler {
             let job = job.clone();
 
             Box::pin(async move {
-                log_metric(metrics.record_call(), "scheduler.block.job.invoked");
+                log_metric(metrics.record_call(), "scheduler.classification.job.invoked");
                 let started = Instant::now();
 
                 match tokio::time::timeout(job_timeout, job.run()).await {
                     Ok(Ok(())) => {
                         log_metric(
                             metrics.record_fetch_time(started.elapsed()),
-                            "scheduler.block.job.duration",
+                            "scheduler.classification.job.duration",
                         );
-                        debug!("Block generation finished successfully");
+                        debug!("Classification job finished successfully");
                     }
                     Ok(Err(err)) => {
-                        log_metric(metrics.record_fetch_error(), "scheduler.block.job.error");
+                        log_metric(
+                            metrics.record_fetch_error(),
+                            "scheduler.classification.job.error",
+                        );
                         log_metric(
                             metrics.record_fetch_time(started.elapsed()),
-                            "scheduler.block.job.duration",
+                            "scheduler.classification.job.duration",
                         );
-                        error!(error = ?err, "Block generation failed");
+                        error!(error = ?err, "Classification job failed");
                     }
                     Err(elapsed) => {
-                        log_metric(metrics.record_fetch_timeout(), "scheduler.block.job.timeout");
-                        warn!(timeout_secs = job_timeout.as_secs(), "Block generation timed out");
+                        log_metric(
+                            metrics.record_fetch_timeout(),
+                            "scheduler.classification.job.timeout",
+                        );
+                        warn!(timeout_secs = job_timeout.as_secs(), "Classification job timed out");
                         debug!(elapsed = ?elapsed, "Timeout details");
                     }
                 }
@@ -251,18 +266,18 @@ impl BlockScheduler {
             .await
             .map_err(|source| SchedulerError::JobRegistrationFailed { source })?;
 
-        debug!(cron = %self.config.cron_expression, job_id = %job_id, "Registered block generation job");
+        debug!(cron = %self.config.cron_expression, job_id = %job_id, "Registered classification job");
         Ok(scheduler)
     }
 
     async fn monitor_task(cancel: CancellationToken, metrics: Arc<PerformanceMetrics>) {
         tokio::select! {
             _ = cancel.cancelled() => {
-                debug!("Block scheduler monitor cancelled");
+                debug!("Classification scheduler monitor cancelled");
             }
         }
 
-        log_metric(metrics.record_call(), "scheduler.block.monitor_exit");
+        log_metric(metrics.record_call(), "scheduler.classification.monitor_exit");
     }
 }
 
@@ -272,10 +287,10 @@ fn log_metric(result: MetricsResult<()>, metric: &'static str) {
     }
 }
 
-impl Drop for BlockScheduler {
+impl Drop for ClassificationScheduler {
     fn drop(&mut self) {
         if self.is_running() {
-            warn!("BlockScheduler dropped while running; cancelling tasks");
+            warn!("ClassificationScheduler dropped while running; cancelling tasks");
             self.cancellation.cancel();
         }
     }
@@ -285,14 +300,15 @@ impl Drop for BlockScheduler {
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use super::*;
-    use crate::scheduling::error::SchedulerError;
+    use pulsearc_domain::PulseArcError;
 
-    struct CountingJob {
+    use super::*;
+
+    struct CountingClassificationJob {
         runs: AtomicUsize,
     }
 
-    impl CountingJob {
+    impl CountingClassificationJob {
         fn new() -> Self {
             Self { runs: AtomicUsize::new(0) }
         }
@@ -303,15 +319,15 @@ mod tests {
     }
 
     #[async_trait]
-    impl BlockJob for CountingJob {
+    impl ClassificationJob for CountingClassificationJob {
         async fn run(&self) -> Result<(), InfraError> {
             self.runs.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
     }
 
-    fn fast_config() -> BlockSchedulerConfig {
-        BlockSchedulerConfig {
+    fn fast_config() -> ClassificationSchedulerConfig {
+        ClassificationSchedulerConfig {
             cron_expression: "*/1 * * * * *".into(), // every second
             job_timeout: Duration::from_secs(2),
             start_timeout: Duration::from_secs(2),
@@ -323,9 +339,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn lifecycle_runs_successfully() {
         let metrics = Arc::new(PerformanceMetrics::new());
-        let job = Arc::new(CountingJob::new());
-        let mut scheduler = BlockScheduler::with_config(fast_config(), job.clone(), metrics)
-            .expect("scheduler created");
+        let job = Arc::new(CountingClassificationJob::new());
+        let mut scheduler =
+            ClassificationScheduler::with_config(fast_config(), job.clone(), metrics)
+                .await
+                .expect("scheduler created");
 
         scheduler.start().await.expect("start succeeds");
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -335,12 +353,41 @@ mod tests {
         assert!(!scheduler.is_running());
     }
 
+    struct FailingClassificationJob;
+
+    #[async_trait]
+    impl ClassificationJob for FailingClassificationJob {
+        async fn run(&self) -> Result<(), InfraError> {
+            Err(PulseArcError::Internal("classification failure".into()).into())
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn job_error_increments_metrics_and_keeps_scheduler_running() {
+        let metrics = Arc::new(PerformanceMetrics::new());
+        let job = Arc::new(FailingClassificationJob);
+        let mut scheduler =
+            ClassificationScheduler::with_config(fast_config(), job, metrics.clone())
+                .await
+                .expect("scheduler created");
+
+        scheduler.start().await.expect("start succeeds");
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        assert!(scheduler.is_running());
+        scheduler.stop().await.expect("stop succeeds");
+
+        assert!(metrics.fetch.get_error_count() >= 1, "error metric recorded");
+        assert!(metrics.fetch.get_fetch_count() >= metrics.fetch.get_error_count());
+        assert!(!scheduler.is_running());
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn double_start_is_rejected() {
         let metrics = Arc::new(PerformanceMetrics::new());
-        let job = Arc::new(CountingJob::new());
-        let mut scheduler =
-            BlockScheduler::with_config(fast_config(), job, metrics).expect("scheduler created");
+        let job = Arc::new(CountingClassificationJob::new());
+        let mut scheduler = ClassificationScheduler::with_config(fast_config(), job, metrics)
+            .await
+            .expect("scheduler created");
 
         scheduler.start().await.expect("first start");
         let err = scheduler.start().await.expect_err("second start fails");
@@ -351,9 +398,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn restart_after_stop_succeeds() {
         let metrics = Arc::new(PerformanceMetrics::new());
-        let job = Arc::new(CountingJob::new());
-        let mut scheduler =
-            BlockScheduler::with_config(fast_config(), job, metrics).expect("scheduler created");
+        let job = Arc::new(CountingClassificationJob::new());
+        let mut scheduler = ClassificationScheduler::with_config(fast_config(), job, metrics)
+            .await
+            .expect("scheduler created");
 
         scheduler.start().await.expect("start succeeds");
         scheduler.stop().await.expect("stop succeeds");

@@ -83,10 +83,10 @@ impl ApiError {
     /// Get suggested retry delay in seconds
     pub fn retry_delay_secs(&self) -> u64 {
         match self.category() {
-            ApiErrorCategory::Authentication => 5,  // Quick retry after token refresh
-            ApiErrorCategory::RateLimit => 60,      // Wait for rate limit window
-            ApiErrorCategory::Server => 10,         // Moderate delay for server issues
-            ApiErrorCategory::Network => 5,         // Quick retry for network
+            ApiErrorCategory::Authentication => 5, // Quick retry after token refresh
+            ApiErrorCategory::RateLimit => 60,     // Wait for rate limit window
+            ApiErrorCategory::Server => 10,        // Moderate delay for server issues
+            ApiErrorCategory::Network => 5,        // Quick retry for network
             ApiErrorCategory::Client | ApiErrorCategory::Config => 0, // No retry
         }
     }
@@ -115,22 +115,10 @@ mod tests {
 
     #[test]
     fn test_error_categories() {
-        assert_eq!(
-            ApiError::Auth("test".to_string()).category(),
-            ApiErrorCategory::Authentication
-        );
-        assert_eq!(
-            ApiError::RateLimit("test".to_string()).category(),
-            ApiErrorCategory::RateLimit
-        );
-        assert_eq!(
-            ApiError::Server("test".to_string()).category(),
-            ApiErrorCategory::Server
-        );
-        assert_eq!(
-            ApiError::Network("test".to_string()).category(),
-            ApiErrorCategory::Network
-        );
+        assert_eq!(ApiError::Auth("test".to_string()).category(), ApiErrorCategory::Authentication);
+        assert_eq!(ApiError::RateLimit("test".to_string()).category(), ApiErrorCategory::RateLimit);
+        assert_eq!(ApiError::Server("test".to_string()).category(), ApiErrorCategory::Server);
+        assert_eq!(ApiError::Network("test".to_string()).category(), ApiErrorCategory::Network);
     }
 
     #[test]

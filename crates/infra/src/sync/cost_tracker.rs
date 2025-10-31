@@ -20,13 +20,15 @@
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
+use pulsearc_common::error::{CommonError, CommonResult};
+use pulsearc_common::observability::MetricsTracker;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use pulsearc_common::error::{CommonError, CommonResult};
-use pulsearc_common::observability::MetricsTracker;
-
 use crate::database::DbManager;
+
+/// Type alias for token counts to avoid complexity warnings
+type TokenCounts = (Option<i64>, Option<i64>);
 
 const THIRTY_DAYS_SECS: i64 = 30 * 86400;
 
@@ -113,7 +115,7 @@ pub struct CostTracker {
     db: Arc<DbManager>,
     config: CostRateConfig,
     metrics: Arc<Mutex<CostMetrics>>,
-    metrics_tracker: Arc<MetricsTracker>,
+    _metrics_tracker: Arc<MetricsTracker>,
 }
 
 impl CostTracker {
@@ -140,7 +142,7 @@ impl CostTracker {
             db,
             config,
             metrics: Arc::new(Mutex::new(CostMetrics::default())),
-            metrics_tracker,
+            _metrics_tracker: metrics_tracker,
         })
     }
 
@@ -216,8 +218,8 @@ impl CostTracker {
         let db = Arc::clone(&self.db);
         let usage_clone = usage.clone();
 
-        tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+        tokio::task::spawn_blocking(move || -> CommonResult<()> {
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
             conn.execute(
                 r#"
@@ -235,7 +237,8 @@ impl CostTracker {
                     usage_clone.timestamp,
                     usage_clone.is_actual,
                 ],
-            )?;
+            )
+            .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(())
         })
@@ -277,19 +280,21 @@ impl CostTracker {
         let user_id = user_id.to_string();
         let now = Utc::now().timestamp();
 
-        tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+        tokio::task::spawn_blocking(move || -> CommonResult<f64> {
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
             let thirty_days_ago = now - THIRTY_DAYS_SECS;
 
-            let total: f64 = conn.query_row(
-                r#"
+            let total: f64 = conn
+                .query_row(
+                    r#"
                 SELECT COALESCE(SUM(estimated_cost_usd), 0.0)
                 FROM token_usage
                 WHERE user_id = ?1 AND timestamp >= ?2
                 "#,
-                rusqlite::params![user_id, thirty_days_ago],
-                |row| row.get(0),
-            )?;
+                    rusqlite::params![user_id, thirty_days_ago],
+                    |row| row.get(0),
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(total)
         })
@@ -395,13 +400,13 @@ impl CostTracker {
         let user_id = user_id.to_string();
         let now = Utc::now().timestamp();
 
-        tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+        tokio::task::spawn_blocking(move || -> CommonResult<UserCostSummary> {
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
             let thirty_days_ago = now - THIRTY_DAYS_SECS;
 
             let (batch_count, total_input, total_output, total_cost): (i64, i64, i64, f64) = conn
                 .query_row(
-                r#"
+                    r#"
                     SELECT COUNT(*),
                            COALESCE(SUM(input_tokens), 0),
                            COALESCE(SUM(output_tokens), 0),
@@ -409,9 +414,10 @@ impl CostTracker {
                     FROM token_usage
                     WHERE user_id = ?1 AND timestamp >= ?2
                     "#,
-                rusqlite::params![user_id, thirty_days_ago],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )?;
+                    rusqlite::params![user_id, thirty_days_ago],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(UserCostSummary {
                 batch_count,
@@ -442,12 +448,13 @@ impl CostTracker {
         let now = Utc::now().timestamp();
         let days_clamped = days.min(90); // Max 90 days
 
-        tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+        tokio::task::spawn_blocking(move || -> CommonResult<Vec<DailyCost>> {
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
             let start = now - (i64::from(days_clamped) * 86400);
 
-            let mut stmt = conn.prepare(
-                r#"
+            let mut stmt = conn
+                .prepare(
+                    r#"
                 SELECT date(timestamp, 'unixepoch') as date,
                        SUM(estimated_cost_usd) as total_cost,
                        COUNT(*) as api_calls
@@ -456,20 +463,18 @@ impl CostTracker {
                 GROUP BY date
                 ORDER BY date DESC
                 "#,
-            )?;
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let mut rows = stmt.query_map(rusqlite::params![start], |row| {
-                Ok(DailyCost {
-                    date: row.get(0)?,
-                    total_cost_usd: row.get(1)?,
-                    api_calls: row.get(2)?,
+            let daily_costs = stmt
+                .query_map(rusqlite::params![start], |row| {
+                    Ok(DailyCost {
+                        date: row.get(0)?,
+                        total_cost_usd: row.get(1)?,
+                        api_calls: row.get(2)?,
+                    })
                 })
-            })?;
-
-            let mut daily_costs = Vec::new();
-            for row_result in rows {
-                daily_costs.push(row_result?);
-            }
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(daily_costs)
         })
@@ -494,26 +499,24 @@ impl CostTracker {
         let db = Arc::clone(&self.db);
         let batch_id = batch_id.to_string();
 
-        tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+        tokio::task::spawn_blocking(move || -> CommonResult<TokenVariance> {
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let (est_input, est_output): (Option<i64>, Option<i64>) = conn.query_row(
-                "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 0 LIMIT 1",
-                rusqlite::params![batch_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            ).map_err(|e| CommonError::Storage {
-                message: format!("No estimated usage: {}", e),
-                operation: Some("cost_tracker::get_token_variance".into()),
-            })?;
+            let (est_input, est_output): TokenCounts = conn
+                .query_row(
+                    "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 0 LIMIT 1",
+                    rusqlite::params![batch_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(|e| CommonError::persistence(format!("No estimated usage: {}", e)))?;
 
-            let (act_input, act_output): (Option<i64>, Option<i64>) = conn.query_row(
-                "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 1 LIMIT 1",
-                rusqlite::params![batch_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            ).map_err(|e| CommonError::Storage {
-                message: format!("No actual usage: {}", e),
-                operation: Some("cost_tracker::get_token_variance".into()),
-            })?;
+            let (act_input, act_output): TokenCounts = conn
+                .query_row(
+                    "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 1 LIMIT 1",
+                    rusqlite::params![batch_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .map_err(|e| CommonError::persistence(format!("No actual usage: {}", e)))?;
 
             let input_variance_pct = if let (Some(est), Some(act)) = (est_input, act_input) {
                 if est == 0 {
@@ -576,7 +579,10 @@ impl CostTracker {
 }
 
 fn join_error(task: &'static str, error: tokio::task::JoinError) -> CommonError {
-    CommonError::Internal { message: format!("Task join failed: {error}"), context: Some(task.into()) }
+    CommonError::Internal {
+        message: format!("Task join failed: {error}"),
+        context: Some(task.into()),
+    }
 }
 
 #[cfg(test)]

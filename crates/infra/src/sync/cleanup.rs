@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use pulsearc_common::error::CommonResult;
+use pulsearc_common::error::{CommonError, CommonResult};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -29,6 +29,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument, warn};
 
 use crate::database::DbManager;
+
+/// Type alias for task handle to avoid complexity warnings
+type TaskHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
 
 /// Configuration for cleanup service
 #[derive(Debug, Clone)]
@@ -81,7 +84,7 @@ pub struct CleanupService {
     db: Arc<DbManager>,
     config: CleanupConfig,
     cancellation_token: CancellationToken,
-    task_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    task_handle: TaskHandle,
 }
 
 impl CleanupService {
@@ -113,13 +116,16 @@ impl CleanupService {
     /// Returns error if service is already running
     #[instrument(skip(self))]
     pub async fn start(&mut self) -> CommonResult<()> {
-        if self.is_running() {
+        if self.is_running().await {
             return Err(pulsearc_common::error::CommonError::config(
                 "Cleanup service already running",
             ));
         }
 
         info!("Starting cleanup service");
+
+        // Create a new cancellation token (supports restart after stop)
+        self.cancellation_token = CancellationToken::new();
 
         let db = Arc::clone(&self.db);
         let config = self.config.clone();
@@ -145,7 +151,7 @@ impl CleanupService {
     /// Returns error if service is not running
     #[instrument(skip(self))]
     pub async fn stop(&mut self) -> CommonResult<()> {
-        if !self.is_running() {
+        if !self.is_running().await {
             return Err(pulsearc_common::error::CommonError::config("Cleanup service not running"));
         }
 
@@ -156,10 +162,17 @@ impl CleanupService {
 
         // Await handle with timeout
         if let Some(handle) = self.task_handle.lock().await.take() {
-            tokio::time::timeout(Duration::from_secs(5), handle).await.map_err(|_| {
-                warn!("Cleanup task did not complete within timeout");
-                pulsearc_common::error::CommonError::Internal("Cleanup task timeout".to_string())
-            })??;
+            match tokio::time::timeout(Duration::from_secs(5), handle).await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    warn!("Cleanup task panicked: {}", e);
+                    return Err(CommonError::internal(format!("Cleanup task panicked: {}", e)));
+                }
+                Err(_) => {
+                    warn!("Cleanup task did not complete within timeout");
+                    return Err(CommonError::timeout("cleanup_task", Duration::from_secs(5)));
+                }
+            }
         }
 
         info!("Cleanup service stopped");
@@ -168,8 +181,11 @@ impl CleanupService {
     }
 
     /// Check if cleanup service is running
-    pub fn is_running(&self) -> bool {
-        !self.cancellation_token.is_cancelled()
+    ///
+    /// A service is considered running if it has an active task handle.
+    pub async fn is_running(&self) -> bool {
+        let guard = self.task_handle.lock().await;
+        guard.as_ref().is_some_and(|handle| !handle.is_finished())
     }
 
     /// Run cleanup once immediately
@@ -224,7 +240,7 @@ impl CleanupService {
         let now = Utc::now().timestamp();
 
         tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
             let segment_cutoff = now - (i64::from(config.segment_retention_days) * 86400);
             let snapshot_cutoff = now - (i64::from(config.snapshot_retention_days) * 86400);
@@ -257,8 +273,9 @@ impl CleanupService {
             Ok(DryRunResult { segments, snapshots, batches, token_usage })
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
+        .map_err(|e| pulsearc_common::error::CommonError::Internal {
+            message: format!("Task join failed: {}", e),
+            context: None,
         })?
     }
 
@@ -299,18 +316,21 @@ impl CleanupService {
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let count = conn.execute(
-                "DELETE FROM activity_segments WHERE created_at < ?1 AND id IN (SELECT id FROM activity_segments WHERE created_at < ?1 LIMIT ?2)",
-                rusqlite::params![cutoff, max_batch],
-            )?;
+            let count = conn
+                .execute(
+                    "DELETE FROM activity_segments WHERE created_at < ?1 AND id IN (SELECT id FROM activity_segments WHERE created_at < ?1 LIMIT ?2)",
+                    rusqlite::params![cutoff, max_batch],
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(count)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
+        .map_err(|e| pulsearc_common::error::CommonError::Internal {
+            message: format!("Task join failed: {}", e),
+            context: None,
         })?
     }
 
@@ -322,18 +342,21 @@ impl CleanupService {
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let count = conn.execute(
-                "DELETE FROM activity_snapshots WHERE created_at < ?1 AND id IN (SELECT id FROM activity_snapshots WHERE created_at < ?1 LIMIT ?2)",
-                rusqlite::params![cutoff, max_batch],
-            )?;
+            let count = conn
+                .execute(
+                    "DELETE FROM activity_snapshots WHERE created_at < ?1 AND id IN (SELECT id FROM activity_snapshots WHERE created_at < ?1 LIMIT ?2)",
+                    rusqlite::params![cutoff, max_batch],
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(count)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
+        .map_err(|e| pulsearc_common::error::CommonError::Internal {
+            message: format!("Task join failed: {}", e),
+            context: None,
         })?
     }
 
@@ -345,18 +368,21 @@ impl CleanupService {
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let count = conn.execute(
-                "DELETE FROM batch_queue WHERE status = 'completed' AND processed_at < ?1 AND id IN (SELECT id FROM batch_queue WHERE status = 'completed' AND processed_at < ?1 LIMIT ?2)",
-                rusqlite::params![cutoff, max_batch],
-            )?;
+            let count = conn
+                .execute(
+                    "DELETE FROM batch_queue WHERE status = 'completed' AND processed_at < ?1 AND batch_id IN (SELECT batch_id FROM batch_queue WHERE status = 'completed' AND processed_at < ?1 LIMIT ?2)",
+                    rusqlite::params![cutoff, max_batch],
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(count)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
+        .map_err(|e| pulsearc_common::error::CommonError::Internal {
+            message: format!("Task join failed: {}", e),
+            context: None,
         })?
     }
 
@@ -367,18 +393,21 @@ impl CleanupService {
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
-            let conn = db.get_connection()?;
+            let conn = db.get_connection().map_err(|e| CommonError::persistence(e.to_string()))?;
 
-            let count = conn.execute(
-                "DELETE FROM token_usage WHERE timestamp < ?1 AND batch_id IN (SELECT batch_id FROM token_usage WHERE timestamp < ?1 LIMIT ?2)",
-                rusqlite::params![cutoff, max_batch],
-            )?;
+            let count = conn
+                .execute(
+                    "DELETE FROM token_usage WHERE timestamp < ?1 AND batch_id IN (SELECT batch_id FROM token_usage WHERE timestamp < ?1 LIMIT ?2)",
+                    rusqlite::params![cutoff, max_batch],
+                )
+                .map_err(|e| CommonError::persistence(e.to_string()))?;
 
             Ok(count)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
+        .map_err(|e| pulsearc_common::error::CommonError::Internal {
+            message: format!("Task join failed: {}", e),
+            context: None,
         })?
     }
 }
@@ -386,7 +415,9 @@ impl CleanupService {
 /// Ensure service is stopped when dropped
 impl Drop for CleanupService {
     fn drop(&mut self) {
-        if self.is_running() {
+        // Note: Can't check task_handle (async), so check if token is not cancelled
+        // This is best-effort cleanup in Drop
+        if !self.cancellation_token.is_cancelled() {
             warn!("CleanupService dropped while running; cancelling");
             self.cancellation_token.cancel();
         }
@@ -395,51 +426,61 @@ impl Drop for CleanupService {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
+
+    fn create_test_db() -> Arc<DbManager> {
+        let db = Arc::new(
+            DbManager::new(":memory:", 1, Some("test-key")).expect("test db should initialize"),
+        );
+        db.run_migrations().expect("test migrations should succeed");
+        db
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cleanup_lifecycle() {
-        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
+        let db = create_test_db();
         let config = CleanupConfig::default();
 
         let mut service = CleanupService::new(db, config);
 
         // Initially not running
-        assert!(!service.is_running());
+        assert!(!service.is_running().await);
 
         // Start succeeds
-        service.start().await.unwrap();
-        assert!(service.is_running());
+        service.start().await.expect("service starts");
+        assert!(service.is_running().await);
 
         // Stop succeeds
-        service.stop().await.unwrap();
-        assert!(!service.is_running());
+        service.stop().await.expect("service stops");
+        assert!(!service.is_running().await);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_double_start_fails() {
-        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
+        let db = create_test_db();
         let config = CleanupConfig::default();
 
         let mut service = CleanupService::new(db, config);
 
-        service.start().await.unwrap();
+        service.start().await.expect("first start succeeds");
 
         // Second start should fail
         let result = service.start().await;
         assert!(result.is_err());
 
-        service.stop().await.unwrap();
+        service.stop().await.expect("stop succeeds");
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cleanup_once_succeeds() {
-        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
+        let db = create_test_db();
         let config = CleanupConfig::default();
 
         let service = CleanupService::new(db, config);
 
-        let stats = service.cleanup_once().await.unwrap();
+        let stats = service.cleanup_once().await.expect("cleanup once succeeds");
 
         // No data, so nothing deleted
         assert_eq!(stats.segments_deleted, 0);
@@ -448,12 +489,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dry_run_succeeds() {
-        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
+        let db = create_test_db();
         let config = CleanupConfig::default();
 
         let service = CleanupService::new(db, config);
 
-        let result = service.dry_run().await.unwrap();
+        let result = service.dry_run().await.expect("dry run succeeds");
 
         // No data, so nothing to delete
         assert_eq!(result.segments, 0);
@@ -462,13 +503,13 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cancellation_stops_service() {
-        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
+        let db = create_test_db();
         let config =
             CleanupConfig { cleanup_interval: Duration::from_millis(100), ..Default::default() };
 
         let mut service = CleanupService::new(db, config);
 
-        service.start().await.unwrap();
+        service.start().await.expect("start succeeds");
 
         // Cancel via token
         service.cancellation_token.cancel();
@@ -477,6 +518,6 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Should no longer be running
-        assert!(!service.is_running());
+        assert!(!service.is_running().await);
     }
 }

@@ -26,7 +26,7 @@ pub mod errors;
 pub mod forwarder;
 pub mod scheduler;
 
-pub use auth::{create_api_oauth_config, AccessTokenProvider, ApiAuthService};
+pub use auth::{AccessTokenProvider, ApiAuthService};
 pub use client::{ApiClient, ApiClientConfig};
 pub use commands::ApiCommands;
 pub use errors::{ApiError, ApiErrorCategory};

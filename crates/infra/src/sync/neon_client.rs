@@ -83,7 +83,7 @@ struct BatchSegmentsRequest {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct BatchSegmentsResponse {
+pub struct BatchSegmentsResponse {
     created: usize,
     duplicates: usize,
     failed: usize,
@@ -262,14 +262,17 @@ impl NeonClient {
 
         let request_builder = self.http_client.request(Method::GET, &url);
 
-        let response = self.send_request(request_builder).await?;
-
-        if response.status().is_success() {
-            info!("Neon API is healthy");
-            Ok(true)
-        } else {
-            warn!(status = %response.status(), "Neon API returned non-success status");
-            Ok(false)
+        match self.http_client.send(request_builder).await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    info!("Neon API is healthy");
+                    Ok(true)
+                } else {
+                    warn!(status = %response.status(), "Neon API returned non-success status");
+                    Ok(false)
+                }
+            }
+            Err(err) => Err(SyncError::from(err)),
         }
     }
 

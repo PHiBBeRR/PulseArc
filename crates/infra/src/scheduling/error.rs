@@ -63,6 +63,22 @@ pub enum SchedulerError {
         #[from]
         source: JoinError,
     },
+
+    /// Repository operation failed
+    #[error("Repository operation '{operation}' failed")]
+    RepositoryError {
+        operation: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// Failed to forward data to API
+    #[error("Failed to forward {item_type}s to API")]
+    ForwardingError {
+        item_type: String,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 impl From<SchedulerError> for InfraError {

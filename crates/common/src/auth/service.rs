@@ -3,9 +3,10 @@
 //! Combines OAuth client, keychain storage, and token manager
 //! into a single service for easy integration.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 use tracing::info;
 
 use super::client::{OAuthClient, OAuthClientError};
@@ -65,6 +66,8 @@ impl From<OAuthClientError> for OAuthServiceError {
 /// - Token storage in system keychain
 /// - Automatic token refresh
 /// - Authentication state management
+type AutoRefreshTaskHandle = Arc<Mutex<Option<JoinHandle<()>>>>;
+
 #[derive(Clone)]
 pub struct OAuthService<K = KeychainProvider>
 where
@@ -73,6 +76,7 @@ where
     oauth_client: Arc<OAuthClient>,
     token_manager: Arc<TokenManager<OAuthClient, K>>,
     pending_state: Arc<RwLock<Option<String>>>,
+    auto_refresh_task: AutoRefreshTaskHandle,
 }
 
 impl<K> OAuthService<K>
@@ -131,6 +135,7 @@ where
             oauth_client: Arc::new(oauth_client),
             token_manager: Arc::new(token_manager),
             pending_state: Arc::new(RwLock::new(None)),
+            auto_refresh_task: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -279,10 +284,28 @@ where
     /// # }
     /// ```
     pub fn start_auto_refresh(&self) {
+        let mut guard = self.auto_refresh_task.lock().expect("auto refresh mutex poisoned");
+
+        if guard.is_some() {
+            tracing::debug!("OAuth auto-refresh already running; ignoring duplicate start");
+            return;
+        }
+
         let token_manager = self.token_manager.clone();
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             token_manager.start_auto_refresh().await;
         });
+
+        *guard = Some(handle);
+    }
+
+    /// Stop background auto-refresh task if running.
+    pub fn stop_auto_refresh(&self) {
+        if let Some(handle) =
+            self.auto_refresh_task.lock().expect("auto refresh mutex poisoned").take()
+        {
+            handle.abort();
+        }
     }
 
     /// Get token manager for advanced operations
@@ -320,7 +343,23 @@ impl std::fmt::Debug for OAuthService {
         f.debug_struct("OAuthService")
             .field("oauth_client", &"OAuthClient")
             .field("token_manager", &"TokenManager")
+            .field("auto_refresh_task", &"Mutex<Option<JoinHandle>>")
             .finish()
+    }
+}
+
+impl<K> Drop for OAuthService<K>
+where
+    K: KeychainTrait + 'static,
+{
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.auto_refresh_task) == 1 {
+            if let Some(handle) =
+                self.auto_refresh_task.lock().expect("auto refresh mutex poisoned").take()
+            {
+                handle.abort();
+            }
+        }
     }
 }
 
