@@ -22,6 +22,7 @@ pub mod instance_lock;
 pub mod integrations;
 pub mod key_manager;
 pub mod mdm;
+pub mod observability;
 pub mod platform;
 
 // Re-export commonly used items
