@@ -419,7 +419,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_double_start_fails() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config = CleanupConfig::default();
 
         let mut service = CleanupService::new(db, config);
@@ -435,7 +435,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cleanup_once_succeeds() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config = CleanupConfig::default();
 
         let service = CleanupService::new(db, config);
@@ -449,7 +449,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dry_run_succeeds() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config = CleanupConfig::default();
 
         let service = CleanupService::new(db, config);
@@ -463,7 +463,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cancellation_stops_service() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config =
             CleanupConfig { cleanup_interval: Duration::from_millis(100), ..Default::default() };
 
