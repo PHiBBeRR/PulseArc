@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "crates/shared",
+    "crates/common",
+    "crates/domain",
     "crates/core",
     "crates/infra",
     "crates/api",
@@ -20,6 +21,8 @@ description = "PulseArc workspace baseline (enterprise defaults)"
 [workspace.dependencies]
 # Workspace-level shared dependencies
 tokio = { version = "1", features = ["full", "macros", "rt-multi-thread"] }
+tokio-test = "0.4"
+wiremock = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
@@ -68,6 +71,7 @@ regex = "1.10"
 once_cell = "1.19"
 parking_lot = "0.12"
 dashmap = "6.1"
+tempfile = "3.12"
 
 # Caching & Metrics
 moka = { version = "0.12", features = ["sync", "future"] }
@@ -92,8 +96,12 @@ objc2 = "0.6"
 icrate = { version = "0.1", features = ["Foundation", "AppKit"] }
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
 
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+
 # Internal crates
-pulsearc-shared = { path = "crates/shared" }
+pulsearc-common = { path = "crates/common" }
+pulsearc-domain = { path = "crates/domain" }
 pulsearc-core = { path = "crates/core" }
 pulsearc-infra = { path = "crates/infra" }
 

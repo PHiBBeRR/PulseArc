@@ -39,30 +39,30 @@ if [ "$FRONTEND_COUNT" -gt 0 ]; then
 
   # TypeScript check
   echo "  → TypeScript..."
-  TS_OUTPUT=$(npx tsc --noEmit 2>&1 | grep "error TS" || true)
+  TS_OUTPUT=$(pnpm exec tsc --noEmit 2>&1 | grep "error TS" || true)
   if [ -z "$TS_OUTPUT" ]; then
     echo "    ✅ Types OK"
   else
     echo "    ❌ Type errors found"
     echo "$TS_OUTPUT" | head -5
-    echo "    Run: npx tsc --noEmit"
+    echo "    Run: pnpm exec tsc --noEmit"
     FAILED=1
   fi
 
   # ESLint (exclude tools/docs/reusable from .gitignore)
   echo "  → ESLint..."
-  ESLINT_OUTPUT=$(npx eslint . --quiet 2>&1 || true)
+  ESLINT_OUTPUT=$(pnpm exec eslint . --quiet 2>&1 || true)
   if [ -z "$ESLINT_OUTPUT" ]; then
     echo "    ✅ Lint OK"
   else
     echo "    ❌ Lint errors found"
     echo "$ESLINT_OUTPUT" | head -10
-    echo "    Run: npx eslint . --fix"
+    echo "    Run: pnpm exec eslint . --fix"
     FAILED=1
   fi
 
   # Frontend tests - SKIP (too slow for pre-commit, rely on CI/manual runs)
-  echo "  → Tests skipped (run manually: npm run test)"
+  echo "  → Tests skipped (run manually: pnpm test)"
 
   echo ""
 fi
@@ -73,21 +73,21 @@ fi
 if [ "$RUST_COUNT" -gt 0 ]; then
   echo "🦀 Rust checks..."
 
-  # Clippy (check only, no auto-fix) - workspace level
+  # Clippy (check only, no auto-fix) - workspace level (exclude xtask)
   echo "  → Clippy..."
-  if cargo clippy --workspace --quiet 2>&1 | grep -E "^error"; then
+  if cargo clippy --workspace --exclude xtask --quiet 2>&1 | grep -E "^error"; then
     echo "    ❌ Clippy errors"
-    echo "    Run: cargo clippy --workspace"
+    echo "    Run: cargo clippy --workspace --exclude xtask"
     FAILED=1
   else
     echo "    ✅ Clippy OK"
   fi
 
-  # Format check - workspace level
+  # Format check - workspace level (use nightly for enhanced features)
   echo "  → Format..."
-  if cargo fmt --all --check 2>&1 | grep -E "^Diff"; then
+  if cargo +nightly fmt --all --check 2>&1 | grep -E "^Diff"; then
     echo "    ❌ Format issues"
-    echo "    Run: cargo fmt --all"
+    echo "    Run: cargo +nightly fmt --all"
     FAILED=1
   else
     echo "    ✅ Format OK"
