@@ -118,8 +118,7 @@ impl EnrichmentCache {
     /// * `bundle_id` - The browser's bundle identifier
     /// * `url` - The URL to cache
     pub fn set_browser_url(&self, bundle_id: impl Into<String>, url: impl Into<String>) {
-        self.cache
-            .insert(bundle_id.into(), EnrichmentData::BrowserUrl(url.into()));
+        self.cache.insert(bundle_id.into(), EnrichmentData::BrowserUrl(url.into()));
     }
 
     /// Get an office document name from the cache.
@@ -149,15 +148,8 @@ impl EnrichmentCache {
     /// # Arguments
     /// * `bundle_id` - The office app's bundle identifier
     /// * `document` - The document name to cache
-    pub fn set_office_document(
-        &self,
-        bundle_id: impl Into<String>,
-        document: impl Into<String>,
-    ) {
-        self.cache.insert(
-            bundle_id.into(),
-            EnrichmentData::OfficeDocument(document.into()),
-        );
+    pub fn set_office_document(&self, bundle_id: impl Into<String>, document: impl Into<String>) {
+        self.cache.insert(bundle_id.into(), EnrichmentData::OfficeDocument(document.into()));
     }
 
     /// Clear all entries from the cache.

@@ -30,10 +30,7 @@ const BROWSER_SCRIPT_TIMEOUT: Duration = Duration::from_secs(2);
 const BROWSER_MAPPINGS: &[(&str, &str)] = &[
     // Safari
     ("com.apple.Safari", "Safari"),
-    (
-        "com.apple.SafariTechnologyPreview",
-        "Safari Technology Preview",
-    ),
+    ("com.apple.SafariTechnologyPreview", "Safari Technology Preview"),
     // Chrome-based browsers
     ("com.google.Chrome", "Google Chrome"),
     ("org.chromium.Chromium", "Chromium"),
@@ -55,10 +52,7 @@ const BROWSER_MAPPINGS: &[(&str, &str)] = &[
 /// * `Some(&str)` - The browser application name if recognized
 /// * `None` - If the bundle ID is not a known browser
 fn get_browser_name(bundle_id: &str) -> Option<&'static str> {
-    BROWSER_MAPPINGS
-        .iter()
-        .find(|(bid, _)| *bid == bundle_id)
-        .map(|(_, name)| *name)
+    BROWSER_MAPPINGS.iter().find(|(bid, _)| *bid == bundle_id).map(|(_, name)| *name)
 }
 
 /// Check if a bundle ID represents a known browser.
@@ -185,10 +179,7 @@ mod tests {
 
     #[test]
     fn test_get_browser_name_chrome() {
-        assert_eq!(
-            get_browser_name("com.google.Chrome"),
-            Some("Google Chrome")
-        );
+        assert_eq!(get_browser_name("com.google.Chrome"), Some("Google Chrome"));
     }
 
     #[test]

@@ -84,9 +84,8 @@ pub fn execute_applescript(script: &str, timeout: Duration) -> DomainResult<Stri
     };
 
     // Collect output
-    let output = child
-        .wait_with_output()
-        .map_err(|e| map_platform_io_error("osascript output", e))?;
+    let output =
+        child.wait_with_output().map_err(|e| map_platform_io_error("osascript output", e))?;
 
     // Check exit status
     if let Some(code) = status_code {
@@ -332,24 +331,21 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_execute_applescript_optional_success() {
         let script = r#"return "test output""#;
-        let result =
-            execute_applescript_optional(script, Duration::from_secs(2), "test script");
+        let result = execute_applescript_optional(script, Duration::from_secs(2), "test script");
         assert_eq!(result, Some("test output".to_string()));
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_execute_applescript_optional_empty() {
         let script = r#"return """#;
-        let result =
-            execute_applescript_optional(script, Duration::from_secs(2), "empty script");
+        let result = execute_applescript_optional(script, Duration::from_secs(2), "empty script");
         assert_eq!(result, None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_execute_applescript_optional_failure() {
         let script = r#"error "intentional error""#;
-        let result =
-            execute_applescript_optional(script, Duration::from_secs(2), "failing script");
+        let result = execute_applescript_optional(script, Duration::from_secs(2), "failing script");
         assert_eq!(result, None);
     }
 }

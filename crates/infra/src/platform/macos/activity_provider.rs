@@ -25,11 +25,16 @@ use pulsearc_domain::types::{
     ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext,
 };
 use pulsearc_domain::{ActivityContext, Result as DomainResult};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use url::Url;
 
 use super::ax_helpers;
 use super::enrichers::{browser, cache::EnrichmentCache, office};
 use super::error_helpers::map_join_error;
+use crate::observability::metrics::PerformanceMetrics;
+
+type EnrichmentResult = (Option<String>, Option<String>, Option<String>);
 
 /// macOS activity provider using Accessibility API.
 ///
@@ -50,6 +55,8 @@ pub struct MacOsActivityProvider {
     recent_apps_limit: usize,
     /// Enrichment cache for browser URLs and office documents
     cache: EnrichmentCache,
+    /// Shared performance metrics collector
+    metrics: Arc<PerformanceMetrics>,
 }
 
 impl Default for MacOsActivityProvider {
@@ -67,11 +74,7 @@ impl MacOsActivityProvider {
     /// - `recent_apps_limit`: 10 apps
     /// - `cache`: 5-minute TTL enrichment cache
     pub fn new() -> Self {
-        Self {
-            paused: false,
-            recent_apps_limit: 10,
-            cache: EnrichmentCache::default(),
-        }
+        Self::with_components(10, EnrichmentCache::default(), Arc::new(PerformanceMetrics::new()))
     }
 
     /// Create a new macOS activity provider with custom recent apps limit.
@@ -80,11 +83,37 @@ impl MacOsActivityProvider {
     ///
     /// * `recent_apps_limit` - Maximum number of recent apps to fetch
     pub fn with_recent_apps_limit(recent_apps_limit: usize) -> Self {
-        Self {
-            paused: false,
+        Self::with_components(
             recent_apps_limit,
-            cache: EnrichmentCache::default(),
-        }
+            EnrichmentCache::default(),
+            Arc::new(PerformanceMetrics::new()),
+        )
+    }
+
+    /// Create a new provider wired to a specific metrics collector.
+    pub fn with_metrics(metrics: Arc<PerformanceMetrics>) -> Self {
+        Self::with_components(10, EnrichmentCache::default(), metrics)
+    }
+
+    /// Create a new provider with custom recent app limit and metrics.
+    pub fn with_recent_apps_limit_and_metrics(
+        recent_apps_limit: usize,
+        metrics: Arc<PerformanceMetrics>,
+    ) -> Self {
+        Self::with_components(recent_apps_limit, EnrichmentCache::default(), metrics)
+    }
+
+    fn with_components(
+        recent_apps_limit: usize,
+        cache: EnrichmentCache,
+        metrics: Arc<PerformanceMetrics>,
+    ) -> Self {
+        Self { paused: false, recent_apps_limit, cache, metrics }
+    }
+
+    /// Access shared metrics for tests/diagnostics.
+    pub fn metrics(&self) -> Arc<PerformanceMetrics> {
+        Arc::clone(&self.metrics)
     }
 
     /// Fetch active app information with enrichment (synchronous, called from spawn_blocking).
@@ -96,12 +125,19 @@ impl MacOsActivityProvider {
     /// # Arguments
     ///
     /// * `cache` - Enrichment cache for browser URLs and office documents
-    fn fetch_active_app_sync(cache: EnrichmentCache) -> DomainResult<WindowContext> {
+    fn fetch_active_app_sync(
+        cache: EnrichmentCache,
+        metrics: Arc<PerformanceMetrics>,
+    ) -> DomainResult<WindowContext> {
         let app_info = ax_helpers::get_active_app_info()?;
 
         // Attempt to enrich with browser URL or office document
-        let (url, url_host, document_name) =
-            Self::enrich_app_context(&app_info.bundle_id, &app_info.app_name, &cache);
+        let (url, url_host, document_name) = Self::enrich_app_context(
+            &app_info.bundle_id,
+            &app_info.app_name,
+            &cache,
+            metrics.as_ref(),
+        );
 
         Ok(WindowContext {
             app_name: app_info.app_name,
@@ -129,16 +165,19 @@ impl MacOsActivityProvider {
         bundle_id: &str,
         app_name: &str,
         cache: &EnrichmentCache,
-    ) -> (Option<String>, Option<String>, Option<String>) {
+        metrics: &PerformanceMetrics,
+    ) -> EnrichmentResult {
         // Try browser URL enrichment
         if browser::is_browser(bundle_id) {
             // Check cache first
             if let Some(cached_url) = cache.get_browser_url(bundle_id) {
+                Self::record_cache_hit(metrics, "browser_url");
                 tracing::trace!(bundle_id, "Using cached browser URL");
                 let url_host = Self::extract_host(&cached_url);
                 return (Some(cached_url), url_host, None);
             }
 
+            Self::record_cache_miss(metrics, "browser_url");
             // Fetch fresh URL
             if let Some(url) = browser::get_browser_url_sync(bundle_id, app_name) {
                 tracing::debug!(bundle_id, url = %url, "Enriched with browser URL");
@@ -152,10 +191,12 @@ impl MacOsActivityProvider {
         if office::is_office_app(bundle_id) {
             // Check cache first
             if let Some(cached_doc) = cache.get_office_document(bundle_id) {
+                Self::record_cache_hit(metrics, "office_document");
                 tracing::trace!(bundle_id, "Using cached office document");
                 return (None, None, Some(cached_doc));
             }
 
+            Self::record_cache_miss(metrics, "office_document");
             // Fetch fresh document name
             if let Some(doc) = office::get_office_document_sync(bundle_id, app_name) {
                 tracing::debug!(bundle_id, document = %doc, "Enriched with office document");
@@ -178,9 +219,30 @@ impl MacOsActivityProvider {
     ///
     /// Hostname if parsing succeeds, None otherwise
     fn extract_host(url_str: &str) -> Option<String> {
-        Url::parse(url_str)
-            .ok()
-            .and_then(|url| url.host_str().map(String::from))
+        Url::parse(url_str).ok().and_then(|url| url.host_str().map(String::from))
+    }
+
+    fn record_cache_hit(metrics: &PerformanceMetrics, label: &str) {
+        if let Err(err) = metrics.record_cache_hit() {
+            tracing::debug!(error = %err, cache = %label, "Failed to record cache hit metric");
+        }
+    }
+
+    fn record_cache_miss(metrics: &PerformanceMetrics, label: &str) {
+        if let Err(err) = metrics.record_cache_miss() {
+            tracing::debug!(error = %err, cache = %label, "Failed to record cache miss metric");
+        }
+    }
+
+    fn record_fetch_duration(&self, scope: &str, duration: Duration) {
+        if let Err(err) = self.metrics.record_fetch_time(duration) {
+            tracing::debug!(
+                error = %err,
+                scope = %scope,
+                elapsed_ms = duration.as_millis(),
+                "Failed to record fetch duration"
+            );
+        }
     }
 
     /// Fetch recent running apps (synchronous, called from spawn_blocking).
@@ -277,23 +339,38 @@ impl ActivityProvider for MacOsActivityProvider {
             });
         }
 
+        if let Err(err) = self.metrics.record_call() {
+            tracing::debug!(error = %err, "Failed to record call metric for macOS provider");
+        }
+
         // Spawn blocking for active app (synchronous AX APIs + enrichment)
         let cache = self.cache.clone();
-        let active_app = tokio::task::spawn_blocking(move || Self::fetch_active_app_sync(cache))
-            .await
-            .map_err(map_join_error)??; // Flatten Result<Result<T>>
+        let metrics_for_active = Arc::clone(&self.metrics);
+        let active_start = Instant::now();
+        let active_join = tokio::task::spawn_blocking(move || {
+            Self::fetch_active_app_sync(cache, metrics_for_active)
+        })
+        .await;
+        let active_elapsed = active_start.elapsed();
+        self.record_fetch_duration("active_app", active_elapsed);
+        let active_app = active_join.map_err(map_join_error)??; // Flatten Result<Result<T>>
 
         // Spawn blocking for recent apps (non-fatal if fails)
         let exclude_bundle_id = active_app.bundle_id.clone();
         let limit = self.recent_apps_limit;
 
-        let recent_apps = tokio::task::spawn_blocking(move || {
+        let recent_start = Instant::now();
+        let recent_join = tokio::task::spawn_blocking(move || {
             Self::fetch_recent_apps_sync(exclude_bundle_id, limit)
         })
-        .await
-        .map_err(map_join_error)?
-        .unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "Failed to fetch recent apps - continuing with empty list");
+        .await;
+        let recent_elapsed = recent_start.elapsed();
+        self.record_fetch_duration("recent_apps", recent_elapsed);
+        let recent_apps = recent_join.map_err(map_join_error)?.unwrap_or_else(|e| {
+            tracing::warn!(
+                error = %e,
+                "Failed to fetch recent apps - continuing with empty list"
+            );
             vec![]
         });
 

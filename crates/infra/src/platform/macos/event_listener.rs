@@ -40,6 +40,11 @@ use objc2_app_kit::NSWorkspace;
 #[cfg(target_os = "macos")]
 use objc2_foundation::{NSNotification, NSNotificationCenter, NSOperationQueue, NSString};
 
+#[cfg(target_os = "macos")]
+type ObserverToken = Retained<ProtocolObject<dyn NSObjectProtocol>>;
+#[cfg(target_os = "macos")]
+type NotificationBlock = RcBlock<dyn Fn(NonNull<NSNotification>)>;
+
 /// Trait for platform-specific OS event listeners
 ///
 /// Implementations of this trait provide OS-level hooks to detect application
@@ -95,11 +100,11 @@ pub struct MacOsEventListener {
     /// Notification center (from NSWorkspace)
     nc: Option<Retained<NSNotificationCenter>>,
     /// Observer token (needed to remove observer)
-    observer_token: Option<Retained<ProtocolObject<dyn NSObjectProtocol>>>,
+    observer_token: Option<ObserverToken>,
     /// Operation queue (callbacks execute here)
     queue: Option<Retained<NSOperationQueue>>,
     /// Block keepalive (CRITICAL: prevents use-after-free)
-    block_keepalive: Option<RcBlock<dyn Fn(NonNull<NSNotification>)>>,
+    block_keepalive: Option<NotificationBlock>,
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -113,12 +118,7 @@ impl MacOsEventListener {
     pub fn new() -> Self {
         #[cfg(target_os = "macos")]
         {
-            Self {
-                nc: None,
-                observer_token: None,
-                queue: None,
-                block_keepalive: None,
-            }
+            Self { nc: None, observer_token: None, queue: None, block_keepalive: None }
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -166,11 +166,7 @@ impl Drop for MacOsEventListener {
                     >(&*tok);
                     nc.removeObserver(observer_ref);
                 }
-                tracing::debug!(
-                    phase = "drop",
-                    removed = true,
-                    "NSWorkspace observer removed"
-                );
+                tracing::debug!(phase = "drop", removed = true, "NSWorkspace observer removed");
             }
         }
 
@@ -197,10 +193,7 @@ impl OsEventListener for MacOsEventListener {
 
         // Prevent double-registration
         if self.observer_token.is_some() {
-            tracing::warn!(
-                has_observer = true,
-                "Observer already started - returning error"
-            );
+            tracing::warn!(has_observer = true, "Observer already started - returning error");
             return Err("Observer already started".to_string());
         }
 
@@ -303,7 +296,7 @@ impl OsEventListener for MacOsEventListener {
                 Some(&notification_name),
                 None,         // Observe all apps
                 Some(&queue), // Callback on our serial queue
-                &*blk,        // Deref RcBlock to Block
+                &blk,
             );
             tracing::trace!(phase = "register", status = "token_received");
 
@@ -365,11 +358,7 @@ impl OsEventListener for MacOsEventListener {
                         >(&*tok);
                         nc.removeObserver(observer_ref);
                     }
-                    tracing::debug!(
-                        phase = "stop",
-                        removed = true,
-                        "NSWorkspace observer removed"
-                    );
+                    tracing::debug!(phase = "stop", removed = true, "NSWorkspace observer removed");
                 }
             }
 
@@ -483,9 +472,7 @@ mod tests {
         let callback2 = Box::new(|| {});
         let result2 = listener.start(callback2);
         assert!(result2.is_err(), "Second start should fail");
-        assert!(result2
-            .unwrap_err()
-            .contains("Observer already started"));
+        assert!(result2.unwrap_err().contains("Observer already started"));
 
         let _ = listener.stop();
     }
@@ -510,9 +497,7 @@ mod tests {
         let callback = Box::new(|| {});
         let result = listener.start(callback);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("only supported on macOS"));
+        assert!(result.unwrap_err().contains("only supported on macOS"));
 
         // Stop should be no-op
         assert!(listener.stop().is_ok());

@@ -9,6 +9,11 @@
 use pulsearc_domain::{PulseArcError, Result as DomainResult};
 use std::sync::OnceLock;
 
+#[cfg(target_os = "macos")]
+use parking_lot::RwLock;
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
+
 /// Details about the currently active application.
 #[derive(Debug, Clone)]
 pub struct ActiveAppInfo {
@@ -63,8 +68,24 @@ extern "C" {
 #[cfg(target_os = "macos")]
 const K_AX_ERROR_SUCCESS: i32 = 0;
 
-// Cache for AX permission state (avoid repeated system calls)
-static AX_PERMISSION_CACHE: OnceLock<bool> = OnceLock::new();
+#[cfg(target_os = "macos")]
+const AX_PERMISSION_CACHE_TTL: Duration = Duration::from_secs(300);
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy)]
+struct CachedPermission {
+    value: bool,
+    checked_at: Instant,
+}
+
+// Cache for AX permission state (avoid repeated system calls, but allow refresh)
+#[cfg(target_os = "macos")]
+static AX_PERMISSION_CACHE: OnceLock<RwLock<Option<CachedPermission>>> = OnceLock::new();
+
+#[cfg(target_os = "macos")]
+fn permission_cache() -> &'static RwLock<Option<CachedPermission>> {
+    AX_PERMISSION_CACHE.get_or_init(|| RwLock::new(None))
+}
 
 /// Check if Accessibility permission is granted.
 ///
@@ -96,9 +117,14 @@ static AX_PERMISSION_CACHE: OnceLock<bool> = OnceLock::new();
 /// ```
 #[cfg(target_os = "macos")]
 pub fn check_ax_permission(prompt: bool) -> DomainResult<bool> {
-    // Check cache first (permission doesn't change without app restart typically)
-    if let Some(&cached) = AX_PERMISSION_CACHE.get() {
-        return Ok(cached);
+    // Check cache first unless an explicit prompt is requested
+    if !prompt {
+        let cached = permission_cache().read();
+        if let Some(entry) = *cached {
+            if entry.checked_at.elapsed() < AX_PERMISSION_CACHE_TTL {
+                return Ok(entry.value);
+            }
+        }
     }
 
     // SAFETY: AXIsProcessTrustedWithOptions is a C function that:
@@ -117,8 +143,11 @@ pub fn check_ax_permission(prompt: bool) -> DomainResult<bool> {
         AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef().cast())
     };
 
-    // Cache the result
-    let _ = AX_PERMISSION_CACHE.set(is_trusted);
+    // Cache the result with a TTL so we can refresh after the user changes settings
+    {
+        let mut cache = permission_cache().write();
+        *cache = Some(CachedPermission { value: is_trusted, checked_at: Instant::now() });
+    }
 
     // Log permission status
     if is_trusted {
@@ -246,6 +275,63 @@ pub fn get_focused_window_title(app_pid: i32) -> DomainResult<Option<String>> {
 #[cfg(not(target_os = "macos"))]
 pub fn get_focused_window_title(_app_pid: i32) -> DomainResult<Option<String>> {
     Err(PulseArcError::Platform("Accessibility API is only available on macOS".to_string()))
+}
+
+/// Get main window title for a specific application PID (regardless of focus).
+///
+/// This helper queries the `AXMainWindow` attribute and falls back gracefully
+/// when an app does not expose a main window or Accessibility permissions are
+/// denied.
+#[cfg(target_os = "macos")]
+fn get_main_window_title(app_pid: i32) -> DomainResult<Option<String>> {
+    if !check_ax_permission(false)? {
+        return Ok(None);
+    }
+
+    unsafe {
+        let app_element = AXUIElementCreateApplication(app_pid);
+        if app_element.is_null() {
+            tracing::trace!(pid = app_pid, "Failed to create AX element for PID (main window)");
+            return Ok(None);
+        }
+
+        let main_window_attr = CFString::from_static_string("AXMainWindow");
+        let mut main_window: CFTypeRef = std::ptr::null();
+        let main_window_status = AXUIElementCopyAttributeValue(
+            app_element,
+            main_window_attr.as_concrete_TypeRef(),
+            &mut main_window,
+        );
+
+        if main_window_status != K_AX_ERROR_SUCCESS || main_window.is_null() {
+            CFRelease(app_element.cast());
+            return Ok(None);
+        }
+
+        let title_attr = CFString::from_static_string("AXTitle");
+        let mut title_ref: CFTypeRef = std::ptr::null();
+        let title_status = AXUIElementCopyAttributeValue(
+            main_window.cast(),
+            title_attr.as_concrete_TypeRef(),
+            &mut title_ref,
+        );
+
+        CFRelease(main_window);
+        CFRelease(app_element.cast());
+
+        if title_status != K_AX_ERROR_SUCCESS || title_ref.is_null() {
+            return Ok(None);
+        }
+
+        let cf_title = CFString::wrap_under_create_rule(title_ref.cast());
+        let title = cf_title.to_string();
+
+        if title.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(title))
+        }
+    }
 }
 
 /// Get active app info from NSWorkspace with optional window title via AX.
@@ -408,7 +494,24 @@ pub fn get_recent_apps(
             // Get window title if AX permission granted
             let window_title = if has_ax_permission {
                 let pid = app.processIdentifier();
-                get_focused_window_title(pid).ok().flatten()
+                match get_main_window_title(pid) {
+                    Ok(title) => {
+                        if title.is_some() {
+                            title
+                        } else {
+                            // Fallback to focused window for foreground app if AXMainWindow failed
+                            get_focused_window_title(pid).ok().flatten()
+                        }
+                    }
+                    Err(err) => {
+                        tracing::debug!(
+                            error = %err,
+                            pid = pid,
+                            "Failed to read main window title via AX"
+                        );
+                        None
+                    }
+                }
             } else {
                 None
             };

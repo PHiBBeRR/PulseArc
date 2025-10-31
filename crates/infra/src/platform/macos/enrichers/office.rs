@@ -43,10 +43,7 @@ const OFFICE_MAPPINGS: &[(&str, &str)] = &[
 /// * `Some(&str)` - The office app name if recognized
 /// * `None` - If the bundle ID is not a known office application
 fn get_office_app_name(bundle_id: &str) -> Option<&'static str> {
-    OFFICE_MAPPINGS
-        .iter()
-        .find(|(bid, _)| *bid == bundle_id)
-        .map(|(_, name)| *name)
+    OFFICE_MAPPINGS.iter().find(|(bid, _)| *bid == bundle_id).map(|(_, name)| *name)
 }
 
 /// Check if a bundle ID represents a known office application.
@@ -168,10 +165,7 @@ mod tests {
 
     #[test]
     fn test_get_office_app_name_word() {
-        assert_eq!(
-            get_office_app_name("com.microsoft.Word"),
-            Some("Microsoft Word")
-        );
+        assert_eq!(get_office_app_name("com.microsoft.Word"), Some("Microsoft Word"));
     }
 
     #[test]
