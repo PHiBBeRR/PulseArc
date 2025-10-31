@@ -1,9 +1,9 @@
 # Legacy Code Migration Inventory
 
 **Generated**: October 30, 2025
-**Last Updated**: October 31, 2025 (Phase 3A Started 🔄 - Task 3A.1 Complete)
+**Last Updated**: November 2, 2025 (Phase 3A 🔄 - Task 3A.4 Complete, 3A.5 In Progress)
 **Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration
-**Status**: 🔄 PHASE 3A IN PROGRESS - Configuration loader migrated (600 LOC, 17 tests)
+**Status**: 🔄 PHASE 3A IN PROGRESS - DbManager migrated (115 LOC, 2 tests) • Activity repository scaffolding underway
 
 ---
 
@@ -25,7 +25,7 @@
 - Phase 0: ✅ Complete (Pre-migration refactoring)
 - Phase 1: ✅ Complete (Domain types & core ports) - October 31, 2025
 - Phase 2: ✅ Complete (Core business logic) - November 1, 2025 (5 PRs, 2,610 lines, 54 tests)
-- Phase 3: 🔄 In Progress (Infrastructure adapters) - **Started October 31, 2025** - Task 3A.1 ✅
+- Phase 3: 🔄 In Progress (Infrastructure adapters) - **Started October 31, 2025** - Tasks 3A.1-3A.4 ✅, Task 3A.5 🔄
 - Phase 4: ⏳ Pending (API layer)
 
 ---
@@ -731,7 +731,25 @@ pub trait OutboxQueue: Send + Sync {
 
 **Validation**: ✅ Core compilation passes. ✅ All 41 core tests pass. ✅ Clippy clean (0 warnings). ✅ Core classification modules migration complete!
 
-### Phase 3: Infrastructure Adapters (Weeks 3-8) ⏳ **READY TO START**
+### Phase 3: Infrastructure Adapters (Weeks 3-8) 🔄 **IN PROGRESS**
+
+**Week 3 Checkpoint (November 2, 2025)**
+- ✅ Task 3A.1 — Config loader migrated to `crates/infra/src/config/loader.rs` (600 LOC, 17 tests)
+- ✅ Task 3A.2 — Error conversions consolidated in `crates/infra/src/errors/conversions.rs` (242 LOC, 3 tests)
+- ✅ Task 3A.3 — HTTP client ported with retry/backoff in `crates/infra/src/http/client.rs` (304 LOC, 4 tests)
+- ✅ Task 3A.4 — `DbManager` + SQLCipher helpers landed in `crates/infra/src/database/manager.rs` and `sqlcipher_pool.rs` (115 LOC, 2 tests)
+- 🔄 Task 3A.5 — Activity repository migration queued; implementation will start in `crates/infra/src/database/activity_repository.rs`
+
+**DbManager Snapshot**
+- `DbManager::new` wraps `create_sqlcipher_pool`, enforces provided encryption keys, and seeds `schema_version` via `schema.sql`
+- Health path validated through `database::manager::tests::migrations_create_schema_version`
+- Pool helper smoke-tested by `sqlcipher_pool::tests::create_pool_successfully`; `cargo test -p pulsearc-infra database::manager` passes locally
+
+**Next Focus: Task 3A.5**
+- Implement `ActivityRepository` using `SqlCipherConnection::get_connection().await` from the shared manager (no `LocalDatabase`)
+- Port `save`, `find_by_time_range`, `find_snapshots_by_date`, and `count_snapshots_by_date` with pagination and consistent `[start, end)` range predicates
+- Leverage the `SqlCipherStatement::query_map` Vec-return semantics documented in `docs/issues/SQLCIPHER-API-REFERENCE.md`
+- Cover success and failure flows with async unit + integration tests (`#[tokio::test(flavor = "multi_thread")]`) against the SQLCipher pool
 
 **Goal**: Implement all port adapters (~60+ modules, ~17,600 LOC)
 
@@ -958,5 +976,5 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-**Document Status**: 🟢 PHASE 2 WEEK 1-2 COMPLETE - 5 PRs merged, core classification modules migrated
-**Latest**: Week 1-2 complete with 5 PRs (WbsRepository, SignalExtractor, EvidenceExtractor, ProjectMatcher, BlockBuilder); ~2,610 lines migrated, 41 tests passing; core classification modules complete! (November 1, 2025)
+**Document Status**: 🔄 PHASE 3A WEEK 3 IN PROGRESS - Config loader, error conversions, HTTP client, DbManager migrated; Activity repository (Task 3A.5) next
+**Latest**: DbManager + SQLCipher pool wrappers shipped (`cargo test -p pulsearc-infra database::manager` ✅); ActivityRepository port kicking off with SQLCipher query_map patterns and pagination plan (November 2, 2025)

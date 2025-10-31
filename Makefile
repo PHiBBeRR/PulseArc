@@ -6,6 +6,8 @@
 # Default target
 .DEFAULT_GOAL := help
 
+PULSARC_TEST_DB_KEY ?= test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
 ##@ General
 
 help: ## Display this help message
@@ -152,6 +154,15 @@ tree: ## Show dependency tree
 	cargo tree
 	@echo "\nFrontend dependency tree:"
 	pnpm list --depth=1
+
+bench: ## Run infra baseline benchmarks (DB/HTTP/MDM + macOS AX-off)
+	PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) cargo bench -p infra-baselines --bench baseline
+
+mac-bench-prep: ## Build bench binary and open System Settings to grant Accessibility
+	bash scripts/mac/prepare-ax-bench.sh
+
+mac-bench: ## Run infra baselines with macOS AX-on enabled (requires Accessibility grant)
+	PULSARC_ENABLE_MAC_BENCH=1 PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) cargo bench -p infra-baselines --bench baseline
 
 doctor: ## Check development environment
 	@echo "Checking development environment..."

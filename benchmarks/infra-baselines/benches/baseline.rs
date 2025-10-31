@@ -215,9 +215,12 @@ fn benchmark_legacy_db_manager(c: &mut Criterion) {
 #[cfg(target_os = "macos")]
 fn benchmark_legacy_macos_activity_provider_ax_on(c: &mut Criterion) {
     if std::env::var_os("PULSARC_ENABLE_MAC_BENCH").is_none() {
-        eprintln!(
-            "[macOS] PULSARC_ENABLE_MAC_BENCH not set; skipping AX-on benchmark. \n  Hint: run scripts/mac/prepare-ax-bench.sh and re-run with PULSARC_ENABLE_MAC_BENCH=1"
-        );
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            eprintln!(
+                "[macos benches] AX-on skipped (set PULSARC_ENABLE_MAC_BENCH=1).\n  Run: make mac-bench-prep"
+            );
+        });
         return;
     }
 
@@ -234,9 +237,12 @@ fn benchmark_legacy_macos_activity_provider_ax_on(c: &mut Criterion) {
     }
 
     if !mac_ax::ax_trusted() {
-        eprintln!(
-            "⚠️ Accessibility not granted; skipping AX-on benchmark.\n  Hint: run scripts/mac/prepare-ax-bench.sh to open the correct System Settings pane."
-        );
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            eprintln!(
+                "[macos benches] AX-on skipped (Accessibility not granted).\n  Run: make mac-bench-prep"
+            );
+        });
         return;
     }
 
@@ -266,13 +272,19 @@ fn benchmark_legacy_macos_activity_provider_ax_on(c: &mut Criterion) {
 
 #[cfg(target_os = "macos")]
 fn benchmark_legacy_macos_activity_provider_ax_off(c: &mut Criterion) {
-    if std::env::var_os("PULSARC_ENABLE_MAC_BENCH").is_none() {
-        println!("ℹ️ Skipping macOS AX-off benchmark (PULSARC_ENABLE_MAC_BENCH=1 required).");
-        return;
+    struct Guard(Option<String>);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            match &self.0 {
+                Some(val) => std::env::set_var("PULSARC_FORCE_AX_DENIED", val),
+                None => std::env::remove_var("PULSARC_FORCE_AX_DENIED"),
+            }
+        }
     }
 
     let previous = std::env::var("PULSARC_FORCE_AX_DENIED").ok();
     std::env::set_var("PULSARC_FORCE_AX_DENIED", "1");
+    let _guard = Guard(previous);
 
     let mut group = c.benchmark_group("legacy_macos_activity_provider_ax_off");
     group.sample_size(50);
@@ -450,7 +462,7 @@ fn benchmark_legacy_mdm_client(c: &mut Criterion) {
             let ca = ca.clone();
             async move {
                 let client =
-                    MdmClient::with_ca_cert(&url, &ca).expect("MDM fetch_config_cold client init");
+                    MdmClient::with_ca_cert(url.clone(), &ca).expect("MDM fetch_config_cold client init");
                 let config = client.fetch_config().await.expect("MDM cold fetch_config");
                 black_box(config);
             }

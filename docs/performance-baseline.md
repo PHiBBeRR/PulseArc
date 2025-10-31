@@ -44,9 +44,10 @@ scripts/bench/compare.sh 20251031
 ```
 
 ### macOS Activity Provider
-1. Grant Accessibility permission to the benchmark binary (`target/release/deps/baseline-*`).
-2. Ensure `PULSARC_ENABLE_MAC_BENCH=1` is set so the macOS suite runs.
-3. The harness also executes a fallback run with `PULSARC_FORCE_AX_DENIED=1` to capture the “AX denied” latency profile automatically.
+1. Grant Accessibility permission to the benchmark binary (`target/release/deps/baseline-*`). The helper `scripts/mac/prepare-ax-bench.sh` builds the bench and opens the correct System Settings pane.
+2. Set `PULSARC_ENABLE_MAC_BENCH=1` so the macOS AX-on suite runs.
+3. The harness always executes a fallback run with `PULSARC_FORCE_AX_DENIED=1`, so the AX-denied profile is captured even if permission is granted.
+4. On managed CI hardware, provision Accessibility ahead of time via the real MDM stack (outside this repository) so the AX-on group runs automatically.
 
 ### MDM Client
 1. Generate self-signed certs via `scripts/mdm/generate-test-certs.sh` (creates `.mdm-certs/`).
