@@ -4,4 +4,5 @@
 //! upcoming classification tests can focus on behaviour instead of boilerplate.
 
 pub mod calendar;
+pub mod repositories;
 pub mod wbs;
