@@ -41,6 +41,12 @@ keyring = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
 
+# Caching (Phase 3B: enrichment cache with TTL)
+moka = { workspace = true }
+
+# Scheduling (Phase 3D: cron-based schedulers)
+tokio-cron-scheduler = { workspace = true }
+
 # macOS Platform APIs (optional, only on macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
@@ -53,6 +59,7 @@ io-kit-sys = "0.4"
 
 [dev-dependencies]
 tempfile = { workspace = true }
+wiremock = { workspace = true }  # Phase 3A.3: HTTP client testing
 
 [features]
 default = []

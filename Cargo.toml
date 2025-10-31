@@ -39,6 +39,7 @@ async-trait = "0.1"
 futures = "0.3"
 futures-core = "0.3"
 tokio-util = "0.7"
+tokio-cron-scheduler = "0.10"
 
 # Database
 rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl", "limits"] }
