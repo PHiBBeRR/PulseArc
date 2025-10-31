@@ -26,7 +26,9 @@
 - Phase 1: ✅ Complete (Domain types & core ports) - October 31, 2025
 - Phase 2: ✅ Complete (Core business logic) - November 1, 2025 (5 PRs, 2,610 lines, 54 tests)
 - Phase 3: 🔄 In Progress (Infrastructure adapters) - **Started October 31, 2025** - Tasks 3A.1-3A.6 ✅
-- Phase 4: ⏳ Pending (API layer)
+  - 📋 [Phase 3 Detailed Tracking Document](./PHASE-3-INFRA-TRACKING.md) (2,620 lines)
+- Phase 4: ⏳ Pending (API layer rewiring) - **11 commands, ~3,679 LOC**
+  - 📋 [Phase 4 Detailed Tracking Document](./PHASE-4-API-REWIRING-TRACKING.md) (comprehensive)
 
 ---
 
