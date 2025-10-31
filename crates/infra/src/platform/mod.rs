@@ -11,7 +11,7 @@
 pub mod macos;
 
 #[cfg(target_os = "macos")]
-pub use macos::MacOsActivityProvider;
+pub use macos::{MacOsActivityProvider, MacOsEventListener, OsEventListener};
 
 // Fallback stub for non-macOS platforms (Day 6)
 #[cfg(not(target_os = "macos"))]
@@ -54,3 +54,7 @@ pub mod fallback {
 
 #[cfg(not(target_os = "macos"))]
 pub use fallback::FallbackActivityProvider;
+
+// Event listener is cross-platform (macOS has real impl, others have fallback)
+// But the fallback is defined in the same module as macOS, so we don't re-export here
+// Users should use macos::event_listener::FallbackEventListener directly if needed

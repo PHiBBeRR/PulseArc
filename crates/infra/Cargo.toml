@@ -62,9 +62,10 @@ ts-rs = { workspace = true, optional = true }
 
 # macOS Platform APIs (optional, only on macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
-objc2-foundation = "0.3"
-objc2-app-kit = "0.3"
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }
+block2 = { workspace = true }
 cocoa = "0.26"
 core-foundation = "0.10"
 core-graphics = "0.25"
@@ -79,7 +80,8 @@ tracing-subscriber = { workspace = true }
 [features]
 default = []
 calendar = ["pulsearc-core/calendar"]
-sap = []
+sap = ["pulsearc-core/sap"]
+openai = []
 tree-classifier = []
 ml = ["tree-classifier"]
 graphql = []

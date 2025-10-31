@@ -25,8 +25,10 @@ use pulsearc_domain::types::{
     ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext,
 };
 use pulsearc_domain::{ActivityContext, Result as DomainResult};
+use url::Url;
 
 use super::ax_helpers;
+use super::enrichers::{browser, cache::EnrichmentCache, office};
 use super::error_helpers::map_join_error;
 
 /// macOS activity provider using Accessibility API.
@@ -46,6 +48,8 @@ pub struct MacOsActivityProvider {
     paused: bool,
     /// Maximum number of recent apps to fetch
     recent_apps_limit: usize,
+    /// Enrichment cache for browser URLs and office documents
+    cache: EnrichmentCache,
 }
 
 impl Default for MacOsActivityProvider {
@@ -61,8 +65,13 @@ impl MacOsActivityProvider {
     ///
     /// - `paused`: false (tracking enabled)
     /// - `recent_apps_limit`: 10 apps
+    /// - `cache`: 5-minute TTL enrichment cache
     pub fn new() -> Self {
-        Self { paused: false, recent_apps_limit: 10 }
+        Self {
+            paused: false,
+            recent_apps_limit: 10,
+            cache: EnrichmentCache::default(),
+        }
     }
 
     /// Create a new macOS activity provider with custom recent apps limit.
@@ -71,25 +80,107 @@ impl MacOsActivityProvider {
     ///
     /// * `recent_apps_limit` - Maximum number of recent apps to fetch
     pub fn with_recent_apps_limit(recent_apps_limit: usize) -> Self {
-        Self { paused: false, recent_apps_limit }
+        Self {
+            paused: false,
+            recent_apps_limit,
+            cache: EnrichmentCache::default(),
+        }
     }
 
-    /// Fetch active app information (synchronous, called from spawn_blocking).
+    /// Fetch active app information with enrichment (synchronous, called from spawn_blocking).
     ///
-    /// This is a helper method that performs synchronous AX API calls.
+    /// This is a helper method that performs synchronous AX API calls and enriches
+    /// the data with browser URLs or office document names where applicable.
     /// It's designed to be called from within `tokio::task::spawn_blocking`.
-    fn fetch_active_app_sync() -> DomainResult<WindowContext> {
+    ///
+    /// # Arguments
+    ///
+    /// * `cache` - Enrichment cache for browser URLs and office documents
+    fn fetch_active_app_sync(cache: EnrichmentCache) -> DomainResult<WindowContext> {
         let app_info = ax_helpers::get_active_app_info()?;
+
+        // Attempt to enrich with browser URL or office document
+        let (url, url_host, document_name) =
+            Self::enrich_app_context(&app_info.bundle_id, &app_info.app_name, &cache);
 
         Ok(WindowContext {
             app_name: app_info.app_name,
             window_title: app_info.window_title.unwrap_or_else(|| String::from("Unknown")),
             bundle_id: Some(app_info.bundle_id),
-            url: None,           // Enrichment (Day 2)
-            url_host: None,      // Enrichment (Day 2)
-            document_name: None, // Enrichment (Day 2)
-            file_path: None,     // Enrichment (Day 2)
+            url,
+            url_host,
+            document_name,
+            file_path: None, // File path enrichment (future enhancement)
         })
+    }
+
+    /// Enrich app context with browser URL or office document name.
+    ///
+    /// # Arguments
+    ///
+    /// * `bundle_id` - Application bundle identifier
+    /// * `app_name` - Application name
+    /// * `cache` - Enrichment cache
+    ///
+    /// # Returns
+    ///
+    /// Tuple of (url, url_host, document_name)
+    fn enrich_app_context(
+        bundle_id: &str,
+        app_name: &str,
+        cache: &EnrichmentCache,
+    ) -> (Option<String>, Option<String>, Option<String>) {
+        // Try browser URL enrichment
+        if browser::is_browser(bundle_id) {
+            // Check cache first
+            if let Some(cached_url) = cache.get_browser_url(bundle_id) {
+                tracing::trace!(bundle_id, "Using cached browser URL");
+                let url_host = Self::extract_host(&cached_url);
+                return (Some(cached_url), url_host, None);
+            }
+
+            // Fetch fresh URL
+            if let Some(url) = browser::get_browser_url_sync(bundle_id, app_name) {
+                tracing::debug!(bundle_id, url = %url, "Enriched with browser URL");
+                cache.set_browser_url(bundle_id, &url);
+                let url_host = Self::extract_host(&url);
+                return (Some(url), url_host, None);
+            }
+        }
+
+        // Try office document enrichment
+        if office::is_office_app(bundle_id) {
+            // Check cache first
+            if let Some(cached_doc) = cache.get_office_document(bundle_id) {
+                tracing::trace!(bundle_id, "Using cached office document");
+                return (None, None, Some(cached_doc));
+            }
+
+            // Fetch fresh document name
+            if let Some(doc) = office::get_office_document_sync(bundle_id, app_name) {
+                tracing::debug!(bundle_id, document = %doc, "Enriched with office document");
+                cache.set_office_document(bundle_id, &doc);
+                return (None, None, Some(doc));
+            }
+        }
+
+        // No enrichment available
+        (None, None, None)
+    }
+
+    /// Extract hostname from a URL string.
+    ///
+    /// # Arguments
+    ///
+    /// * `url_str` - URL string to parse
+    ///
+    /// # Returns
+    ///
+    /// Hostname if parsing succeeds, None otherwise
+    fn extract_host(url_str: &str) -> Option<String> {
+        Url::parse(url_str)
+            .ok()
+            .and_then(|url| url.host_str().map(String::from))
     }
 
     /// Fetch recent running apps (synchronous, called from spawn_blocking).
@@ -186,8 +277,9 @@ impl ActivityProvider for MacOsActivityProvider {
             });
         }
 
-        // Spawn blocking for active app (synchronous AX APIs)
-        let active_app = tokio::task::spawn_blocking(Self::fetch_active_app_sync)
+        // Spawn blocking for active app (synchronous AX APIs + enrichment)
+        let cache = self.cache.clone();
+        let active_app = tokio::task::spawn_blocking(move || Self::fetch_active_app_sync(cache))
             .await
             .map_err(map_join_error)??; // Flatten Result<Result<T>>
 

@@ -1,22 +1,50 @@
-//! Activity Enrichment Modules
+//! Application enrichment modules for macOS.
 //!
-//! This module will provide activity enrichment implementations for:
-//! - Browser URL capture (Chrome, Safari, Arc, Firefox, Edge, Brave)
-//! - Office document metadata (Excel, Word, PowerPoint, Acrobat, Preview)
+//! Provides specialized enrichment for different application types:
+//! - **Browser**: URL extraction from active tabs
+//! - **Office**: Document name extraction from productivity apps
+//! - **Cache**: TTL-based caching to reduce AppleScript overhead
 //!
-//! # Status
-//!
-//! **Day 2**: Browser and Office enrichers with AppleScript integration
-//!
-//! # Planned Structure
+//! # Architecture
 //!
 //! ```text
-//! enrichers/
-//! ├── mod.rs (this file)
-//! ├── browser.rs (AppleScript-based URL capture)
-//! ├── office.rs (Document metadata capture)
-//! ├── cache.rs (TTL-based enrichment cache)
-//! └── applescript_helpers.rs (AppleScript execution with timeout)
+//! ┌─────────────────────────────────────────┐
+//! │     Activity Provider                   │
+//! └──────────┬──────────────────────────────┘
+//!            │
+//!            ├──► Browser Enricher ──► Cache
+//!            │         │
+//!            │         └──► AppleScript Helpers
+//!            │
+//!            └──► Office Enricher ──► Cache
+//!                      │
+//!                      └──► AppleScript Helpers
+//! ```
+//!
+//! # Example
+//! ```rust,no_run
+//! use pulsearc_infra::platform::macos::enrichers::{
+//!     browser, office, cache::EnrichmentCache
+//! };
+//!
+//! let cache = EnrichmentCache::default();
+//!
+//! // Check cache first
+//! if let Some(url) = cache.get_browser_url("com.apple.Safari") {
+//!     println!("Cached URL: {url}");
+//! } else {
+//!     // Fetch fresh data
+//!     if let Some(url) = browser::get_browser_url_sync("com.apple.Safari", "Safari") {
+//!         cache.set_browser_url("com.apple.Safari", &url);
+//!         println!("Fresh URL: {url}");
+//!     }
+//! }
 //! ```
 
-// Placeholder for Day 2 implementation
+pub mod applescript_helpers;
+pub mod browser;
+pub mod cache;
+pub mod office;
+
+// Re-export commonly used items
+pub use cache::{EnrichmentCache, EnrichmentData, DEFAULT_ENRICHMENT_TTL};

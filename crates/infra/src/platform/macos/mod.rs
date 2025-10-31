@@ -36,10 +36,10 @@
 
 pub mod activity_provider;
 pub mod ax_helpers;
-pub mod error_helpers;
-
-// Enrichers module (stub for Day 2)
 pub mod enrichers;
+pub mod error_helpers;
+pub mod event_listener;
 
 // Re-export main types
 pub use activity_provider::MacOsActivityProvider;
+pub use event_listener::{MacOsEventListener, OsEventListener};
