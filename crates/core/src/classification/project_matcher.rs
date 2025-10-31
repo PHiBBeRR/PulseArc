@@ -10,15 +10,15 @@
 //! - Removed direct SQL queries in favor of repository trait methods
 //! - Preserved all business logic and scoring weights
 
-use crate::classification::ports::WbsRepository;
-use pulsearc_domain::{
-    classification::{AppCategory, ContextSignals, ProjectMatch},
-    types::WbsElement,
-    Result,
-};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use pulsearc_domain::classification::{AppCategory, ContextSignals, ProjectMatch};
+use pulsearc_domain::types::WbsElement;
+use pulsearc_domain::Result;
 use tracing::warn;
+
+use crate::classification::ports::WbsRepository;
 
 // Type aliases to avoid clippy type-complexity warnings
 type CandidateMap = HashMap<String, (f32, Vec<String>)>;
@@ -65,7 +65,8 @@ impl ProjectMatcher {
             }
         }
 
-        // Pre-cache only top 20 most common projects (95% memory reduction vs loading all)
+        // Pre-cache only top 20 most common projects (95% memory reduction vs loading
+        // all)
         let common = wbs_repo.load_common_projects(20)?;
 
         let mut common_projects = HashMap::new();
@@ -81,16 +82,15 @@ impl ProjectMatcher {
             common_projects.len()
         );
 
-        Ok(Self {
-            wbs_repo,
-            common_projects,
-        })
+        Ok(Self { wbs_repo, common_projects })
     }
 
-    /// Get all candidate projects that match the signals (for RulesClassifier scoring)
+    /// Get all candidate projects that match the signals (for RulesClassifier
+    /// scoring)
     ///
-    /// Returns all projects that have ANY signal match, allowing RulesClassifier
-    /// to apply sophisticated Tier 1-4 weighted scoring to determine the best match.
+    /// Returns all projects that have ANY signal match, allowing
+    /// RulesClassifier to apply sophisticated Tier 1-4 weighted scoring to
+    /// determine the best match.
     ///
     /// Strategy:
     /// 1. Exact match common projects (HashMap - fast path)
@@ -199,7 +199,8 @@ impl ProjectMatcher {
         matches
     }
 
-    /// Match signals to a WBS code/project using FTS5 search (legacy - returns single best match)
+    /// Match signals to a WBS code/project using FTS5 search (legacy - returns
+    /// single best match)
     ///
     /// Strategy:
     /// 1. Exact match common projects (HashMap - fast path)
@@ -208,8 +209,9 @@ impl ProjectMatcher {
     /// 4. FTS5 search for file paths
     /// 5. Calendar event matching (Phase 2)
     ///
-    /// NOTE: This method uses simple additive scoring. For sophisticated Tier 1-4
-    /// weighted classification, use get_candidate_projects() + RulesClassifier.
+    /// NOTE: This method uses simple additive scoring. For sophisticated Tier
+    /// 1-4 weighted classification, use get_candidate_projects() +
+    /// RulesClassifier.
     pub fn match_project(&self, signals: &ContextSignals) -> ProjectMatch {
         // Fast path: Check exact match in common_projects HashMap
         // Look for project that matches ALL keywords (not just one)
@@ -397,14 +399,14 @@ impl ProjectMatcher {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use pulsearc_domain::classification::{AppCategory, ContextSignals};
+    use pulsearc_domain::types::WbsElement;
+    use pulsearc_domain::Result as DomainResult;
+
     use super::*;
     use crate::classification::ports::WbsRepository;
-    use pulsearc_domain::{
-        classification::{AppCategory, ContextSignals},
-        types::WbsElement,
-        Result as DomainResult,
-    };
-    use std::sync::Arc;
 
     /// Mock WbsRepository for testing
     struct MockWbsRepository {

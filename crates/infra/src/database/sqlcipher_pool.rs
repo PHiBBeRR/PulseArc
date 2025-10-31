@@ -6,13 +6,14 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use pulsearc_common::storage::{
-    sqlcipher::{SqlCipherPool as CommonSqlCipherPool, SqlCipherPoolConfig},
-    StorageError,
+use pulsearc_common::storage::sqlcipher::{
+    SqlCipherPool as CommonSqlCipherPool, SqlCipherPoolConfig,
 };
+use pulsearc_common::storage::StorageError;
 use pulsearc_domain::{PulseArcError, Result as DomainResult};
 
-/// Re-export the common SQLCipher pool so callers can depend on the shared type.
+/// Re-export the common SQLCipher pool so callers can depend on the shared
+/// type.
 pub type SqlCipherPool = CommonSqlCipherPool;
 
 /// Convenience helper for creating an `Arc<SqlCipherPool>` using domain error
@@ -33,8 +34,9 @@ fn map_storage_error(err: StorageError) -> PulseArcError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn create_pool_successfully() {

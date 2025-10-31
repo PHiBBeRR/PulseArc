@@ -1,17 +1,19 @@
-//! Evidence Extractor - Extracts structured signals from snapshots for OpenAI classification
+//! Evidence Extractor - Extracts structured signals from snapshots for OpenAI
+//! classification
 //!
-//! REFACTOR-004: This module replaces internal ML-like heuristics with pure evidence collection.
-//! The app collects all relevant signals (apps, keywords, domains, VDR providers, calendar
-//! events), and OpenAI performs all classification (billable/G&A, project matching, workstream
-//! inference).
+//! REFACTOR-004: This module replaces internal ML-like heuristics with pure
+//! evidence collection. The app collects all relevant signals (apps, keywords,
+//! domains, VDR providers, calendar events), and OpenAI performs all
+//! classification (billable/G&A, project matching, workstream inference).
+
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use chrono::{TimeZone, Utc};
 use pulsearc_domain::types::classification::{
     ActivityBreakdownEvidence, BlockEvidence, EvidenceSignals, ProposedBlock,
 };
 use pulsearc_domain::{ActivityContext, ActivitySnapshot, CalendarEventRow, Result};
-use std::collections::HashSet;
-use std::sync::Arc;
 
 use crate::tracking::ports::{CalendarEventRepository, SnapshotRepository};
 
@@ -93,7 +95,8 @@ impl EvidenceExtractor {
     /// Fetch snapshots for a block
     ///
     /// Queries the repository for all snapshots in the block's time range.
-    /// Filters to only snapshots whose IDs are in the block's snapshot_ids list.
+    /// Filters to only snapshots whose IDs are in the block's snapshot_ids
+    /// list.
     ///
     /// # Arguments
     /// * `block` - ProposedBlock containing snapshot_ids and time range
@@ -141,10 +144,12 @@ impl EvidenceExtractor {
 
     /// Extract signals from snapshots
     ///
-    /// Collects all relevant signals (apps, titles, keywords, domains, VDR providers, etc.)
-    /// from the given snapshots. Uses HashSet for deduplication.
+    /// Collects all relevant signals (apps, titles, keywords, domains, VDR
+    /// providers, etc.) from the given snapshots. Uses HashSet for
+    /// deduplication.
     ///
-    /// FEATURE-029 Phase 4: Now also queries calendar events for meeting metadata.
+    /// FEATURE-029 Phase 4: Now also queries calendar events for meeting
+    /// metadata.
     ///
     /// # Arguments
     /// * `snapshots` - Snapshots to extract signals from
@@ -218,8 +223,9 @@ impl EvidenceExtractor {
         // FEATURE-029 Phase 4: Extract calendar event metadata
         if let Some(calendar_repo) = &self.calendar_repo {
             // Query all calendar events that overlap with this block
-            // We use a simple approach: query events where start < block.end and end > block.start
-            // This is a simplification - in production we'd want a more sophisticated query
+            // We use a simple approach: query events where start < block.end and end >
+            // block.start This is a simplification - in production we'd want a
+            // more sophisticated query
 
             // For now, we'll iterate through the time range and query events
             // In a real implementation, we'd have a single query method on the repository

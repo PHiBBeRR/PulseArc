@@ -57,36 +57,41 @@ pub trait ProjectMatcher: Send + Sync {
     /// * `signals` - Context signals extracted from activity snapshots
     ///
     /// # Returns
-    /// A ProjectMatch if signals match a known project, or None if no match found
+    /// A ProjectMatch if signals match a known project, or None if no match
+    /// found
     async fn match_project(&self, signals: &ContextSignals) -> Result<Option<ProjectMatch>>;
 }
 
 /// Repository for Work Breakdown Structure (WBS) cache operations
 ///
 /// Provides FTS5 full-text search for project matching and WBS metadata lookup.
-/// Used by `ProjectMatcher` for hybrid fast-path (HashMap) + slow-path (FTS5) matching.
+/// Used by `ProjectMatcher` for hybrid fast-path (HashMap) + slow-path (FTS5)
+/// matching.
 ///
 /// # Architecture
 ///
 /// The WBS cache stores enriched project metadata from SAP ERP, including:
 /// - Project definitions and WBS codes (e.g., "USC0063201", "USC0063201.1.1")
 /// - Project names and descriptions
-/// - FEATURE-029 enriched Salesforce opportunity data (deal_name, target_company, industry, etc.)
+/// - FEATURE-029 enriched Salesforce opportunity data (deal_name,
+///   target_company, industry, etc.)
 ///
 /// # Search Strategy
 ///
-/// - **Fast-path**: Substring matching against top 20 common projects (pre-loaded HashMap)
+/// - **Fast-path**: Substring matching against top 20 common projects
+///   (pre-loaded HashMap)
 /// - **Slow-path**: FTS5 full-text search with typo tolerance and BM25 ranking
 /// - **Fallback**: General & Administrative project (USC0000000.1.0)
 ///
 /// # FTS5 Search Details
 ///
-/// The `fts5_search_keyword` method searches across multiple fields using Porter stemming
-/// and typo tolerance:
+/// The `fts5_search_keyword` method searches across multiple fields using
+/// Porter stemming and typo tolerance:
 /// - `wbs_code`, `project_def`, `project_name`, `description`
 /// - `deal_name`, `target_company_name`, `counterparty`, `industry`
 ///
-/// Results are ranked by BM25 relevance and filtered to active projects (`status = 'REL'`).
+/// Results are ranked by BM25 relevance and filtered to active projects
+/// (`status = 'REL'`).
 pub trait WbsRepository: Send + Sync {
     /// Validate that WBS cache is populated with at least one active project
     ///
@@ -100,7 +105,7 @@ pub trait WbsRepository: Send + Sync {
     /// let count = wbs_repo.count_active_wbs()?;
     /// if count == 0 {
     ///     return Err(pulsearc_domain::PulseArcError::Config(
-    ///         "WBS cache is empty - run SAP sync first".into()
+    ///         "WBS cache is empty - run SAP sync first".into(),
     ///     ));
     /// }
     /// # Ok(())
@@ -113,7 +118,8 @@ pub trait WbsRepository: Send + Sync {
     /// Used to warn users if cache is stale (>24 hours old).
     ///
     /// # Returns
-    /// Unix timestamp of most recent `cached_at` value, or None if cache is empty
+    /// Unix timestamp of most recent `cached_at` value, or None if cache is
+    /// empty
     ///
     /// # Example
     /// ```no_run
@@ -148,8 +154,9 @@ pub trait WbsRepository: Send + Sync {
     /// # fn example(wbs_repo: &dyn WbsRepository) -> pulsearc_domain::Result<()> {
     /// let top_projects = wbs_repo.load_common_projects(20)?;
     /// for wbs in &top_projects {
-    ///     println!("Project: {} - {}",
-    ///         wbs.project_def,  // e.g., "USC0063201"
+    ///     println!(
+    ///         "Project: {} - {}",
+    ///         wbs.project_def, // e.g., "USC0063201"
     ///         wbs.project_name.as_deref().unwrap_or("Unnamed")
     ///     );
     /// }
@@ -160,9 +167,9 @@ pub trait WbsRepository: Send + Sync {
 
     /// FTS5 full-text search for WBS elements
     ///
-    /// Searches across `wbs_code`, `project_def`, `project_name`, `description`,
-    /// `deal_name`, `target_company_name`, `counterparty`, and `industry` fields
-    /// using Porter stemming and typo tolerance.
+    /// Searches across `wbs_code`, `project_def`, `project_name`,
+    /// `description`, `deal_name`, `target_company_name`, `counterparty`,
+    /// and `industry` fields using Porter stemming and typo tolerance.
     ///
     /// # Arguments
     /// * `keyword` - Search term (will be quoted for FTS5: `"keyword"`)
@@ -181,7 +188,8 @@ pub trait WbsRepository: Send + Sync {
     /// // Search for projects related to "stellar"
     /// let matches = wbs_repo.fts5_search_keyword("stellar", 5)?;
     /// for wbs in &matches {
-    ///     println!("Match: {} ({})",
+    ///     println!(
+    ///         "Match: {} ({})",
     ///         wbs.project_name.as_deref().unwrap_or("Unnamed"),
     ///         wbs.deal_name.as_deref().unwrap_or("No deal")
     ///     );

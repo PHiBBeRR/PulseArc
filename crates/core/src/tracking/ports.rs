@@ -93,7 +93,8 @@ pub trait SnapshotRepository: Send + Sync {
 /// Repository for querying calendar events
 ///
 /// Reuses existing CalendarEventRow from domain (no new types needed).
-/// Used by signal extractors to correlate activity snapshots with calendar events.
+/// Used by signal extractors to correlate activity snapshots with calendar
+/// events.
 #[async_trait]
 pub trait CalendarEventRepository: Send + Sync {
     /// Find calendar event overlapping with timestamp (within ±window_secs)
@@ -103,7 +104,8 @@ pub trait CalendarEventRepository: Send + Sync {
     /// * `window_secs` - Time window in seconds (±window from timestamp)
     ///
     /// # Returns
-    /// The calendar event if found, or None if no event overlaps with the time window
+    /// The calendar event if found, or None if no event overlaps with the time
+    /// window
     async fn find_event_by_timestamp(
         &self,
         timestamp: i64,

@@ -621,7 +621,8 @@ pub struct EvidenceSignals {
     /// Unique apps used (e.g., ["Excel", "Chrome", "VSCode"])
     pub apps: Vec<String>,
 
-    /// Window titles (PII-redacted, e.g., "[EMAIL] - Gmail", "Model.xlsx - Excel")
+    /// Window titles (PII-redacted, e.g., "[EMAIL] - Gmail", "Model.xlsx -
+    /// Excel")
     pub window_titles: Vec<String>,
 
     /// Keywords extracted from titles (>3 chars, lowercase)

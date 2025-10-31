@@ -1,12 +1,15 @@
 //! Domain-specific pattern extraction utilities
 //!
 //! This module provides specialized functions for extracting meaningful context
-//! from window titles and app names across different applications and platforms.
+//! from window titles and app names across different applications and
+//! platforms.
 //!
 //! # Extraction Strategies
 //!
-//! - **Delimiter-based**: Uses `PatternExtractor` for simple prefix/suffix removal
-//! - **Custom logic**: Complex patterns like Stack Overflow topics require specialized parsing
+//! - **Delimiter-based**: Uses `PatternExtractor` for simple prefix/suffix
+//!   removal
+//! - **Custom logic**: Complex patterns like Stack Overflow topics require
+//!   specialized parsing
 //! - **Keyword matching**: Technology detection uses predefined keyword lists
 //!
 //! # Examples
@@ -129,8 +132,9 @@ pub fn extract_github_issue_context(title: &str) -> String {
 ///
 /// # Note
 /// This function uses custom logic (139 lines) with complex conditional
-/// prefix stripping and pattern matching. It does not fit the simple delimiter-based
-/// PatternExtractor pattern and is kept as-is for maintainability.
+/// prefix stripping and pattern matching. It does not fit the simple
+/// delimiter-based PatternExtractor pattern and is kept as-is for
+/// maintainability.
 pub fn extract_stackoverflow_topic(title: &str) -> Option<String> {
     // Remove "- Stack Overflow" suffix
     let clean = title.split(" - Stack Overflow").next().unwrap_or(title).trim();
@@ -298,8 +302,9 @@ pub fn extract_notion_page(title: &str) -> Option<String> {
 /// Looks for "[PROJ-123]" or "PROJ-123" patterns.
 ///
 /// # Note
-/// This function uses custom logic for bracket extraction and word pattern matching
-/// with WORD-NUMBER patterns. It's kept as-is due to multiple extraction strategies.
+/// This function uses custom logic for bracket extraction and word pattern
+/// matching with WORD-NUMBER patterns. It's kept as-is due to multiple
+/// extraction strategies.
 pub fn extract_jira_ticket(title: &str) -> Option<String> {
     // Pattern: "[PROJ-123] Ticket summary" or "PROJ-123"
     if let Some(bracket_start) = title.find('[') {
@@ -363,7 +368,8 @@ pub fn extract_discord_channel(title: &str) -> Option<String> {
 ///
 /// # Note
 /// This function uses specialized path parsing logic with custom splitting
-/// and directory extraction. It's kept as-is due to complex path handling logic.
+/// and directory extraction. It's kept as-is due to complex path handling
+/// logic.
 pub fn extract_terminal_context(title: &str) -> Option<String> {
     // Common patterns: "user@host: /path" or just "/path"
     if title.contains('@') {

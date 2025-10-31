@@ -36,6 +36,5 @@ pub use tracking::ports::{
     SegmentRepository, SnapshotRepository,
 };
 pub use tracking::TrackingService;
-
 // Re-export utilities
 pub use utils::patterns;

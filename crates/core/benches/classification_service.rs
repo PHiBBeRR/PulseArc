@@ -5,9 +5,8 @@ use chrono::{TimeZone, Utc};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use pulsearc_core::classification::ports::{Classifier, TimeEntryRepository};
 use pulsearc_core::ClassificationService;
-use pulsearc_domain::{
-    types::database::ActivitySnapshot, Result as DomainResult, TimeEntry, TimeEntryParams,
-};
+use pulsearc_domain::types::database::ActivitySnapshot;
+use pulsearc_domain::{Result as DomainResult, TimeEntry, TimeEntryParams};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 

@@ -3,10 +3,11 @@
 //! Extracts context signals (keywords, URLs, file paths, calendar info)
 //! from activity snapshots for project matching.
 
-use pulsearc_domain::types::classification::{AppCategory, ContextSignals};
-use pulsearc_domain::ActivitySnapshot;
-use serde::Deserialize;
 use std::sync::Arc;
+
+use pulsearc_domain::types::classification::{AppCategory, ContextSignals};
+use pulsearc_domain::{ActivitySnapshot, CalendarEventRow};
+use serde::Deserialize;
 
 use crate::classification::ports::CalendarEventRepository;
 
@@ -133,8 +134,8 @@ impl SignalExtractor {
         }
     }
 
-    /// Extract and merge signals from multiple snapshots (for ProposedBlocks with multiple
-    /// activities)
+    /// Extract and merge signals from multiple snapshots (for ProposedBlocks
+    /// with multiple activities)
     pub async fn extract_and_merge(&self, snapshots: &[ActivitySnapshot]) -> ContextSignals {
         if snapshots.is_empty() {
             return ContextSignals::default();
@@ -352,7 +353,8 @@ impl SignalExtractor {
 
     /// Query calendar event by timestamp
     ///
-    /// Returns calendar metadata (id, attendee domains, organizer domain, external attendee flag) if found.
+    /// Returns calendar metadata (id, attendee domains, organizer domain,
+    /// external attendee flag) if found.
     async fn query_calendar_event(&self, timestamp: i64) -> Option<CalendarEventMatch> {
         let calendar_repo = self.calendar_repo.as_ref()?;
 
@@ -360,12 +362,18 @@ impl SignalExtractor {
         let time_window = 900; // 15 minutes in seconds
 
         match calendar_repo.find_event_by_timestamp(timestamp, time_window).await {
-            Ok(Some(event)) => Some(CalendarEventMatch {
-                event_id: Some(event.id),
-                attendee_domains: Vec::new(),
-                organizer_domain: event.organizer_domain,
-                has_external_attendees: event.has_external_attendees.unwrap_or(false),
-            }),
+            Ok(Some(event)) => {
+                let attendee_domains = Self::extract_attendee_domains(&event);
+                let organizer_domain = event.organizer_domain.clone();
+                let has_external_attendees = event.has_external_attendees.unwrap_or(false);
+
+                Some(CalendarEventMatch {
+                    event_id: Some(event.id),
+                    attendee_domains,
+                    organizer_domain,
+                    has_external_attendees,
+                })
+            }
             Ok(None) | Err(_) => None,
         }
     }
@@ -376,6 +384,32 @@ impl SignalExtractor {
         title_lower.contains("personal")
             || title_lower.contains("lunch")
             || title_lower.contains("break")
+    }
+
+    fn extract_attendee_domains(event: &CalendarEventRow) -> Vec<String> {
+        Self::extract_attendee_domain(event).into_iter().collect::<Vec<_>>()
+    }
+
+    fn extract_attendee_domain(event: &CalendarEventRow) -> Option<String> {
+        event
+            .organizer_domain
+            .as_deref()
+            .and_then(Self::normalize_domain)
+            .or_else(|| event.organizer_email.as_deref().and_then(Self::extract_domain_from_email))
+    }
+
+    fn normalize_domain(raw: &str) -> Option<String> {
+        let trimmed = raw.trim().trim_matches(|c| c == '<' || c == '>');
+        if trimmed.is_empty() {
+            return None;
+        }
+        Some(trimmed.to_ascii_lowercase())
+    }
+
+    fn extract_domain_from_email(email: &str) -> Option<String> {
+        let at_pos = email.rfind('@')?;
+        let domain = email.get(at_pos + 1..)?.trim();
+        Self::normalize_domain(domain)
     }
 
     /// Check if URL is personal browsing
@@ -542,6 +576,30 @@ mod tests {
         assert_eq!(signals_invalid.app_category, AppCategory::Other);
     }
 
+    #[test]
+    fn test_extract_attendee_domain_uses_explicit_domain() {
+        let event = calendar_event_fixture(Some("ClientCorp.com"), Some("host@fallback.com"));
+        let domain = SignalExtractor::extract_attendee_domain(&event);
+
+        assert_eq!(domain.as_deref(), Some("clientcorp.com"));
+    }
+
+    #[test]
+    fn test_extract_attendee_domain_falls_back_to_email() {
+        let event = calendar_event_fixture(None, Some("Presenter.Name@ClientCorp.com"));
+        let domain = SignalExtractor::extract_attendee_domain(&event);
+
+        assert_eq!(domain.as_deref(), Some("clientcorp.com"));
+    }
+
+    #[test]
+    fn test_extract_attendee_domain_rejects_invalid_email() {
+        let event = calendar_event_fixture(None, Some("invalid-email"));
+        let domain = SignalExtractor::extract_attendee_domain(&event);
+
+        assert!(domain.is_none());
+    }
+
     fn create_test_snapshot_with_timestamp(timestamp: i64) -> ActivitySnapshot {
         ActivitySnapshot {
             id: "test-snap-1".to_string(),
@@ -575,6 +633,37 @@ mod tests {
             processed_at: None,
             is_idle: false,
             idle_duration_secs: None,
+        }
+    }
+
+    fn calendar_event_fixture(
+        organizer_domain: Option<&str>,
+        organizer_email: Option<&str>,
+    ) -> CalendarEventRow {
+        CalendarEventRow {
+            id: "event-1".to_string(),
+            google_event_id: "google-event-1".to_string(),
+            user_email: "user@pulsearc.com".to_string(),
+            summary: "Weekly Sync".to_string(),
+            description: None,
+            start_ts: 1_700_000_000,
+            end_ts: 1_700_003_600,
+            is_all_day: false,
+            recurring_event_id: None,
+            parsed_project: None,
+            parsed_workstream: None,
+            parsed_task: None,
+            confidence_score: None,
+            meeting_platform: None,
+            is_recurring_series: false,
+            is_online_meeting: false,
+            has_external_attendees: None,
+            organizer_email: organizer_email.map(|s| s.to_string()),
+            organizer_domain: organizer_domain.map(|s| s.to_string()),
+            meeting_id: None,
+            attendee_count: None,
+            external_attendee_count: None,
+            created_at: 1_700_000_000,
         }
     }
 }

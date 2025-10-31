@@ -5,7 +5,6 @@
 //! the legacy crate hierarchy.
 
 use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;
 
