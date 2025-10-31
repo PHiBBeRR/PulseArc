@@ -13,6 +13,7 @@
 //! - All external dependencies via traits
 //! - Pure, testable business logic
 
+pub mod batch;
 pub mod classification;
 pub mod sync;
 pub mod tracking;
@@ -26,11 +27,12 @@ pub mod calendar_ports;
 pub mod sap_ports;
 
 // Re-export specific items to avoid ambiguity
+pub use batch::ports::{BatchRepository, DlqRepository};
 pub use classification::ports::{
     BlockRepository, Classifier, ProjectMatcher, TimeEntryRepository, WbsRepository,
 };
 pub use classification::ClassificationService;
-pub use sync::ports::OutboxQueue;
+pub use sync::ports::{IdMappingRepository, OutboxQueue, TokenUsageRepository};
 pub use tracking::ports::{
     ActivityEnricher, ActivityProvider, ActivityRepository, CalendarEventRepository,
     SegmentRepository, SnapshotRepository,

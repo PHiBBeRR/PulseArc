@@ -6,7 +6,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use pulsearc_common::error::CommonResult;
-use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot};
+use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot, CalendarEventParams};
 use pulsearc_domain::{ActivityContext, CalendarEventRow, Result};
 
 /// Trait for capturing activity from the operating system
@@ -111,4 +111,44 @@ pub trait CalendarEventRepository: Send + Sync {
         timestamp: i64,
         window_secs: i64,
     ) -> Result<Option<CalendarEventRow>>;
+
+    /// Insert a calendar event
+    ///
+    /// # Arguments
+    /// * `params` - Calendar event parameters containing all event details
+    ///
+    /// # Returns
+    /// Success or error if insertion fails
+    async fn insert_calendar_event(&self, params: CalendarEventParams) -> Result<()>;
+
+    /// Get calendar events within a time range for a specific user
+    ///
+    /// # Arguments
+    /// * `user_email` - User's email address
+    /// * `start_ts` - Start of time range (Unix epoch seconds)
+    /// * `end_ts` - End of time range (Unix epoch seconds)
+    ///
+    /// # Returns
+    /// Vector of calendar events within the specified time range
+    async fn get_calendar_events_by_time_range(
+        &self,
+        user_email: &str,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<Vec<CalendarEventRow>>;
+
+    /// Get all calendar events for today
+    ///
+    /// # Returns
+    /// Vector of today's calendar events across all users
+    async fn get_today_calendar_events(&self) -> Result<Vec<CalendarEventRow>>;
+
+    /// Delete calendar events older than the specified number of days
+    ///
+    /// # Arguments
+    /// * `days` - Number of days (events older than this will be deleted)
+    ///
+    /// # Returns
+    /// Number of events deleted
+    async fn delete_calendar_events_older_than(&self, days: i64) -> Result<usize>;
 }

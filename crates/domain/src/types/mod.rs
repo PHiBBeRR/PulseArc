@@ -11,13 +11,18 @@ pub mod stats;
 use chrono::{DateTime, Utc};
 // Re-export database types for convenience
 pub use database::{
-    AcceptPatch, ActivitySegment, ActivitySnapshot, BatchQueue, BatchStatus, CalendarEventRow,
-    CalendarSyncSettingsRow, CalendarTokenRow, ContextPart, IdMapping, OutboxStatus,
-    PrismaTimeEntryDto, Project, ProjectWithWbs, TimeEntryOutbox,
+    AcceptPatch, ActivitySegment, ActivitySnapshot, BatchQueue, BatchStatus, CalendarEventParams,
+    CalendarEventRow, CalendarSyncSettingsParams, CalendarSyncSettingsRow, CalendarTokenRow,
+    ContextPart, IdMapping, OutboxStatus, ParsedFields, PrismaTimeEntryDto, Project,
+    ProjectWithWbs, SuggestionFeedbackParams, TimeEntryOutbox, TimeRange,
 };
 pub use idle::{IdlePeriod, IdleSummary};
 pub use sap::{OutboxStatusSummary, SapSyncSettings, WbsElement};
 use serde::{Deserialize, Serialize};
+pub use stats::{
+    BatchStats, ClassificationMode, DatabaseStats, DlqBatch, OutboxStats, SyncStats, TokenUsage,
+    TokenVariance, UserCostSummary,
+};
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;
 use uuid::Uuid;

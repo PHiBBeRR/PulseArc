@@ -161,6 +161,63 @@ pub struct DlqBatch {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Token Usage & Cost Tracking */
+/* -------------------------------------------------------------------------- */
+
+/// Token usage tracking for AI classification costs.
+///
+/// # Field Invariants
+/// - Token counts are u32 (max ~4.2 billion tokens per batch)
+/// - Use u64 for aggregated totals (see UserCostSummary)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct TokenUsage {
+    pub batch_id: String,
+    pub user_id: String,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub input_tokens: u32,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub output_tokens: u32,
+    pub estimated_cost_usd: f64,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub timestamp: i64,
+}
+
+/// Aggregated user cost summary.
+///
+/// # Field Invariants
+/// - Token totals use u64 to aggregate many u32 TokenUsage records
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct UserCostSummary {
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub batch_count: i64,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub total_input_tokens: u64,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub total_output_tokens: u64,
+    pub total_cost_usd: f64,
+}
+
+/// Classification mode for AI processing
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub enum ClassificationMode {
+    OpenAI,
+    RulesOnly,
+}
+
+/// Token variance between estimated and actual usage
+#[derive(Debug, Clone)]
+pub struct TokenVariance {
+    pub input_variance_pct: f64,
+    pub output_variance_pct: f64,
+}
+
+/* -------------------------------------------------------------------------- */
 /* Backwards Compatibility Aliases */
 /* -------------------------------------------------------------------------- */
 

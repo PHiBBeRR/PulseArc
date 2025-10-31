@@ -31,7 +31,10 @@ pub use database::*;
 pub use errors::*;
 pub use http::{HttpClient, HttpClientBuilder};
 pub use instance_lock::*;
-pub use integrations::*;
+#[cfg(feature = "calendar")]
+pub use integrations::calendar;
+#[cfg(feature = "sap")]
+pub use integrations::sap;
 pub use key_manager::*;
 pub use mdm::*;
 pub use platform::*;

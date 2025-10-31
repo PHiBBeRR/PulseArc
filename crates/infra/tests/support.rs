@@ -5,6 +5,9 @@ use pulsearc_domain::{OutboxStatus, TimeEntryOutbox};
 use pulsearc_infra::database::DbManager;
 use tempfile::TempDir;
 
+type LogRecord = (Level, String);
+type LogBuffer = Vec<LogRecord>;
+
 const TEST_DB_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 /// Temporary database wrapper that keeps the underlying file alive for the
@@ -33,6 +36,12 @@ impl TestDatabase {
             .get_connection()
             .expect("connection should be available for execute_batch");
         conn.execute_batch(sql).expect("SQL batch execution should succeed");
+    }
+}
+
+impl Default for TestDatabase {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -166,7 +175,7 @@ pub struct LogHandle {
 
 impl LogHandle {
     /// Return all captured log messages.
-    pub fn entries(&self) -> Vec<(Level, String)> {
+    pub fn entries(&self) -> LogBuffer {
         let guard = self.inner.records.lock().expect("log mutex poisoned");
         guard.clone()
     }
@@ -183,7 +192,7 @@ struct TestLogger {
 }
 
 struct LoggerInner {
-    records: Mutex<Vec<(Level, String)>>,
+    records: Mutex<LogBuffer>,
 }
 
 impl Log for TestLogger {
@@ -205,8 +214,9 @@ static LOGGER: OnceLock<TestLogger> = OnceLock::new();
 /// messages.
 pub fn init_test_logger() -> LogHandle {
     let logger = LOGGER.get_or_init(|| {
-        let logger =
-            TestLogger { inner: Arc::new(LoggerInner { records: Mutex::new(Vec::new()) }) };
+        let logger = TestLogger {
+            inner: Arc::new(LoggerInner { records: Mutex::new(Vec::<LogRecord>::new()) }),
+        };
 
         if log::set_boxed_logger(Box::new(logger.clone())).is_ok() {
             log::set_max_level(LevelFilter::Trace);

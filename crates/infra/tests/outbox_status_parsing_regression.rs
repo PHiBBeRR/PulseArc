@@ -15,7 +15,6 @@ use pulsearc_domain::OutboxStatus;
 use pulsearc_infra::database::SqliteOutboxRepository;
 
 #[tokio::test]
-#[ignore] // Remove this once OutboxRepository is implemented in Phase 3A.1
 async fn test_outbox_status_parsing_handles_invalid_values() {
     let db = support::setup_outbox_db();
     let repo = SqliteOutboxRepository::new(db.manager.clone());
@@ -59,7 +58,6 @@ async fn test_outbox_status_parsing_handles_invalid_values() {
 }
 
 #[tokio::test]
-#[ignore] // Remove this once OutboxRepository is implemented
 async fn test_outbox_status_parsing_handles_valid_values() {
     let db = support::setup_outbox_db();
     let repo = SqliteOutboxRepository::new(db.manager.clone());

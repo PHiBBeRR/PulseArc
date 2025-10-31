@@ -1,6 +1,7 @@
 //! Conversions from external infrastructure errors into domain errors.
 
 use keyring::Error as KeyringError;
+use pulsearc_common::storage::error::StorageError;
 use pulsearc_domain::PulseArcError;
 use reqwest::Error as HttpError;
 use rusqlite::Error as SqlError;
@@ -174,6 +175,63 @@ impl IntoPulseArcError for HttpError {
 
 impl From<HttpError> for InfraError {
     fn from(value: HttpError) -> Self {
+        InfraError(value.into_pulsearc())
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* StorageError → PulseArcError */
+/* -------------------------------------------------------------------------- */
+
+impl IntoPulseArcError for StorageError {
+    fn into_pulsearc(self) -> PulseArcError {
+        match self {
+            StorageError::Connection(msg) => {
+                PulseArcError::Database(format!("connection error: {}", msg))
+            }
+            StorageError::Query(msg) => PulseArcError::Database(format!("query error: {}", msg)),
+            StorageError::DatabaseError(msg) => {
+                PulseArcError::Database(format!("database error: {}", msg))
+            }
+            StorageError::Encryption(msg) => {
+                PulseArcError::Security(format!("encryption error: {}", msg))
+            }
+            StorageError::Migration(msg) => {
+                PulseArcError::Database(format!("migration error: {}", msg))
+            }
+            StorageError::Keychain(msg) => {
+                PulseArcError::Security(format!("keychain error: {}", msg))
+            }
+            StorageError::WrongKeyOrNotEncrypted => {
+                PulseArcError::Security("wrong encryption key or database not encrypted".into())
+            }
+            StorageError::PoolExhausted => {
+                PulseArcError::Database("connection pool exhausted".into())
+            }
+            StorageError::Timeout(seconds) => {
+                PulseArcError::Database(format!("database timeout after {}s", seconds))
+            }
+            StorageError::InvalidConfig(msg) => {
+                PulseArcError::Config(format!("invalid config: {}", msg))
+            }
+            StorageError::SchemaVersionMismatch { expected, found } => PulseArcError::Database(
+                format!("schema version mismatch (expected {}, found {})", expected, found),
+            ),
+            StorageError::Common(common_err) => PulseArcError::Database(common_err.to_string()),
+            StorageError::Io(io_err) => PulseArcError::Database(format!("IO error: {}", io_err)),
+            StorageError::Rusqlite(sql_err) => sql_err.into_pulsearc(),
+            StorageError::R2d2(r2d2_err) => {
+                PulseArcError::Database(format!("connection pool error: {}", r2d2_err))
+            }
+            StorageError::SerdeJson(json_err) => {
+                PulseArcError::Database(format!("JSON error: {}", json_err))
+            }
+        }
+    }
+}
+
+impl From<StorageError> for InfraError {
+    fn from(value: StorageError) -> Self {
         InfraError(value.into_pulsearc())
     }
 }

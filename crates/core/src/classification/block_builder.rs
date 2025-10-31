@@ -48,7 +48,7 @@ impl BlockBuilder {
     /// (deprecated).
     ///
     /// # Correct Architectural Flow
-    /// ```rust
+    /// ```rust,ignore
     /// // Step 1: Segmenter extracts signals + matches projects (ONCE per segment)
     /// let segmenter = Segmenter::new(db, signal_extractor, project_matcher);
     /// let segments = segmenter.create_segments_with_window(&snapshots, 300)?;

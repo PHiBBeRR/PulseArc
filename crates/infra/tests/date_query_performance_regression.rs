@@ -26,12 +26,12 @@ async fn test_segment_repository_uses_index_friendly_date_queries() {
 
     {
         let conn = db.manager.get_connection().expect("connection");
-        insert_segment(&*conn, "seg-start", day_start, day_start + 300, false)
+        insert_segment(&conn, "seg-start", day_start, day_start + 300, false)
             .expect("insert start");
-        insert_segment(&*conn, "seg-end", day_end - 120, day_end - 30, false).expect("insert end");
-        insert_segment(&*conn, "seg-before", day_start - 3600, day_start - 1800, false)
+        insert_segment(&conn, "seg-end", day_end - 120, day_end - 30, false).expect("insert end");
+        insert_segment(&conn, "seg-before", day_start - 3600, day_start - 1800, false)
             .expect("insert before");
-        insert_segment(&*conn, "seg-after", day_end + 60, day_end + 120, false)
+        insert_segment(&conn, "seg-after", day_end + 60, day_end + 120, false)
             .expect("insert after");
     }
 
@@ -42,7 +42,7 @@ async fn test_segment_repository_uses_index_friendly_date_queries() {
 
     let conn = db.manager.get_connection().expect("connection");
     let mut stmt = rusqlite::Connection::prepare(
-        &*conn,
+        &conn,
         "EXPLAIN QUERY PLAN SELECT id FROM activity_segments WHERE start_ts >= ?1 AND start_ts < ?2",
     )
     .expect("prepare explain");
@@ -74,9 +74,9 @@ async fn test_snapshot_repository_uses_index_friendly_date_queries() {
 
     {
         let conn = db.manager.get_connection().expect("connection");
-        insert_snapshot(&*conn, "snap-start", day_start).expect("insert start");
-        insert_snapshot(&*conn, "snap-end", day_end - 1).expect("insert end");
-        insert_snapshot(&*conn, "snap-before", day_start - 1).expect("insert before");
+        insert_snapshot(&conn, "snap-start", day_start).expect("insert start");
+        insert_snapshot(&conn, "snap-end", day_end - 1).expect("insert end");
+        insert_snapshot(&conn, "snap-before", day_start - 1).expect("insert before");
     }
 
     let count = repo.count_snapshots_by_date(date).expect("count should succeed");
@@ -84,7 +84,7 @@ async fn test_snapshot_repository_uses_index_friendly_date_queries() {
 
     let conn = db.manager.get_connection().expect("connection");
     let mut stmt = rusqlite::Connection::prepare(
-        &*conn,
+        &conn,
         "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM activity_snapshots WHERE timestamp >= ?1 AND timestamp < ?2",
     )
     .expect("prepare explain");
@@ -114,7 +114,7 @@ async fn test_date_query_performance_under_10ms() {
     let base_date = NaiveDate::from_ymd_opt(2025, 10, 1).expect("valid base date");
     {
         let mut conn = db.manager.get_connection().expect("connection");
-        let tx = rusqlite::Connection::transaction(&mut *conn).expect("transaction");
+        let tx = rusqlite::Connection::transaction(&mut conn).expect("transaction");
         for day_offset in 0..30 {
             let current_date = base_date + Duration::days(day_offset);
             let day_start =
@@ -168,11 +168,11 @@ async fn test_date_query_correctness_at_day_boundaries() {
 
     {
         let conn = db.manager.get_connection().expect("connection");
-        insert_segment(&*conn, "seg-start", day_start, day_start + 60, false)
+        insert_segment(&conn, "seg-start", day_start, day_start + 60, false)
             .expect("insert start boundary");
-        insert_segment(&*conn, "seg-end", day_end - 1, day_end + 30, false)
+        insert_segment(&conn, "seg-end", day_end - 1, day_end + 30, false)
             .expect("insert end boundary");
-        insert_segment(&*conn, "seg-next-day", day_end, day_end + 60, false)
+        insert_segment(&conn, "seg-next-day", day_end, day_end + 60, false)
             .expect("insert next day");
     }
 

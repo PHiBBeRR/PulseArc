@@ -16,7 +16,6 @@ use pulsearc_domain::OutboxStatus;
 use pulsearc_infra::database::SqliteOutboxRepository;
 
 #[tokio::test]
-#[ignore] // Remove this once OutboxRepository is implemented in Phase 3A.1
 async fn test_outbox_retry_filter_uses_pending_status() {
     let db = support::setup_outbox_db();
     let repo = SqliteOutboxRepository::new(db.manager.clone());
@@ -52,7 +51,6 @@ async fn test_outbox_retry_filter_uses_pending_status() {
 }
 
 #[tokio::test]
-#[ignore] // Remove this once OutboxRepository is implemented
 async fn test_outbox_retry_respects_retry_after_timestamp() {
     let db = support::setup_outbox_db();
     let repo = SqliteOutboxRepository::new(db.manager.clone());

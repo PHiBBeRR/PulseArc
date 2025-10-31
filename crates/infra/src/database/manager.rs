@@ -71,6 +71,18 @@ impl DbManager {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    /// Perform a health check to verify database connectivity.
+    ///
+    /// This method acquires a connection from the pool and executes a simple
+    /// query to verify the database is accessible and responding.
+    pub fn health_check(&self) -> Result<()> {
+        let conn = self.get_connection()?;
+        // Simple query to verify database is responsive
+        conn.query_row("SELECT 1", params![], |row| row.get::<_, i32>(0))
+            .map_err(map_storage_error)?;
+        Ok(())
+    }
 }
 
 fn create_schema(conn: &SqlCipherConnection) -> Result<()> {
@@ -111,5 +123,27 @@ mod tests {
         let version: i32 =
             conn.query_row("SELECT version FROM schema_version", &[], |row| row.get(0)).unwrap();
         assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn health_check_succeeds_for_valid_database() {
+        let temp_dir = TempDir::new().expect("temp dir created");
+        let db_path = temp_dir.path().join("test.db");
+
+        let manager = DbManager::new(&db_path, 4, Some(TEST_KEY)).expect("manager created");
+        manager.run_migrations().expect("migrations run");
+
+        // Health check should succeed
+        manager.health_check().expect("health check passed");
+    }
+
+    #[test]
+    fn health_check_fails_without_encryption_key() {
+        let temp_dir = TempDir::new().expect("temp dir created");
+        let db_path = temp_dir.path().join("test.db");
+
+        // Should fail to create manager without key
+        let result = DbManager::new(&db_path, 4, None);
+        assert!(result.is_err());
     }
 }

@@ -6,12 +6,10 @@
 //! - Authorization code exchange
 //! - Token refresh
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::Serialize;
 use tokio::sync::Mutex;
 
 use super::pkce::PKCEChallenge;
@@ -149,23 +147,23 @@ impl OAuthClient {
 
         // Build authorization URL with query parameters
         let scope_string = self.config.scope_string();
-        let audience_str;
 
         let mut params = vec![
-            ("response_type", "code"),
-            ("client_id", &self.config.client_id),
-            ("redirect_uri", &self.config.redirect_uri),
-            ("scope", &scope_string),
-            ("state", &state),
-            ("code_challenge", &challenge.code_challenge),
-            ("code_challenge_method", challenge.challenge_method()),
+            ("response_type".to_string(), "code".to_string()),
+            ("client_id".to_string(), self.config.client_id.clone()),
+            ("redirect_uri".to_string(), self.config.redirect_uri.clone()),
+            ("scope".to_string(), scope_string),
+            ("state".to_string(), state.clone()),
+            ("code_challenge".to_string(), challenge.code_challenge.clone()),
+            ("code_challenge_method".to_string(), challenge.challenge_method().to_string()),
         ];
 
         // Add audience if configured (for API access)
         if let Some(audience) = &self.config.audience {
-            audience_str = audience.clone();
-            params.push(("audience", &audience_str));
+            params.push(("audience".to_string(), audience.clone()));
         }
+
+        params.extend(self.config.extra_authorize_params().iter().cloned());
 
         let query_string = params
             .iter()
@@ -217,22 +215,19 @@ impl OAuthClient {
         }
 
         // Prepare token exchange request
-        #[derive(Serialize)]
-        struct TokenRequest<'a> {
-            grant_type: &'a str,
-            client_id: &'a str,
-            code: &'a str,
-            redirect_uri: &'a str,
-            code_verifier: &'a str,
+        let mut request_body = vec![
+            ("grant_type".to_string(), "authorization_code".to_string()),
+            ("client_id".to_string(), self.config.client_id.clone()),
+            ("code".to_string(), code.to_string()),
+            ("redirect_uri".to_string(), self.config.redirect_uri.clone()),
+            ("code_verifier".to_string(), challenge.code_verifier.clone()),
+        ];
+
+        if let Some(secret) = self.config.client_secret() {
+            request_body.push(("client_secret".to_string(), secret.to_string()));
         }
 
-        let request_body = TokenRequest {
-            grant_type: "authorization_code",
-            client_id: &self.config.client_id,
-            code,
-            redirect_uri: &self.config.redirect_uri,
-            code_verifier: &challenge.code_verifier,
-        };
+        request_body.extend(self.config.extra_token_params().iter().cloned());
 
         // Execute token exchange
         let client = self
@@ -281,10 +276,17 @@ impl OAuthClient {
         }
 
         // Prepare refresh request
-        let mut params = HashMap::new();
-        params.insert("grant_type", "refresh_token");
-        params.insert("client_id", &self.config.client_id);
-        params.insert("refresh_token", refresh_token);
+        let mut params = vec![
+            ("grant_type".to_string(), "refresh_token".to_string()),
+            ("client_id".to_string(), self.config.client_id.clone()),
+            ("refresh_token".to_string(), refresh_token.to_string()),
+        ];
+
+        if let Some(secret) = self.config.client_secret() {
+            params.push(("client_secret".to_string(), secret.to_string()));
+        }
+
+        params.extend(self.config.extra_token_params().iter().cloned());
 
         // Execute refresh
         let client = self

@@ -19,6 +19,7 @@
 use pulsearc_infra::mdm::{MdmClient, MdmConfig};
 
 #[tokio::main]
+#[allow(clippy::type_complexity)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
@@ -30,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(ca_cert_path) = std::env::var("MDM_CA_CERT") {
         println!("🔐 Using CA certificate from: {}", ca_cert_path);
 
-        let client = MdmClient::with_ca_cert("https://localhost:8080/mdm/config", &ca_cert_path)?;
+        let _client = MdmClient::with_ca_cert("https://localhost:8080/mdm/config", &ca_cert_path)?;
 
         println!("✓ MDM client created with custom CA");
         println!("  URL: https://localhost:8080/mdm/config");
@@ -58,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("⚠️  Testing mode: Disabling certificate validation");
         println!("   (DO NOT use in production!)\n");
 
-        let client = MdmClient::with_insecure_tls("https://localhost:8080/mdm/config")?;
+        let _client = MdmClient::with_insecure_tls("https://localhost:8080/mdm/config")?;
 
         println!("✓ MDM client created in testing mode");
         println!("  URL: https://localhost:8080/mdm/config");

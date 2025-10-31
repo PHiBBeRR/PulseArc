@@ -391,3 +391,137 @@ pub struct CalendarEventRow {
     #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
     pub created_at: i64,
 }
+
+// ============================================================================
+// Calendar Parameter Types (for insertion/updates)
+// ============================================================================
+
+/// Time range for calendar events.
+///
+/// # Invariants
+/// - `end_ts` >= `start_ts`
+/// - Timestamps are Unix seconds (not milliseconds)
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct TimeRange {
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub start_ts: i64,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub end_ts: i64,
+    pub is_all_day: bool,
+}
+
+/// Parsed fields from calendar event title.
+///
+/// # Invariants
+/// - `confidence_score`: Range [0.0, 1.0] if present
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct ParsedFields {
+    pub project: Option<String>,
+    pub workstream: Option<String>,
+    pub task: Option<String>,
+    pub confidence_score: Option<f64>,
+}
+
+/// Parameters for inserting calendar events.
+///
+/// # Field Invariants
+/// - `when.start_ts`, `when.end_ts`: Unix timestamps in seconds (not
+///   milliseconds)
+/// - `when.end_ts` must be >= `when.start_ts`
+/// - `parsed.confidence_score`: Parsing confidence in range [0.0, 1.0]
+/// - `summary`: Event title from Google Calendar
+/// - `description`: Optional event description
+/// - `parsed.*`: Fields extracted by event title parser
+/// - `meeting_platform`: Optional meeting platform ("zoom", "google_meet",
+///   "teams", "phone")
+/// - `is_recurring_series`: True if event is part of recurring series
+/// - `is_online_meeting`: True if event has online meeting link
+/// - `has_external_attendees`: True if non-company domains present in attendees
+/// - `organizer_email`: Meeting organizer email address
+/// - `organizer_domain`: Domain extracted from organizer email
+/// - `meeting_id`: Google Meet / Teams meeting ID
+/// - `attendee_count`: Total number of attendees
+/// - `external_attendee_count`: Number of external attendees
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct CalendarEventParams {
+    pub id: String,
+    pub google_event_id: String,
+    pub user_email: String,
+    pub summary: String,
+    pub description: Option<String>,
+    pub when: TimeRange,
+    pub recurring_event_id: Option<String>,
+    pub parsed: ParsedFields,
+    // FEATURE-029 Phase 4: Meeting platform detection
+    pub meeting_platform: Option<String>,
+    pub is_recurring_series: bool,
+    pub is_online_meeting: bool,
+    // FEATURE-033 Phase 4: Attendee metadata
+    pub has_external_attendees: Option<bool>,
+    pub organizer_email: Option<String>,
+    pub organizer_domain: Option<String>,
+    pub meeting_id: Option<String>,
+    pub attendee_count: Option<i32>,
+    pub external_attendee_count: Option<i32>,
+}
+
+/// Parameters for upserting calendar sync settings.
+///
+/// # Field Invariants
+/// - `sync_interval_minutes`: Recommended range 5-1440 (5 min to 24 hours)
+/// - `min_event_duration_minutes`: Minimum event duration to sync (typically
+///   1-60)
+/// - `lookback_hours`: How far back to sync events (e.g., 168 = 1 week)
+/// - `lookahead_hours`: How far forward to sync events (e.g., 720 = 30 days)
+/// - `excluded_calendar_ids`: Comma-separated calendar IDs to exclude
+/// - `last_sync_epoch`: Unix timestamp in seconds (not milliseconds)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct CalendarSyncSettingsParams {
+    pub id: String,
+    pub user_email: String,
+    pub enabled: bool,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub sync_interval_minutes: u32,
+    pub include_all_day_events: bool,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub min_event_duration_minutes: u32,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub lookback_hours: u32,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub lookahead_hours: u32,
+    pub excluded_calendar_ids: String,
+    pub sync_token: Option<String>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number", optional))]
+    pub last_sync_epoch: Option<i64>,
+    pub idempotency_key: String,
+}
+
+/// Parameters for inserting suggestion feedback.
+///
+/// # Field Invariants
+/// - `action`: One of 'accepted', 'dismissed', 'edited', 'restored'
+/// - `edit_type`: Comma-separated field names (e.g., "project,duration")
+/// - `source`: One of 'calendar', 'ai', 'unallocated'
+/// - `confidence_before`: Range [0.0, 1.0]
+/// - `context_json`: Valid JSON string (not validated at compile time)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct SuggestionFeedbackParams {
+    pub id: String,
+    pub outbox_id: String,
+    pub action: String,
+    pub reason: Option<String>,
+    pub edit_type: Option<String>,
+    pub confidence_before: Option<f32>,
+    pub source: Option<String>,
+    pub context_json: Option<String>,
+}

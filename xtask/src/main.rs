@@ -7,10 +7,12 @@
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-mod features;
-
 use std::env;
 use std::process::{Command, ExitCode};
+
+use anyhow::anyhow;
+
+mod features;
 
 fn main() -> ExitCode {
     let task = env::args().nth(1);
@@ -122,10 +124,22 @@ fn run_prettier() -> anyhow::Result<()> {
 
 /// Run Clippy lints
 fn run_clippy() -> anyhow::Result<()> {
-    println!(
-        "Skipping Clippy (legacy workspace rules block configuration). TODO: re-enable once LEGACY-CLIPPY-CONFIG is resolved."
-    );
-    Ok(())
+    if env::var_os("XTASK_FORCE_CLIPPY").is_none() {
+        println!(
+            "Skipping Clippy (legacy workspace rules block configuration). \
+             Set XTASK_FORCE_CLIPPY=1 to run anyway. TODO: re-enable once LEGACY-CLIPPY-CONFIG is resolved."
+        );
+        return Ok(());
+    }
+
+    let status =
+        Command::new("cargo").args(["clippy", "--all-targets", "--all-features"]).status()?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Clippy run failed. See output above."))
+    }
 }
 
 /// Run all workspace tests

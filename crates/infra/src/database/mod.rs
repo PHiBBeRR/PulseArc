@@ -1,17 +1,29 @@
 //! Database implementations
 
 pub mod activity_repository;
+pub mod batch_repository;
 pub mod block_repository;
+#[cfg(feature = "calendar")]
+pub mod calendar_event_repository;
+pub mod dlq_repository;
+pub mod id_mapping_repository;
 pub mod manager;
 pub mod outbox_repository;
 pub mod repository;
 pub mod segment_repository;
 pub mod sqlcipher_pool;
+pub mod token_usage_repository;
 
 pub use activity_repository::*;
+pub use batch_repository::*;
 pub use block_repository::*;
+#[cfg(feature = "calendar")]
+pub use calendar_event_repository::*;
+pub use dlq_repository::*;
+pub use id_mapping_repository::*;
 pub use manager::*;
 pub use outbox_repository::*;
 pub use repository::*;
 pub use segment_repository::*;
 pub use sqlcipher_pool::*;
+pub use token_usage_repository::*;

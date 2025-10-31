@@ -162,6 +162,9 @@ pub struct OAuthConfig {
     /// OAuth client ID
     pub client_id: String,
 
+    /// Optional OAuth client secret (desktop apps may omit)
+    client_secret: Option<String>,
+
     /// Redirect URI (loopback for desktop apps, deep link for mobile)
     pub redirect_uri: String,
 
@@ -171,6 +174,18 @@ pub struct OAuthConfig {
     /// OAuth audience (API identifier) - Optional, used by some providers like
     /// Auth0
     pub audience: Option<String>,
+
+    /// Optional override for authorization endpoint URL
+    authorization_endpoint: Option<String>,
+
+    /// Optional override for token endpoint URL
+    token_endpoint: Option<String>,
+
+    /// Additional query parameters to append to authorization requests
+    extra_authorize_params: Vec<(String, String)>,
+
+    /// Additional form parameters to include in token requests
+    extra_token_params: Vec<(String, String)>,
 }
 
 impl OAuthConfig {
@@ -183,7 +198,73 @@ impl OAuthConfig {
         scopes: Vec<String>,
         audience: Option<String>,
     ) -> Self {
-        Self { domain, client_id, redirect_uri, scopes, audience }
+        Self {
+            domain,
+            client_id,
+            client_secret: None,
+            redirect_uri,
+            scopes,
+            audience,
+            authorization_endpoint: None,
+            token_endpoint: None,
+            extra_authorize_params: Vec::new(),
+            extra_token_params: Vec::new(),
+        }
+    }
+
+    /// Override the authorization endpoint URL.
+    pub fn set_authorization_endpoint(&mut self, endpoint: impl Into<String>) {
+        self.authorization_endpoint = Some(endpoint.into());
+    }
+
+    /// Override the token endpoint URL.
+    pub fn set_token_endpoint(&mut self, endpoint: impl Into<String>) {
+        self.token_endpoint = Some(endpoint.into());
+    }
+
+    /// Provide an optional client secret.
+    pub fn set_client_secret(&mut self, secret: Option<String>) {
+        self.client_secret = secret;
+    }
+
+    /// Append an extra query parameter to authorization requests.
+    pub fn add_authorize_param(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.extra_authorize_params.push((key.into(), value.into()));
+    }
+
+    /// Append an extra form parameter to token requests.
+    pub fn add_token_param(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.extra_token_params.push((key.into(), value.into()));
+    }
+
+    /// Get configured client secret if available.
+    #[must_use]
+    pub fn client_secret(&self) -> Option<&str> {
+        self.client_secret.as_deref()
+    }
+
+    /// Get additional authorization parameters.
+    #[must_use]
+    pub fn extra_authorize_params(&self) -> &[(String, String)] {
+        &self.extra_authorize_params
+    }
+
+    /// Get additional token parameters.
+    #[must_use]
+    pub fn extra_token_params(&self) -> &[(String, String)] {
+        &self.extra_token_params
+    }
+
+    /// Get override authorization endpoint if available.
+    #[must_use]
+    pub fn authorization_endpoint(&self) -> Option<&str> {
+        self.authorization_endpoint.as_deref()
+    }
+
+    /// Get override token endpoint if available.
+    #[must_use]
+    pub fn token_endpoint(&self) -> Option<&str> {
+        self.token_endpoint.as_deref()
     }
 
     /// Get the authorization URL
@@ -192,7 +273,10 @@ impl OAuthConfig {
     /// Override this method for providers with different URL patterns.
     #[must_use]
     pub fn authorization_url(&self) -> String {
-        format!("https://{}/authorize", self.domain)
+        match &self.authorization_endpoint {
+            Some(endpoint) => endpoint.clone(),
+            None => format!("https://{}/authorize", self.domain),
+        }
     }
 
     /// Get the token URL
@@ -201,7 +285,10 @@ impl OAuthConfig {
     /// Override this method for providers with different URL patterns.
     #[must_use]
     pub fn token_url(&self) -> String {
-        format!("https://{}/oauth/token", self.domain)
+        match &self.token_endpoint {
+            Some(endpoint) => endpoint.clone(),
+            None => format!("https://{}/oauth/token", self.domain),
+        }
     }
 
     /// Get scopes as space-separated string
@@ -466,6 +553,40 @@ mod tests {
         assert_eq!(config.authorization_url(), "https://dev-test.us.auth0.com/authorize");
         assert_eq!(config.token_url(), "https://dev-test.us.auth0.com/oauth/token");
         assert_eq!(config.scope_string(), "openid profile");
+    }
+
+    /// Validates override behaviour for OAuth configuration endpoints and
+    /// secrets.
+    ///
+    /// Assertions:
+    /// - Confirms custom authorization/token endpoints are returned.
+    /// - Confirms client secret accessor returns the configured value.
+    /// - Confirms custom parameters are appended.
+    #[test]
+    fn test_oauth_config_overrides() {
+        let mut config = OAuthConfig::new(
+            "login.example.com".to_string(),
+            "client123".to_string(),
+            "http://localhost:3000/callback".to_string(),
+            vec!["openid".to_string()],
+            None,
+        );
+
+        config.set_authorization_endpoint("https://accounts.example.com/auth");
+        config.set_token_endpoint("https://accounts.example.com/token");
+        config.set_client_secret(Some("top-secret".to_string()));
+        config.add_authorize_param("access_type", "offline");
+        config.add_token_param("resource", "calendar");
+
+        assert_eq!(config.authorization_url(), "https://accounts.example.com/auth");
+        assert_eq!(config.token_url(), "https://accounts.example.com/token");
+        assert_eq!(config.client_secret(), Some("top-secret"));
+        assert!(config
+            .extra_authorize_params()
+            .contains(&("access_type".to_string(), "offline".to_string())));
+        assert!(config
+            .extra_token_params()
+            .contains(&("resource".to_string(), "calendar".to_string())));
     }
 
     /// Validates the token response conversion scenario.

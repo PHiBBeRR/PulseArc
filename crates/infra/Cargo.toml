@@ -36,6 +36,10 @@ reqwest = { workspace = true }
 
 # OAuth
 oauth2 = { workspace = true }
+axum = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+urlencoding = { workspace = true }
 
 # Keychain
 keyring = { workspace = true }
@@ -49,6 +53,9 @@ moka = { workspace = true }
 
 # Scheduling (Phase 3D: cron-based schedulers)
 tokio-cron-scheduler = { workspace = true }
+
+# TypeScript bindings (ts-gen feature)
+ts-rs = { workspace = true, optional = true }
 
 # macOS Platform APIs (optional, only on macOS)
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -64,12 +71,15 @@ io-kit-sys = "0.4"
 tempfile = { workspace = true }
 wiremock = { workspace = true }  # Phase 3A.3: HTTP client testing
 once_cell = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [features]
 default = []
-calendar = []
+calendar = ["pulsearc-core/calendar"]
 sap = []
 tree-classifier = []
 ml = ["tree-classifier"]
 graphql = []
 audit-compliance = []
+test-utils = []
+ts-gen = ["ts-rs"]

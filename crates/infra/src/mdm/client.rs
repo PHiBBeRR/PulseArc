@@ -101,7 +101,7 @@ impl MdmClient {
     /// #[cfg(test)]
     /// let client = MdmClient::with_insecure_tls("https://localhost:8080/config").unwrap();
     /// ```
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-utils"))]
     pub fn with_insecure_tls(config_url: impl Into<String>) -> MdmResult<Self> {
         let config_url = config_url.into();
 
