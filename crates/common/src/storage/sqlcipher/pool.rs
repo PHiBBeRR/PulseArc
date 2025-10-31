@@ -176,6 +176,8 @@ impl SqlCipherPool {
 
         // Check circuit breaker before attempting connection
         if !self.circuit_breaker.can_execute() {
+            // Record as connection error since this is still a failed connection attempt
+            self.metrics.record_connection_error();
             warn!("Circuit breaker open, rejecting connection request");
             return Err(StorageError::Connection(
                 "Circuit breaker open - connection pool temporarily unavailable".to_string(),
