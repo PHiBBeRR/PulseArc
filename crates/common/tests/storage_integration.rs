@@ -660,6 +660,7 @@ fn test_schema_version_mismatch_error() {
 /// Assertions:
 /// - Ensures `metrics.connections_timeout > 0 || metrics.connections_error > 0`
 ///   evaluates to true.
+/// - Ensures total failures >= expected threshold for circuit breaker
 /// Validates that circuit breaker opens after consecutive failures within the
 /// storage integration workflow.
 #[test]
@@ -668,7 +669,8 @@ fn test_circuit_breaker_opens_on_failures() {
 
     let config = SqlCipherPoolConfig {
         max_size: 1,
-        connection_timeout: Duration::from_millis(100),
+        // Use longer timeout to be more reliable in CI environments
+        connection_timeout: Duration::from_millis(500),
         ..Default::default()
     };
 
@@ -677,15 +679,47 @@ fn test_circuit_breaker_opens_on_failures() {
     // Hold the only connection to cause timeouts
     let _held_conn = pool.get_connection().unwrap();
 
+    // Get initial metrics to track changes
+    let initial_metrics = ConnectionPool::metrics(&pool);
+    let initial_timeouts = initial_metrics.connections_timeout;
+    let initial_errors = initial_metrics.connections_error;
+
     // Attempt multiple connections to trigger circuit breaker
-    for _ in 0..10 {
-        let _ = pool.get_connection();
+    // Circuit breaker opens after 5 failures (see pool.rs line 147)
+    // Try 10 times to ensure we trigger it
+    for i in 0..10 {
+        let result = pool.get_connection();
+        assert!(result.is_err(), "Connection attempt {} should fail", i);
+
+        // Small delay to avoid tight loop timing issues in CI
+        std::thread::sleep(Duration::from_millis(10));
     }
 
-    // Eventually should get circuit breaker error
-    // (exact behavior depends on circuit breaker config)
-    let metrics = ConnectionPool::metrics(&pool);
-    assert!(metrics.connections_timeout > 0 || metrics.connections_error > 0);
+    // Check metrics - should have recorded failures
+    let final_metrics = ConnectionPool::metrics(&pool);
+    let total_timeouts = final_metrics.connections_timeout - initial_timeouts;
+    let total_errors = final_metrics.connections_error - initial_errors;
+    let total_failures = total_timeouts + total_errors;
+
+    // Should have at least some failures recorded
+    // With 10 attempts and circuit breaker opening after 5 failures:
+    // - First ~5 attempts should timeout (pool exhausted)
+    // - Remaining attempts should hit circuit breaker (recorded as errors)
+    assert!(
+        total_failures >= 5,
+        "Expected at least 5 failures (got {} timeouts + {} errors = {} total)",
+        total_timeouts,
+        total_errors,
+        total_failures
+    );
+
+    // Verify at least one of the failure types was recorded
+    assert!(
+        total_timeouts > 0 || total_errors > 0,
+        "Expected either timeouts or errors to be recorded (got {} timeouts, {} errors)",
+        total_timeouts,
+        total_errors
+    );
 }
 
 // ============================================================================
