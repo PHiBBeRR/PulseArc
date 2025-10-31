@@ -595,17 +595,124 @@ pub trait OutboxQueue: Send + Sync {
 **Completion Date**: October 31, 2025
 **Status**: Ready for Phase 2! 🚀
 
-### Phase 2: Core Business Logic (Week 2)
+### Phase 2: Core Business Logic (Week 2) 🔄 **IN PROGRESS**
 **Goal**: Migrate pure business logic
+**Started**: October 31, 2025
 
-1. Move `utils/patterns.rs` → `core/src/utils/patterns.rs` (domain-specific extraction)
-2. Move `tracker/core.rs` → `core/src/tracking/service.rs`
-3. Move `preprocess/segmenter.rs` → `core/src/tracking/segmenter.rs`
-4. Move `inference/block_builder.rs` → `core/src/classification/block_builder.rs`
-5. Move `inference/signals.rs` → `core/src/classification/signals.rs`
-6. Move `inference/evidence_extractor.rs` → `core/src/classification/evidence.rs`
+**Architectural Decisions (Applied):**
+- ✅ **Async conversion**: Converting all legacy sync code to async to match existing core ports
+- ✅ **Service integration**: Merging business logic into existing `TrackingService` and `ClassificationService` (not parallel modules)
+- ✅ **Database refactoring**: All database access via repository ports (no `DbManager` in core)
+- ✅ **Calendar types**: Reusing existing `CalendarEventRow` from domain (no new types needed)
+- ✅ **Error consistency**: Using `pulsearc_domain::Result` across all ports (not mixing with `CommonResult`)
+- ✅ **Project matcher inclusion**: Including project_matcher in Phase 2 (dependency of block_builder)
 
-**Validation**: Core tests pass with mock port implementations
+**Completed Foundation Work:**
+1. ✅ Added `CalendarEventRepository` port to `tracking/ports.rs` (returns `CalendarEventRow`)
+2. ✅ Added `ProjectMatcher` port to `classification/ports.rs` (uses `pulsearc_domain::Result`)
+3. ✅ Created `core/src/utils/` module structure
+4. ✅ Migrated `utils/patterns.rs` → `core/src/utils/patterns.rs` (485 lines, 17 tests, updated imports)
+5. ✅ Added dependencies to `core/Cargo.toml` (log, ahash, url, lazy_static)
+6. ✅ Updated `core/src/lib.rs` with utils module and new port re-exports
+7. ✅ Verified compilation: `cargo check -p pulsearc-core` passes
+
+**Remaining Business Logic Migrations (~6553 lines total):**
+
+1. ⏳ **`inference/signals.rs`** (692 lines, 16 tests) → `core/src/classification/signal_extractor.rs`
+   - **Priority**: HIGH (dependency for block_builder)
+   - **Public API**: 5 methods (`new()`, `with_db()`, `extract()`, `extract_and_merge()`, `merge_signals()`)
+   - **Refactoring needed**:
+     - Replace `Arc<DbManager>` with `Option<Arc<dyn CalendarEventRepository>>`
+     - Convert `query_calendar_event()` from sync to async, use repository port
+     - Update to return `CalendarEventRow`, extract fields in caller
+     - Convert `ActivityContext` deserialization to use `pulsearc_domain::ActivityContext`
+   - **Constructor change**: `with_calendar_repo(repo: Arc<dyn CalendarEventRepository>)`
+   - **Async conversion**: All 5 public methods need `async fn`
+
+2. ⏳ **`inference/evidence_extractor.rs`** (488 lines, 7 tests) → `core/src/classification/evidence_extractor.rs`
+   - **Priority**: HIGH (dependency for block_builder)
+   - **Public API**: 1 method (`extract_evidence()`)
+   - **Refactoring needed**:
+     - Replace `Arc<DbManager>` with `Arc<dyn SnapshotRepository>` + `Option<Arc<dyn CalendarEventRepository>>`
+     - Convert `fetch_snapshots_for_block()` to async with repository call
+     - Convert `extract_signals_from_snapshots()` to async (uses calendar repo)
+     - Use domain types: `ProposedBlock`, `ActivitySnapshot`, `EvidenceSignals`
+   - **Async conversion**: All methods
+
+3. ⏳ **`inference/project_matcher.rs`** (1146 lines) → `core/src/classification/project_matcher.rs`
+   - **Priority**: HIGH (dependency for block_builder)
+   - **Complexity**: Very high (FTS5 full-text search, WBS cache)
+   - **Public API**: 2 methods (`new()`, `get_candidate_projects()`)
+   - **Refactoring needed**:
+     - Replace `Arc<DbManager>` with `Arc<dyn WbsRepository>` (NEW PORT NEEDED)
+     - Implement `ProjectMatcher` port trait (`match_project()` method)
+     - Keep FTS5 search logic, expose via repository
+     - Convert HashMap caching to async-safe structure
+   - **NEW PORT**: Need to add `WbsRepository` trait to classification/ports.rs
+   - **Async conversion**: All methods
+
+4. ⏳ **`inference/block_builder.rs`** (~2800 lines, many tests) → merge into `ClassificationService`
+   - **Priority**: MEDIUM (depends on above 3)
+   - **Complexity**: Very high (orchestration logic)
+   - **Public API**: 3 main methods (`build_daily_blocks_from_segments()`, `propose_block_for_selection()`, `finalize_block_from_segments()`)
+   - **Refactoring needed**:
+     - Inject `SignalExtractor` and `ProjectMatcher` via `ClassificationService` constructor
+     - Convert all merge logic to async
+     - Preserve 3-case merge algorithm (same project+workstream, same project, same app)
+     - Preserve duration-weighted metrics calculations
+     - Preserve half-open time range semantics `[start, end)`
+   - **Async conversion**: All methods
+   - **Testing**: Many unit tests need async conversion
+
+5. ⏳ **`preprocess/segmenter.rs`** (1127 lines, 31 tests) → merge into `TrackingService`
+   - **Priority**: MEDIUM
+   - **Status**: Already uses `SegmentRepository` port (Phase 0 complete)
+   - **Public API**: 8 methods (create, save, generate dictionary)
+   - **Refactoring needed**:
+     - Add methods to `TrackingService` (not separate module)
+     - Convert sync repository calls to async (add `.await`)
+     - Keep all business logic (5-minute windowing, gap detection, midnight boundaries)
+   - **Async conversion**: All methods, simple (just add async/await)
+
+6. ⏳ **`tracker/core.rs`** → extract equality logic into `TrackingService`
+   - **Priority**: LOW (pure utility functions)
+   - **Scope**: ~50 lines total
+   - **Extract**:
+     - `contexts_equal(a, b) -> bool`
+     - `contexts_equal_with_mode(a, b, mode) -> bool`
+     - `EqualityMode` enum (Strict, Relaxed)
+   - **Skip**: All infra code (RefresherState, threading, Tauri, macOS NSWorkspace)
+   - **No async needed**: Pure comparison functions
+
+**Remaining Test Migration:**
+- ⏳ Port 71+ unit tests to `core/tests/` with async mocks:
+  - 16 signal extractor tests → `core/tests/classification/signal_extractor_tests.rs`
+  - 7 evidence extractor tests → `core/tests/classification/evidence_extractor_tests.rs`
+  - 31 segmenter tests → `core/tests/tracking/segmenter_tests.rs`
+  - Block builder tests → `core/tests/classification/block_builder_tests.rs`
+  - Context equality tests → `core/tests/tracking/equality_tests.rs`
+- ⏳ Create shared test utilities in `core/tests/common/mod.rs`
+- ⏳ Run `cargo test -p pulsearc-core --all-features` and verify all pass
+
+**Critical Blockers for Continuing:**
+1. **WbsRepository port missing**: project_matcher.rs requires a new `WbsRepository` trait for FTS5 search and WBS cache access
+2. **Large scope**: ~6553 lines of complex business logic remaining with async conversions
+3. **Test complexity**: Need async test infrastructure with mock repositories
+
+**Recommended Next Steps:**
+1. Add `WbsRepository` trait to `classification/ports.rs` (FTS5 search + cache methods)
+2. Migrate signal_extractor.rs (smallest, fewest dependencies)
+3. Migrate evidence_extractor.rs (uses signal_extractor)
+4. Migrate project_matcher.rs (complex, implements port trait)
+5. Migrate block_builder.rs (largest, depends on all above)
+6. Merge segmenter into TrackingService (straightforward async conversion)
+7. Extract tracker equality logic (simple utility functions)
+8. Port all tests with async mocks
+9. Full validation with `cargo test`
+
+**Status**: ✅ Foundation complete (ports + utils + deps). ⏳ Core business logic migrations remaining (~6500 lines).
+
+**Validation**: ✅ Core compilation passes. ⏳ Full validation pending business logic migration completion.
 
 ### Phase 3: Infrastructure Adapters (Week 3-4)
 **Goal**: Implement all port adapters

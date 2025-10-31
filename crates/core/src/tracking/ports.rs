@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use pulsearc_common::error::CommonResult;
 use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot};
-use pulsearc_domain::{ActivityContext, Result};
+use pulsearc_domain::{ActivityContext, CalendarEventRow, Result};
 
 /// Trait for capturing activity from the operating system
 #[async_trait]
@@ -88,4 +88,25 @@ pub trait SnapshotRepository: Send + Sync {
 
     /// Count snapshots for a given date
     fn count_snapshots_by_date(&self, date: NaiveDate) -> CommonResult<usize>;
+}
+
+/// Repository for querying calendar events
+///
+/// Reuses existing CalendarEventRow from domain (no new types needed).
+/// Used by signal extractors to correlate activity snapshots with calendar events.
+#[async_trait]
+pub trait CalendarEventRepository: Send + Sync {
+    /// Find calendar event overlapping with timestamp (within ±window_secs)
+    ///
+    /// # Arguments
+    /// * `timestamp` - Unix epoch timestamp to search around
+    /// * `window_secs` - Time window in seconds (±window from timestamp)
+    ///
+    /// # Returns
+    /// The calendar event if found, or None if no event overlaps with the time window
+    async fn find_event_by_timestamp(
+        &self,
+        timestamp: i64,
+        window_secs: i64,
+    ) -> Result<Option<CalendarEventRow>>;
 }

@@ -18,9 +18,19 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+log = { workspace = true }
 
 # Async support
 async-trait = "0.1"
+
+# Pattern extraction utilities
+lazy_static = "1.4"
+
+# Fast hashing for block_builder
+ahash = "0.8"
+
+# URL parsing for signal extraction
+url = "2.5"
 
 [features]
 calendar = []

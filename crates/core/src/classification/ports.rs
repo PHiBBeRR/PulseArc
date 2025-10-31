@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use pulsearc_domain::types::classification::ProposedBlock;
+use pulsearc_domain::types::classification::{ContextSignals, ProjectMatch, ProposedBlock};
 use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
 /// Trait for classifying activities into time entries
@@ -40,4 +40,20 @@ pub trait BlockRepository: Send + Sync {
 
     /// Get proposed blocks for a specific date
     async fn get_proposed_blocks(&self, date: NaiveDate) -> Result<Vec<ProposedBlock>>;
+}
+
+/// Trait for matching activity signals to projects
+///
+/// Analyzes context signals extracted from activity snapshots and matches them
+/// to known projects based on keywords, URLs, file paths, and other signals.
+#[async_trait]
+pub trait ProjectMatcher: Send + Sync {
+    /// Match activity signals to a project
+    ///
+    /// # Arguments
+    /// * `signals` - Context signals extracted from activity snapshots
+    ///
+    /// # Returns
+    /// A ProjectMatch if signals match a known project, or None if no match found
+    async fn match_project(&self, signals: &ContextSignals) -> Result<Option<ProjectMatch>>;
 }
