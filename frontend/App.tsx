@@ -1,11 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TooltipProvider } from './shared/components/ui/tooltip';
 import { ActivityTrackerView } from './features/activity-tracker';
 import { CompactQuickEntry } from './features/time-entry';
 import { MainTimer } from './features/timer';
 import './globals.css';
 import { ThemeProvider } from './shared/components/layout';
+import { TooltipProvider } from './shared/components/ui/tooltip';
 import { projectCache } from './shared/services';
 import { TauriAPI, TauriEvents } from './shared/services/ipc';
 

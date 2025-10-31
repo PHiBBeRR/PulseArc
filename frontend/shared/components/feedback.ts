@@ -5,8 +5,8 @@
 export { CompactErrorAlert } from './ui/compact-error-alert';
 export { ErrorMessage } from './ui/error-message';
 export { InWidgetNotification } from './ui/in-widget-notification';
-export { LoadingSpinner } from './ui/loading-spinner';
 export type { Notification, NotificationType } from './ui/in-widget-notification';
+export { LoadingSpinner } from './ui/loading-spinner';
 
 // From Layout components (skeletons and empty states)
 export { CompactEmptyState } from './layout/CompactEmptyState';

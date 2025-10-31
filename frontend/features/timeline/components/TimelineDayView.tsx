@@ -1,10 +1,10 @@
+import { TimelineEntrySkeleton } from '@/shared/components/feedback';
 import { Button } from '@/shared/components/ui/button';
 import { Calendar } from '@/shared/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { ScrollArea, ScrollBar } from '@/shared/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { TooltipProvider } from '@/shared/components/ui/tooltip';
-import { TimelineEntrySkeleton } from '@/shared/components/feedback';
 import { formatTimeString } from '@/shared/utils/timeFormat';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, GripHorizontal } from 'lucide-react';

@@ -1,3 +1,4 @@
+import { ErrorMessage, LoadingSpinner } from '@/shared/components';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -7,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
-import { ErrorMessage, LoadingSpinner } from '@/shared/components';
 import { Calendar, MoreHorizontal, Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 import { useEntryStore } from '../stores';

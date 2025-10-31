@@ -1,3 +1,4 @@
+import { EntriesListSkeleton, ErrorMessage, InWidgetNotification } from '@/shared/components';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -10,8 +11,12 @@ import { Input } from '@/shared/components/ui/input';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { EntriesListSkeleton, ErrorMessage, InWidgetNotification } from '@/shared/components';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip';
 import { useInWidgetNotification } from '@/shared/hooks';
 import { haptic, quickConfetti } from '@/shared/utils';
 import { listen } from '@tauri-apps/api/event';

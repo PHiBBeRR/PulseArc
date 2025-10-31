@@ -1,4 +1,9 @@
 import { InWidgetNotification } from '@/shared/components/feedback';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Calendar } from '@/shared/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { useInWidgetNotification } from '@/shared/hooks';
 import type { ProposedBlock } from '@/shared/types/generated';
 import { celebrateWithConfetti, haptic } from '@/shared/utils';
@@ -16,11 +21,6 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Calendar } from '@/shared/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
-import { ScrollArea } from '@/shared/components/ui/scroll-area';
 
 type BuildMyDayViewProps = {
   onBack: () => void;

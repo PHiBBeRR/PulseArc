@@ -1,9 +1,16 @@
 // Phase 2 & 3: SAP Settings Component
 // Manage SAP S/4HANA connection, authentication, and sync settings
 
+import { OutboxStatusComponent } from '@/features/timer/components/OutboxStatus';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -14,7 +21,6 @@ import {
 import { Separator } from '@/shared/components/ui/separator';
 import { Switch } from '@/shared/components/ui/switch';
 import { cn } from '@/shared/components/ui/utils';
-import { OutboxStatusComponent } from '@/features/timer/components/OutboxStatus';
 import type { SapSyncSettings } from '@/shared/types/generated/SapSyncSettings';
 import { CheckCircle, Loader2, LogIn, LogOut, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
