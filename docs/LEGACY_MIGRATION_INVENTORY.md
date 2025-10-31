@@ -1,8 +1,46 @@
 # Legacy Code Migration Inventory
 
-**Generated**: October 31, 2025  
-**Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration  
-**Status**: DRAFT - Awaiting Review
+**Generated**: October 30, 2025
+**Last Updated**: October 30, 2025 (Post-Critical Review)
+**Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration
+**Status**: ⚠️ BLOCKED - Critical issues require refactoring before Phase 1
+
+---
+
+## ⚠️ CRITICAL ISSUES - MUST RESOLVE BEFORE MIGRATION
+
+### Blockers Requiring Immediate Action
+
+Several modules classified as `domain` or `core` contain **side effects** that violate layered architecture rules. These must be refactored or reclassified before Phase 1 can begin.
+
+**Critical Reclassifications:**
+1. ❌ `shared/config.rs` (line 82) → **Cannot move to domain** (reads env vars, filesystem)
+2. ❌ `observability/errors/app.rs` (line 169) → **Split required** (domain types + infra conversions)
+3. ❌ `integrations/sap/errors.rs` (line 147) → **Move to infra** (wraps reqwest::Error)
+4. ❌ `integrations/sap/validation.rs` (line 148) → **Move to infra** (uses DbManager)
+5. ❌ `preprocess/segmenter.rs` (line 103) → **Refactor required** (raw DB calls)
+6. ❌ `inference/batch_classifier.rs` (line 121) → **Move to infra** (DbManager + Tauri)
+
+**Feature Flag Mismatch:**
+- Inventory documents `calendar`, `sap`, `ml` features
+- Actual Cargo.toml only defines `tree-classifier`, `graphql`
+- Either rename docs or add missing feature declarations
+
+**Decision Required:** Split or reclassify these modules before beginning Phase 1.
+
+### Quick Reference: Blockers by Action Required
+
+| Module | Action | Effort | Blocker Type |
+|--------|--------|--------|--------------|
+| `shared/config.rs` | Split (types → domain, loader → infra) | Medium | Side Effects |
+| `observability/errors/app.rs` | Split (types → domain, conversions → infra) | Medium | Infra Dependencies |
+| `preprocess/segmenter.rs` | Refactor (add repository port) | High | Direct DB Access |
+| `inference/batch_classifier.rs` | Reclassify (→ infra) | Low | Side Effects |
+| `integrations/sap/errors.rs` | Reclassify (→ infra) | Low | Transport Coupling |
+| `integrations/sap/validation.rs` | Reclassify (→ infra) | Low | DB Access |
+| Feature flags (`calendar`, `sap`, `ml`) | Add to Cargo.toml | Low | Missing Declarations |
+
+**Total Effort Estimate**: 1 week (5-8 business days)
 
 ---
 
@@ -25,6 +63,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 - Configuration types
 - Domain errors
 - Constants
+- Pure utility functions (string helpers, generic extractors)
 
 ### Core (`pulsearc-core`)
 **Criteria**: Business logic, hexagonal ports (traits), use cases
@@ -32,6 +71,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 - Port trait definitions
 - Business rule validation
 - Domain event handling
+- Domain-specific utilities (e.g., platform-specific extraction rules)
 
 ### Infra (`pulsearc-infra`)
 **Criteria**: Port implementations, all side effects
@@ -76,11 +116,11 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | **Shared Types & Config** |
 | `shared/types/mod.rs` | `domain` | `domain/src/types/activity.rs` | ✅ Priority 1 | ActivityContext, WindowContext, WorkType, ActivityCategory |
 | `shared/types/stats.rs` | `domain` | `domain/src/types/stats.rs` | ✅ Priority 1 | BatchStats, statistics types |
-| `shared/config.rs` | `domain` | `domain/src/config/app_config.rs` | ✅ Priority 1 | AppConfig, DatabaseConfig, TrackingConfig |
+| `shared/config.rs` | ❌ **BLOCKED** | **SPLIT REQUIRED** | ⚠️ Refactor | Config **structs** → domain; `from_env()` + filesystem I/O → infra loader |
 | `shared/constants/mod.rs` | `domain` | `domain/src/constants.rs` | ✅ Priority 1 | Application constants |
 | `shared/auth/` | `infra` | `infra/src/auth/` | ⚠️ Priority 3 | OAuth implementation (feature-gated) |
 | `shared/cache.rs` | **`common`** | N/A | ❌ Excluded | Use `pulsearc_common::cache` instead |
-| `shared/extractors/pattern.rs` | `core` | `core/src/utils/pattern.rs` | ✅ Priority 2 | Pure pattern matching logic |
+| `shared/extractors/pattern.rs` | `domain` | `domain/src/utils/pattern_extractor.rs` | ✅ Priority 1 | Pure utility builder (no business logic) |
 | **Tracker & Activity Provider** |
 | `tracker/core.rs` | `core` | `core/src/tracking/service.rs` | ✅ Priority 1 | TrackingService business logic |
 | `tracker/provider.rs` | `core` | `core/src/tracking/ports.rs` | ✅ Priority 1 | `ActivityProvider` trait definition |
@@ -97,7 +137,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `tracker/idle/types.rs` | `domain` | `domain/src/types/idle.rs` | ✅ Priority 1 | Idle-related types |
 | `tracker/idle/lock_detection.rs` | `infra` | `infra/src/platform/macos/lock_detection.rs` | ✅ Priority 2 | Platform-specific lock detection |
 | **Preprocessing** |
-| `preprocess/segmenter.rs` | `core` | `core/src/tracking/segmenter.rs` | ✅ Priority 2 | Activity segmentation logic (if pure) |
+| `preprocess/segmenter.rs` | ❌ **BLOCKED** | **REFACTOR REQUIRED** | ⚠️ Refactor | Currently uses `LocalDatabase` + raw rusqlite; needs `SegmentRepository` port first |
 | `preprocess/trigger.rs` | `core` | `core/src/tracking/trigger.rs` | ✅ Priority 2 | Trigger logic |
 | `preprocess/redact.rs` | `core` | `core/src/privacy/redactor.rs` | ✅ Priority 2 | PII redaction logic |
 | **Inference & Classification** |
@@ -115,11 +155,11 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `inference/training_data_exporter.rs` | `infra` | `infra/src/ml/training_exporter.rs` | ⚠️ Priority 3 | Feature-gated: ml |
 | `inference/weights_config.rs` | `domain` | `domain/src/config/weights_config.rs` | ⚠️ Priority 2 | Feature-gated: ml |
 | `inference/metrics.rs` | `infra` | `infra/src/ml/metrics.rs` | ⚠️ Priority 3 | Feature-gated: ml |
-| `inference/batch_classifier.rs` | `core` | `core/src/classification/batch_classifier.rs` | ✅ Priority 2 | Batch classification orchestration |
+| `inference/batch_classifier.rs` | ❌ **BLOCKED** | `infra/src/classification/batch_classifier.rs` | ⚠️ Reclassify | Uses `DbManager` + `tauri::Emitter` (side effects) → belongs in infra |
 | `inference/scheduler.rs` | `infra` | `infra/src/scheduling/block_scheduler.rs` | ✅ Priority 3 | Scheduler implementation |
 | `inference/classification_scheduler.rs` | `infra` | `infra/src/scheduling/classification_scheduler.rs` | ✅ Priority 3 | Classification scheduler |
 | `inference/timezone_utils.rs` | **`common`** | N/A | ❌ Excluded | Use `pulsearc_common::time` instead |
-| `inference/openai_types.rs` | `domain` | `domain/src/types/openai.rs` | ✅ Priority 2 | OpenAI API types |
+| `inference/openai_types.rs` | `infra` | `infra/src/integrations/openai/types.rs` | ✅ Priority 2 | OpenAI adapter DTOs (map to domain types in adapter) |
 | **Detection Packs** |
 | `detection/default.rs` | `core` | `core/src/detection/default.rs` | ✅ Priority 2 | Default detection logic |
 | `detection/enrichers/browser.rs` | `infra` | `infra/src/platform/enrichers/browser.rs` | ✅ Priority 2 | Browser enrichment (platform-specific) |
@@ -141,8 +181,8 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `integrations/sap/health_monitor.rs` | `infra` | `infra/src/integrations/sap/health.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/scheduler.rs` | `infra` | `infra/src/integrations/sap/scheduler.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/models.rs` | `domain` | `domain/src/types/sap.rs` | ⚠️ Priority 1 | Feature-gated: sap |
-| `integrations/sap/errors.rs` | `domain` | `domain/src/errors/sap_error.rs` | ⚠️ Priority 1 | Feature-gated: sap |
-| `integrations/sap/validation.rs` | `core` | `core/src/integrations/sap_validation.rs` | ⚠️ Priority 2 | Feature-gated: sap |
+| `integrations/sap/errors.rs` | ❌ **BLOCKED** | `infra/src/integrations/sap/errors.rs` | ⚠️ Reclassify | Wraps `reqwest::Error` directly → transport-specific, belongs in infra |
+| `integrations/sap/validation.rs` | ❌ **BLOCKED** | `infra/src/integrations/sap/validation.rs` | ⚠️ Reclassify | Uses `DbManager` + `WbsCache` (DB access) → belongs in infra |
 | **HTTP** |
 | `http/client.rs` | `infra` | `infra/src/http/client.rs` | ✅ Priority 2 | HTTP client implementation |
 | `http/graphql.rs` | `infra` | `infra/src/http/graphql.rs` | ⚠️ Priority 3 | Feature-gated: graphql |
@@ -163,7 +203,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `sync/cleanup.rs` | `infra` | `infra/src/sync/cleanup.rs` | ✅ Priority 3 | Cleanup logic |
 | **Observability** |
 | `observability/metrics/**/*.rs` | `infra` | `infra/src/observability/metrics/` | ✅ Priority 3 | Metrics collection |
-| `observability/errors/app.rs` | `domain` | `domain/src/errors/app_error.rs` | ✅ Priority 1 | Application errors |
+| `observability/errors/app.rs` | ❌ **BLOCKED** | **SPLIT REQUIRED** | ⚠️ Refactor | Error **types** → domain; `From<rusqlite>`, `From<reqwest>`, `From<keyring>` → infra conversions |
 | `observability/datadog.rs` | `infra` | `infra/src/observability/datadog.rs` | ❌ Priority 4 | External observability (optional) |
 | **Commands (API Layer)** |
 | `commands/blocks.rs` | `api` | `api/src/commands/blocks.rs` | ✅ Priority 4 | Tauri command handlers |
@@ -177,10 +217,146 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `commands/window.rs` | `api` | `api/src/commands/window.rs` | ✅ Priority 4 | Window commands |
 | `commands/seed_snapshots.rs` | ❌ **EXCLUDED** | N/A | ❌ Excluded | Test/seed data utility |
 | **Utilities** |
-| `utils/patterns.rs` | `core` | `core/src/utils/patterns.rs` | ✅ Priority 2 | Pure pattern utilities |
-| `utils/title.rs` | `core` | `core/src/utils/title.rs` | ✅ Priority 2 | Title parsing |
+| `utils/patterns.rs` | `core` | `core/src/utils/patterns.rs` | ✅ Priority 2 | Domain-specific extraction rules (uses PatternExtractor) |
+| `utils/title.rs` | `domain` | `domain/src/utils/title.rs` | ✅ Priority 1 | Pure string helpers (delimiter splitting, truncation) |
 | **Tooling** |
 | `tooling/macros/status_enum.rs` | **`common`** | N/A | ❌ Excluded | Use `pulsearc_common::impl_status_conversions!` macro |
+
+---
+
+## Refactoring Requirements (Pre-Migration)
+
+The following modules **must be refactored** before they can migrate to their target crates. Each contains side effects that violate layer separation rules.
+
+### 1. `shared/config.rs` → Split into Domain + Infra
+
+**Current Issues:**
+- Reads environment variables (`std::env::var()`)
+- Reads filesystem (`std::fs::read_to_string()`)
+- Probes executable paths (`std::env::current_exe()`, `std::env::current_dir()`)
+
+**Refactoring Strategy:**
+```rust
+// domain/src/config/app_config.rs (Pure data structures)
+pub struct AppConfig {
+    pub cache_duration: Duration,
+    pub debug_activity: bool,
+    pub detector_packs: HashMap<String, PackConfig>,
+}
+
+// infra/src/config/loader.rs (Side effects)
+pub struct ConfigLoader;
+impl ConfigLoader {
+    pub fn load_from_env() -> AppResult<AppConfig> {
+        // All env/filesystem access here
+    }
+}
+```
+
+### 2. `observability/errors/app.rs` → Split Error Types + Conversions
+
+**Current Issues:**
+- Implements `From<rusqlite::Error>` (infra dependency)
+- Implements `From<reqwest::Error>` (infra dependency)
+- Implements `From<keyring::Error>` (infra dependency)
+
+**Refactoring Strategy:**
+```rust
+// domain/src/errors/mod.rs (Pure error types)
+pub enum AppError {
+    Db(DbError),
+    Http(HttpError),
+    Keychain(KeychainError),
+}
+
+// infra/src/errors/conversions.rs (External adapter conversions)
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
+        // Map to domain error
+    }
+}
+```
+
+### 3. `preprocess/segmenter.rs` → Add Repository Port
+
+**Current Issues:**
+- Direct imports: `crate::db::activity::SegmentOperations`
+- Uses `LocalDatabase` directly
+- Contains raw rusqlite calls
+
+**Refactoring Strategy:**
+```rust
+// core/src/tracking/segmenter.rs (Business logic)
+pub struct Segmenter<R: SegmentRepository> {
+    repository: R,
+}
+
+// infra/src/database/segment_repository.rs (Port implementation)
+impl SegmentRepository for SqliteSegmentRepository {
+    async fn save_segment(&self, segment: &ActivitySegment) -> Result<()> {
+        // Raw DB calls here
+    }
+}
+```
+
+### 4. `inference/batch_classifier.rs` → Move to Infra
+
+**Current Issues:**
+- Uses `DbManager` directly
+- Uses `tauri::Emitter` (presentation layer concern)
+
+**Resolution:** Already classified as infra in table above. No split needed—entire module belongs in infra.
+
+### 5. `integrations/sap/errors.rs` → Move to Infra
+
+**Current Issues:**
+- `from_reqwest()` method wraps `reqwest::Error`
+- Transport-specific error handling
+
+**Resolution:** Reclassify to `infra/src/integrations/sap/errors.rs`. No split needed.
+
+### 6. `integrations/sap/validation.rs` → Move to Infra
+
+**Current Issues:**
+- Uses `DbManager` directly
+- Uses `WbsCache` (DB-backed cache)
+
+**Resolution:** Reclassify to `infra/src/integrations/sap/validation.rs`. No split needed.
+
+---
+
+## Feature Flag Alignment
+
+### Current State (Cargo.toml)
+```toml
+[features]
+default = ["tree-classifier"]
+tree-classifier = ["dep:linfa", "dep:linfa-trees", "dep:linfa-logistic", "dep:ndarray"]
+graphql = ["dep:graphql_client"]
+```
+
+### Documented Features (This Inventory)
+- `calendar` (not in Cargo.toml)
+- `sap` (not in Cargo.toml)
+- `ml` (not in Cargo.toml)
+- `tree-classifier` ✅
+- `graphql` ✅
+
+### Required Action
+**Option A:** Add missing features to `Cargo.toml`
+```toml
+[features]
+calendar = []
+sap = []
+ml = ["tree-classifier"]  # Alias for ML features
+```
+
+**Option B:** Update inventory to match existing features
+- Replace `calendar` → document as "future feature"
+- Replace `sap` → document as "future feature"
+- Replace `ml` → use `tree-classifier` instead
+
+**Recommendation:** Option A (add features to Cargo) for explicit gating.
 
 ---
 
@@ -256,7 +432,11 @@ pub trait SegmentRepository: Send + Sync {
 ```rust
 // core/src/classification/ports.rs
 pub trait Classifier: Send + Sync {
+    /// Classify activity snapshots into proposed time blocks
     async fn classify(&self, snapshots: Vec<ActivitySnapshot>) -> Result<Vec<ProposedBlock>>;
+
+    /// Health check for classifier availability (e.g., ML model validation, API connectivity)
+    async fn health_check(&self) -> Result<()>;
 }
 
 pub trait BlockRepository: Send + Sync {
@@ -332,25 +512,43 @@ pub trait OutboxQueue: Send + Sync {
 
 ## Migration Sequencing Strategy
 
+### Phase 0: Pre-Migration Refactoring (Week 0)
+**Goal**: Resolve all blockers before Phase 1
+
+1. ✅ Split `shared/config.rs` → domain structs + infra loader
+2. ✅ Split `observability/errors/app.rs` → domain types + infra conversions
+3. ✅ Refactor `preprocess/segmenter.rs` → add `SegmentRepository` port
+4. ✅ Reclassify `inference/batch_classifier.rs` → infra (no changes needed)
+5. ✅ Reclassify `integrations/sap/errors.rs` → infra (no changes needed)
+6. ✅ Reclassify `integrations/sap/validation.rs` → infra (no changes needed)
+7. ✅ Add missing features to `Cargo.toml` (`calendar`, `sap`, `ml`)
+
+**Validation**: All blocked modules resolved
+
 ### Phase 1: Foundation (Week 1)
 **Goal**: Establish domain types and core ports
 
 1. Move all `db/models.rs` types → `domain/src/types/`
 2. Move `shared/types/` → `domain/src/types/`
-3. Move `shared/config.rs` → `domain/src/config/`
-4. Move `inference/types.rs` → `domain/src/types/classification.rs`
-5. Define all port traits in `core/src/*/ports.rs`
+3. Move `shared/config.rs` **structs** → `domain/src/config/app_config.rs` (after split)
+4. Move `shared/constants/` → `domain/src/constants.rs`
+5. Move `shared/extractors/pattern.rs` → `domain/src/utils/pattern_extractor.rs`
+6. Move `utils/title.rs` → `domain/src/utils/title.rs`
+7. Move `inference/types.rs` → `domain/src/types/classification.rs`
+8. Move `observability/errors/app.rs` **types** → `domain/src/errors/mod.rs` (after split)
+9. Define all port traits in `core/src/*/ports.rs`
 
 **Validation**: `cargo check --package pulsearc-domain` passes with zero infra deps
 
 ### Phase 2: Core Business Logic (Week 2)
 **Goal**: Migrate pure business logic
 
-1. Move `tracker/core.rs` → `core/src/tracking/service.rs`
-2. Move `preprocess/segmenter.rs` → `core/src/tracking/segmenter.rs`
-3. Move `inference/block_builder.rs` → `core/src/classification/block_builder.rs`
-4. Move `inference/signals.rs` → `core/src/classification/signals.rs`
-5. Move `inference/evidence_extractor.rs` → `core/src/classification/evidence.rs`
+1. Move `utils/patterns.rs` → `core/src/utils/patterns.rs` (domain-specific extraction)
+2. Move `tracker/core.rs` → `core/src/tracking/service.rs`
+3. Move `preprocess/segmenter.rs` → `core/src/tracking/segmenter.rs`
+4. Move `inference/block_builder.rs` → `core/src/classification/block_builder.rs`
+5. Move `inference/signals.rs` → `core/src/classification/signals.rs`
+6. Move `inference/evidence_extractor.rs` → `core/src/classification/evidence.rs`
 
 **Validation**: Core tests pass with mock port implementations
 
@@ -359,8 +557,9 @@ pub trait OutboxQueue: Send + Sync {
 
 1. Database repositories (`db/activity/`, `db/blocks/`, `db/outbox/`)
 2. Platform providers (`tracker/providers/macos.rs`, `tracker/os_events/`)
-3. Integration adapters (calendar, SAP) behind feature flags
-4. ML adapters (linfa, training) behind feature flags
+3. OpenAI adapter (`inference/openai_types.rs` → `infra/src/integrations/openai/`)
+4. Integration adapters (calendar, SAP) behind feature flags
+5. ML adapters (linfa, training) behind feature flags
 
 **Validation**: Integration tests with real adapters pass
 
@@ -399,19 +598,43 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-## Open Questions
+## Design Decisions (Resolved)
 
-1. **Detection Packs**: Should industry-specific packs (consulting, deals, finance, etc.) be in `core` or feature-gated in `infra`?
-   - **Recommendation**: Start in `core`, move to feature flags if they grow large
+### 1. Pattern Module Split ✅
+**Decision**: Split pattern utilities by abstraction level
+- **`shared/extractors/pattern.rs`** → `domain` (generic utility builder)
+- **`utils/title.rs`** → `domain` (pure string helpers)
+- **`utils/patterns.rs`** → `core` (domain-specific business rules)
 
-2. **Scheduler Placement**: Should schedulers be in `infra` or `api`?
-   - **Recommendation**: `infra` (they're adapters for cron-like functionality)
+**Rationale**:
+- `PatternExtractor` is a generic builder with zero business logic (pure abstraction)
+- `title.rs` contains pure functions for string manipulation (no business rules)
+- `patterns.rs` contains **domain knowledge** (how to extract Slack channels, GitHub PRs, Stack Overflow topics, with specific delimiters and filters for each platform)
+- Core uses domain utilities to implement business logic
+- **Key distinction**: Domain utilities are *reusable across any domain*, while core utilities encode *PulseArc-specific business rules*
 
-3. **Error Hierarchy**: How should domain errors compose with `CommonError`?
-   - **Recommendation**: Follow pattern in Common Crates Guide (module errors compose via `#[from]`)
+### 2. OpenAI Types Placement ✅
+**Decision**: Move to `infra/src/integrations/openai/types.rs`
 
-4. **Test Migration**: Should tests move with code or stay in integration tests?
-   - **Recommendation**: Unit tests move with code, add integration tests in `api/tests/`
+**Rationale**:
+- `BlockClassificationResponse` is OpenAI adapter-specific
+- Core `Classifier` trait should return domain types (`Vec<ProposedBlock>`)
+- Adapters map from `OpenAiBlockClassification` → `ProposedBlock`
+- Keeps OpenAI-specific schema details in infrastructure layer
+
+### 3. Detection Packs ✅
+**Decision**: Start in `core`, move to feature flags if they grow large
+
+**Rationale**: Industry-specific detection logic is business logic, even if domain-specific
+
+### 4. Scheduler Placement ✅
+**Decision**: `infra` (they're adapters for cron-like functionality)
+
+### 5. Error Hierarchy ✅
+**Decision**: Follow pattern in Common Crates Guide (module errors compose via `#[from]`)
+
+### 6. Test Migration ✅
+**Decision**: Unit tests move with code, add integration tests in `api/tests/`
 
 ---
 
@@ -429,7 +652,30 @@ pub trait OutboxQueue: Send + Sync {
 
 ## Next Steps
 
-1. **Review & Approval**: Stakeholder review of this inventory
+### Immediate Actions (Before Phase 1)
+
+**🎫 GitHub Issue Created**: See [Phase 0 Blockers Tracking](issues/PHASE-0-BLOCKERS-TRACKING.md) for detailed task breakdown.
+
+**To Create GitHub Issue**: Copy content from [GITHUB-ISSUE-PHASE-0.md](issues/GITHUB-ISSUE-PHASE-0.md)
+
+1. ❌ **BLOCKED: Resolve Critical Issues** (see Phase 0 refactoring)
+   - Split `shared/config.rs` into pure types + infra loader (2 days)
+   - Split `observability/errors/app.rs` into pure types + infra conversions (2 days)
+   - Add `SegmentRepository` port for `preprocess/segmenter.rs` (3-4 days)
+   - Reclassify 3 modules to infra (<1 day)
+   - Add missing feature flags to Cargo.toml (<1 day)
+
+2. **Create Refactoring PRs**: Small PRs for each blocked module
+   - See [Phase 0 Blockers Tracking](issues/PHASE-0-BLOCKERS-TRACKING.md) for PR checklists
+3. **Update Feature Flags**: Align Cargo.toml with documented features
+4. **Verify Zero Side Effects**: Run dependency checks on domain crate after splits
+
+**Detailed Documentation**:
+- **Task Tracking**: [issues/PHASE-0-BLOCKERS-TRACKING.md](issues/PHASE-0-BLOCKERS-TRACKING.md)
+- **Full Specification**: [.github/ISSUE_TEMPLATE/phase-0-migration-blockers.md](../.github/ISSUE_TEMPLATE/phase-0-migration-blockers.md)
+
+### Post-Refactoring Actions
+1. ✅ **Review & Approval**: Classification reviewed and blockers identified
 2. **Create Port Traits**: Define all traits in `core` before migration
 3. **Week-by-Week PRs**: Small, incremental migrations with tests
 4. **CI Updates**: Add dependency graph validation
@@ -437,5 +683,37 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-**Document Status**: DRAFT - Awaiting confirmation before proceeding with migration
+## Review Summary
+
+### Initial Review (October 30, 2025)
+**Changes Made**:
+1. Reclassified `shared/extractors/pattern.rs` from `core` → `domain` (pure utility)
+2. Reclassified `utils/title.rs` from `core` → `domain` (pure string helpers)
+3. Reclassified `inference/openai_types.rs` from `domain` → `infra` (adapter DTOs)
+4. Added `health_check()` method to `Classifier` trait
+5. Documented rationale for pattern module split (domain utilities vs. business logic)
+6. Resolved all open questions into concrete design decisions
+
+**Validation**: All module classifications verified against source code
+
+---
+
+### Critical Review (October 30, 2025 - Post-Feedback)
+**Critical Issues Identified:**
+1. ❌ `shared/config.rs` reads env vars + filesystem → **MUST SPLIT**
+2. ❌ `observability/errors/app.rs` has infra conversions (`From<rusqlite>`) → **MUST SPLIT**
+3. ❌ `integrations/sap/errors.rs` wraps `reqwest::Error` → **RECLASSIFY TO INFRA**
+4. ❌ `integrations/sap/validation.rs` uses `DbManager` → **RECLASSIFY TO INFRA**
+5. ❌ `preprocess/segmenter.rs` has raw DB calls → **ADD REPOSITORY PORT**
+6. ❌ `inference/batch_classifier.rs` uses `DbManager` + `tauri::Emitter` → **RECLASSIFY TO INFRA**
+7. ❌ Feature flag mismatch (doc vs. Cargo.toml) → **ADD MISSING FEATURES**
+
+**Total Blocked Modules**: 6 modules require refactoring or reclassification
+**Estimated Refactoring Time**: 1 week (Phase 0)
+
+**Validation**: All blockers verified by reading source code (lines 27-105, 363-447, 58-78, 4-29, 5-421)
+
+---
+
+**Document Status**: ⚠️ BLOCKED - Phase 0 refactoring required before Phase 1 can begin
 

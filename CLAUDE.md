@@ -146,6 +146,37 @@ If any rule requires an exception, add a short "Deviation" section in the PR wit
 - Security audits ignore Linux-only advisories (`.cargo/audit.toml`)
 - `xtask` crate excluded from clippy (`make lint` skips it)
 
+### Database Access
+
+**🚨 CRITICAL: Use SqlCipherConnection, NOT LocalDatabase**
+
+- **`LocalDatabase` is deprecated** for the ADR-003 migration
+- All new database code MUST use `SqlCipherConnection` from `agent/storage/sqlcipher`
+- Use pooled connections via `SqlCipherConnection::get_connection().await`
+
+**Critical API Difference: `query_map` Returns `Vec<T>`, NOT an Iterator**
+
+Unlike standard `rusqlite::Statement::query_map` which returns `Rows<'_>` (an iterator), `SqlCipherStatement::query_map` (line 114 in `agent/storage/sqlcipher/connection.rs`) **immediately collects results** and returns `StorageResult<Vec<T>>`.
+
+```rust
+// ❌ WRONG - query_map already returns Vec<T>, not an iterator
+let results = stmt
+    .query_map(params, |row| Ok(MyStruct { ... }))?
+    .collect::<Result<Vec<_>, _>>()  // ❌ ERROR: Vec<T> is not IntoIterator
+    .map_err(|e| ...)?;
+
+// ✅ CORRECT - query_map already collected the results
+let results = stmt
+    .query_map(params, |row| Ok(MyStruct { ... }))?;
+```
+
+**Repository Pattern for Core/Domain Separation:**
+- Define port traits in `core/ports/` (e.g., `SegmentRepository`, `SnapshotRepository`)
+- Implement ports in `infra/repositories/` using `SqlCipherConnection`
+- Business logic in `core` depends only on port traits, never on database implementations
+
+**Reference**: See [docs/issues/SQLCIPHER-API-REFERENCE.md](docs/issues/SQLCIPHER-API-REFERENCE.md) for detailed examples and migration patterns.
+
 ### Common Module Organization (`pulsearc-common`)
 
 The `pulsearc-common` crate provides shared utilities organized in tiers.

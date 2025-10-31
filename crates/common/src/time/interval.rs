@@ -124,6 +124,9 @@ mod tests {
     /// - Ensures `elapsed <= Duration::from_millis(15)` evaluates to true.
     #[tokio::test]
     async fn test_simple_interval() {
+        // Pause time for deterministic testing
+        tokio::time::pause();
+
         let mut interval = Interval::simple(Duration::from_millis(10));
 
         let start = Instant::now();

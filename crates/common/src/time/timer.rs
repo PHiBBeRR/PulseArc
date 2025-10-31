@@ -201,6 +201,9 @@ mod tests {
     /// - Ensures `!handle.is_cancelled()` evaluates to true.
     #[tokio::test]
     async fn test_timeout() {
+        // Pause time for deterministic testing
+        tokio::time::pause();
+
         let counter = Arc::new(AtomicU32::new(0));
         let counter_clone = counter.clone();
 
