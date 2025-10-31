@@ -36,6 +36,7 @@ url = "2.5"
 
 [dev-dependencies]
 criterion = { workspace = true }
+chrono-tz = { workspace = true }
 
 [features]
 calendar = []
