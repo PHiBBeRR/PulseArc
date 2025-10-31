@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 2: DayView SAP Integration Tests
+ * Phase 2: DayView SAP Integration Tests
  * Unit tests for SAP integration in DayView component
  *
  * Tests the integration of SAP WBS codes and project metadata
@@ -21,7 +21,7 @@
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 describe.skip('DayView SAP Integration', () => {
-  // TODO(FEATURE-020): Implement during Phase 2 development
+  // TODO(): Implement during Phase 2 development
   // These tests validate SAP features in DayView
 
   beforeEach(() => {

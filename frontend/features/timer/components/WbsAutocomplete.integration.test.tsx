@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 4: WBS Autocomplete Integration Tests
+ * Phase 4: WBS Autocomplete Integration Tests
  * Integration tests for WBS autocomplete with real Tauri backend
  *
  * STATUS: DEFERRED - Full Tauri integration tests require complex infrastructure setup

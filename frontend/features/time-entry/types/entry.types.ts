@@ -17,8 +17,8 @@ export interface TimeEntry {
   shortDate?: string; // Short date format (MM/DD/YYYY)
   category?: 'personal' | 'general' | 'project' | 'ai'; // Category for icon display
   wbsCode?: string; // WBS code from project
-  activities?: ActivityBreakdown[]; // FEATURE-021: Activity breakdown for blocks
-  idleSeconds?: number; // FEATURE-028: Idle time within entry
+  activities?: ActivityBreakdown[]; // : Activity breakdown for blocks
+  idleSeconds?: number; // Idle time within entry
 }
 
 export interface SaveEntryModalProps {

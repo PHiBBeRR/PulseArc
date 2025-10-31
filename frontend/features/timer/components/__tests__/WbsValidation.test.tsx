@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 4.4: WBS Validation UI Tests
+ * Phase 4.4: WBS Validation UI Tests
  * Unit tests for WBS validation feedback in autocomplete component
  *
  * Tests the real-time validation of WBS codes as users type in the autocomplete,

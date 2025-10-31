@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 4.3: WBS Usage Tracking Service
+// Phase 4.3: WBS Usage Tracking Service
 // Manages recent and favorite WBS codes with LocalStorage persistence
 
 import type { WbsElement } from '@/shared/types/generated';

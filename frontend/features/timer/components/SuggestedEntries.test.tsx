@@ -1294,7 +1294,7 @@ describe('SuggestedEntries', () => {
   });
 
   // ============================================================================
-  // FEATURE-028: Idle Filtering Tests (Phase 4)
+  // Idle Filtering Tests (Phase 4)
   // ============================================================================
 
   describe('SuggestedEntries - Idle Filtering', () => {

@@ -1,5 +1,5 @@
 /**
- * FEATURE-017: Calendar Service Multi-Provider Tests
+ *  Calendar Service Multi-Provider Tests
  * Tests for updated calendar service with provider parameter support
  *
  * Validates the enhanced calendar service that supports multiple calendar
@@ -43,7 +43,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
   // ==========================================================================
 
   describe('Connection Commands', () => {
-    it('FEATURE-017: should invoke initiate_calendar_auth with google provider', async () => {
+    it(' should invoke initiate_calendar_auth with google provider', async () => {
       // AC: initiate_calendar_auth command called with provider="google"
       // AC: Returns Google OAuth URL
       const mockAuthUrl = 'https://accounts.google.com/o/oauth2/v2.0/auth?...';
@@ -56,7 +56,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(result).toContain('accounts.google.com');
     });
 
-    it('FEATURE-017: should invoke initiate_calendar_auth with microsoft provider', async () => {
+    it(' should invoke initiate_calendar_auth with microsoft provider', async () => {
       // AC: initiate_calendar_auth command called with provider="microsoft"
       // AC: Returns Microsoft OAuth URL
       const mockAuthUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?...';
@@ -69,7 +69,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(result).toContain('login.microsoftonline.com');
     });
 
-    it('FEATURE-017: should open system browser with provider-specific OAuth URL', async () => {
+    it(' should open system browser with provider-specific OAuth URL', async () => {
       // AC: OAuth URL opened in system browser for correct provider
       const { openUrl } = await import('@tauri-apps/plugin-opener');
       const mockMicrosoftUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?...';
@@ -81,7 +81,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(openUrl).toHaveBeenCalledWith(mockMicrosoftUrl);
     });
 
-    it('FEATURE-017: should handle unknown provider error', async () => {
+    it(' should handle unknown provider error', async () => {
       // AC: Unknown provider returns error
       // AC: Error message indicates invalid provider
       const mockError = new Error('Unknown calendar provider: apple');
@@ -98,7 +98,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
   // ==========================================================================
 
   describe('Status Commands', () => {
-    it('FEATURE-017: should get connection status returning array of statuses', async () => {
+    it(' should get connection status returning array of statuses', async () => {
       // AC: get_calendar_connection_status returns Vec<CalendarConnectionStatus>
       // AC: Array contains status for each connected provider
       const mockStatuses = [
@@ -127,7 +127,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(result).toHaveLength(2);
     });
 
-    it('FEATURE-017: should include provider field in each status object', async () => {
+    it(' should include provider field in each status object', async () => {
       // AC: Each CalendarConnectionStatus has provider field
       // AC: Provider field is string ("google" or "microsoft")
       const mockStatuses = [
@@ -157,7 +157,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
   // ==========================================================================
 
   describe('Sync Commands', () => {
-    it('FEATURE-017: should sync all providers when no provider parameter given', async () => {
+    it(' should sync all providers when no provider parameter given', async () => {
       // AC: sync_calendar_events with no provider param syncs all connected providers
       // AC: Returns total suggestion count
       const mockCount = 15;
@@ -175,7 +175,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(result).toBe(mockCount);
     });
 
-    it('FEATURE-017: should sync specific provider when provider parameter given', async () => {
+    it(' should sync specific provider when provider parameter given', async () => {
       // AC: sync_calendar_events with provider="microsoft" syncs only Microsoft
       // AC: Returns suggestion count from Microsoft only
       const mockCount = 8;
@@ -199,7 +199,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
   // ==========================================================================
 
   describe('Disconnect Commands', () => {
-    it('FEATURE-017: should disconnect google provider only', async () => {
+    it(' should disconnect google provider only', async () => {
       // AC: disconnect_calendar("google") removes only Google
       // AC: Command succeeds without error
       (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -209,7 +209,7 @@ describe('Calendar Service - Multi-Provider Support', () => {
       expect(invoke).toHaveBeenCalledWith('disconnect_calendar', { provider: 'google' });
     });
 
-    it('FEATURE-017: should disconnect microsoft provider only', async () => {
+    it(' should disconnect microsoft provider only', async () => {
       // AC: disconnect_calendar("microsoft") removes only Microsoft
       // AC: Command succeeds without error
       (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);

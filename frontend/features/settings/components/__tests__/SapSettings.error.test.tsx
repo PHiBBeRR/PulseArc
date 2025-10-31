@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 4.4: SAP Settings Error Display Tests
+ * Phase 4.4: SAP Settings Error Display Tests
  * Tests for error handling and health status display in SAP settings
  *
  * Validates error handling, connection health monitoring, and retry logic

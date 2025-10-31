@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 2: WBS Autocomplete Component
+// Phase 2: WBS Autocomplete Component
 // Searchable WBS code picker with FTS5 search
 
 import { Badge } from '@/shared/components/ui/badge';
@@ -200,7 +200,7 @@ export function WbsAutocomplete({
     setResults([]);
   }, [onChange]);
 
-  // FEATURE-029: Format display text with enriched metadata
+  // : Format display text with enriched metadata
   const formatWbsDisplay = (element: WbsElement): string => {
     const projectName = element.project_name || 'Unknown Project';
     const clientName = element.target_company_name || 'Internal';

@@ -3,14 +3,14 @@ import { Moon } from 'lucide-react';
 
 interface ActivityBreakdownTooltipProps {
   activities: ActivityBreakdown[];
-  idleSeconds?: number; // FEATURE-028: Idle time within entry
+  idleSeconds?: number; // Idle time within entry
   totalSeconds?: number; // Total duration for calculating idle percentage
   category?: 'personal' | 'general' | 'project' | 'ai'; // Entry category to determine if idle should be shown
 }
 
 /**
- * FEATURE-021 Phase 4: Activity Breakdown Tooltip
- * FEATURE-028: Enhanced with idle period display
+ *  Phase 4: Activity Breakdown Tooltip
+ * Enhanced with idle period display
  *
  * Displays a color-coded breakdown of activities within a time block.
  * Shows activity name, duration, and percentage with visual progress bars.
@@ -89,7 +89,7 @@ export function ActivityBreakdownTooltip({
           </div>
         ))}
 
-      {/* FEATURE-028: Idle period (if present) */}
+      {/* Idle period (if present) */}
       {hasIdle && (
         <div className="space-y-0.5">
           {/* Idle label + duration */}

@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Idle Time Review Component Tests (Phase 4)
+ * Idle Time Review Component Tests (Phase 4)
  * Unit tests for IdleTimeReview component
  *
  * Tests the component that allows users to review and manage idle periods

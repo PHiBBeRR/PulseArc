@@ -182,7 +182,7 @@ export function SuggestedEntries({
     []
   );
 
-  // FEATURE-021: Map ProposedBlock to TimeEntry format
+  // : Map ProposedBlock to TimeEntry format
   const mapBlockToTimeEntry = useCallback(
     (block: ProposedBlock): TimeEntry => {
       // Backend timestamps are in SECONDS, multiply by 1000 for JS Date
@@ -213,8 +213,8 @@ export function SuggestedEntries({
         wbsCode: block.inferred_wbs_code ?? undefined,
         startTime: new Date(startMs),
         endTime: new Date(endMs), // Time range end
-        activities: block.activities, // FEATURE-021: Real activity breakdown from backend
-        idleSeconds: block.total_idle_secs, // FEATURE-028: Idle time within block
+        activities: block.activities, // : Real activity breakdown from backend
+        idleSeconds: block.total_idle_secs, // Idle time within block
       };
     },
     [categorizeCalendarEvent]
@@ -290,7 +290,7 @@ export function SuggestedEntries({
     [categorizeCalendarEvent]
   );
 
-  // FEATURE-021: Fetch pending suggestions from ProposedBlocks
+  // : Fetch pending suggestions from ProposedBlocks
   const fetchSuggestions = useCallback(async () => {
     try {
       // Try to fetch projects (continue even if this fails)
@@ -303,7 +303,7 @@ export function SuggestedEntries({
       // Get today's epoch for filtering blocks
       const todayEpoch = Math.floor(Date.now() / 1000);
 
-      // FEATURE-021: Fetch ProposedBlocks (consolidated 30+ min blocks with activities)
+      // : Fetch ProposedBlocks (consolidated 30+ min blocks with activities)
       const blocks = await invoke<ProposedBlock[]>('get_proposed_blocks', {
         dayEpoch: todayEpoch,
         status: 'suggested', // Only fetch blocks pending user review
@@ -1017,7 +1017,7 @@ export function SuggestedEntries({
                                     <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
                                       {entry.project}
                                     </span>
-                                    {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
+                                    {/* Confidence badge - AI entries only - : Added activity breakdown tooltip */}
                                     {entry.source === 'ai' &&
                                       entry.confidence &&
                                       entry.confidence > 0 && (
@@ -1193,7 +1193,7 @@ export function SuggestedEntries({
                                     <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
                                       {entry.project}
                                     </span>
-                                    {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
+                                    {/* Confidence badge - AI entries only - : Added activity breakdown tooltip */}
                                     {entry.source === 'ai' &&
                                       entry.confidence &&
                                       entry.confidence > 0 && (

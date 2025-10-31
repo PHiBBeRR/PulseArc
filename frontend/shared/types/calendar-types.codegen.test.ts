@@ -1,5 +1,5 @@
 /**
- * FEATURE-017: Calendar Types Code Generation Tests
+ *  Calendar Types Code Generation Tests
  * Tests for TypeScript types generated from Rust via ts-rs
  *
  * Validates that calendar-related TypeScript types are correctly generated
@@ -24,7 +24,7 @@ describe('Calendar Types - Code Generation', () => {
   // TEST CATEGORY 1: Type Generation Validation (3 tests)
   // ==========================================================================
 
-  it('FEATURE-017: should have CalendarConnectionStatus type with provider field', () => {
+  it(' should have CalendarConnectionStatus type with provider field', () => {
     // AC: CalendarConnectionStatus type exported from generated types
     // AC: Type includes provider field
     const status: CalendarConnectionStatus = {
@@ -39,7 +39,7 @@ describe('Calendar Types - Code Generation', () => {
     expect(typeof status.provider).toBe('string');
   });
 
-  it('FEATURE-017: should have provider field as string type', () => {
+  it(' should have provider field as string type', () => {
     // AC: provider field is string type (not enum)
     // AC: Accepts "google", "microsoft", and other string values
     const googleStatus: CalendarConnectionStatus = {
@@ -64,7 +64,7 @@ describe('Calendar Types - Code Generation', () => {
     expect(microsoftStatus.provider).toBe('microsoft');
   });
 
-  it('FEATURE-017: should match Rust CalendarConnectionStatus structure', () => {
+  it(' should match Rust CalendarConnectionStatus structure', () => {
     // AC: TypeScript type matches Rust struct field names
     // AC: All fields from Rust struct present in TS type
     // AC: Field types match (string, boolean, number | null, etc.)

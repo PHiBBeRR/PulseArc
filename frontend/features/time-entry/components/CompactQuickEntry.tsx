@@ -120,7 +120,7 @@ export function CompactQuickEntry({
               </div>
 
               <div className="space-y-2.5">
-                {/* SAP WBS Code Search (FEATURE-020 Phase 2) */}
+                {/* SAP WBS Code Search (Phase 2) */}
                 <div>
                   <WbsAutocomplete
                     value={wbsCode}

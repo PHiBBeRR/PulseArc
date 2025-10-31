@@ -427,7 +427,7 @@ export function MainTimer({
       const now = Date.now();
       const idleMinutesCalc = Math.floor(idleSeconds / 60);
 
-      // FEATURE-012: Record idle detection with latency
+      // Record idle detection with latency
       const expectedIdleTime = now - idleSeconds * 1000;
       const detectionLatencyMs = Math.max(
         0,
@@ -451,7 +451,7 @@ export function MainTimer({
       };
       void safeEmit(TIMER_STATE_EVT, payload)
         .then(() => {
-          // FEATURE-012: Record event emission latency (microseconds)
+          // Record event emission latency (microseconds)
           const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
           void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
         })
@@ -494,7 +494,7 @@ export function MainTimer({
       // Use functional state update to get current state (avoid stale closure)
       setTimerState((currentState) => {
         if (currentState === 'idle') {
-          // FEATURE-012: Record activity wake event type
+          // Record activity wake event type
           void idleSyncMetrics.recordActivityWake(event?.type ?? 'unknown');
 
           setShowIdleModal(false);
@@ -510,7 +510,7 @@ export function MainTimer({
           };
           void safeEmit(TIMER_STATE_EVT, payload)
             .then(() => {
-              // FEATURE-012: Record event emission latency
+              // Record event emission latency
               const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
               void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
             })
@@ -552,7 +552,7 @@ export function MainTimer({
     };
   }, [timerState]); // ✅ Only timerState, no elapsed
 
-  // FEATURE-012 Phase 5: Listen to user-activity events from tracker window
+  // Listen to user-activity events from tracker window
   useEffect(() => {
     let unlistenActivity: (() => void) | undefined;
 

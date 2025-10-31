@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 4.4: SAP Error Type
+// Phase 4.4: SAP Error Type
 // TypeScript representation of Rust SapError struct
 //
 // Note: This is a manual type definition until SapError is annotated with ts-rs

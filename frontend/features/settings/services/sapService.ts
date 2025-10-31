@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 2: SAP Service Layer
+// Phase 2: SAP Service Layer
 // Service wrapper for SAP Tauri commands
 
 import type { OutboxStatusSummary, SapSyncSettings, WbsElement } from '@/shared/types/generated';
@@ -15,7 +15,7 @@ export type OutboxStatus = {
   failed: number;
 };
 
-// FEATURE-020 Phase 4.4: Error handling types
+// Phase 4.4: Error handling types
 export type ConnectionHealthStatus = {
   healthy: boolean;
   latency_ms: number | null;
@@ -189,7 +189,7 @@ export class SapService {
   }
 
   // =========================================================================
-  // FEATURE-020 Phase 4.4: Error Handling & Health Check Methods
+  // Phase 4.4: Error Handling & Health Check Methods
   // =========================================================================
 
   /**
@@ -241,7 +241,7 @@ export class SapService {
   }
 
   // =========================================================================
-  // FEATURE-020 Phase 3: Sync Scheduler Methods
+  // Phase 3: Sync Scheduler Methods
   // =========================================================================
 
   /**

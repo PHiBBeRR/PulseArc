@@ -357,7 +357,7 @@ describe('MainTimer - Audio Integration', () => {
   });
 
   // ============================================================================
-  // FEATURE-028: Idle Time Tracking Integration (Phase 4)
+  // Idle Time Tracking Integration (Phase 4)
   // ============================================================================
 
   describe('MainTimer - Idle Integration', () => {

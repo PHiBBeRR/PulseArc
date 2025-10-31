@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Idle Analytics Service Tests (Phase 5)
+ * Idle Analytics Service Tests (Phase 5)
  * Unit tests for idleAnalyticsService
  *
  * Tests the service that handles idle time analytics, including data fetching,

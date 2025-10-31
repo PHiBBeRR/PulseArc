@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 2: SAP Service Tests
+ * Phase 2: SAP Service Tests
  * Unit tests for SAP integration service
  *
  * Tests the frontend service layer that communicates with the SAP backend
@@ -106,7 +106,7 @@ describe('SapService', () => {
         description: 'Project Astro - Deals - M&A Tax',
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched opportunity metadata
+        // : Enriched opportunity metadata
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,
@@ -124,7 +124,7 @@ describe('SapService', () => {
         description: 'Project Beta - Deals - M&A Tax',
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched opportunity metadata
+        // : Enriched opportunity metadata
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,
@@ -228,7 +228,7 @@ describe('SapService', () => {
         description: 'Project Astro - Deals - M&A Tax',
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched fields
+        // : Enriched fields
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,
@@ -255,7 +255,7 @@ describe('SapService', () => {
         description: 'Project Astro - Deals - M&A Tax',
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched fields
+        // : Enriched fields
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,
@@ -280,7 +280,7 @@ describe('SapService', () => {
         description: null,
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched fields
+        // : Enriched fields
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,
@@ -305,7 +305,7 @@ describe('SapService', () => {
         description: null,
         status: 'REL',
         cached_at: Date.now(),
-        // FEATURE-029: Enriched fields
+        // : Enriched fields
         opportunity_id: null,
         deal_name: null,
         target_company_name: null,

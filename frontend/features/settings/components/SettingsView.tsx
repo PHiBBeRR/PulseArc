@@ -109,7 +109,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
   const [isSignedIn, setIsSignedIn] = React.useState(false);
   const [isSigningIn, setIsSigningIn] = React.useState(false);
   const [_userEmail, setUserEmail] = React.useState<string | null>(null);
-  // FEATURE-029 Phase 5: Fetch user profile from database
+  //  Phase 5: Fetch user profile from database
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [avatarImage, setAvatarImage] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -181,7 +181,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // FEATURE-017: Load calendar connection statuses on mount
+  //  Load calendar connection statuses on mount
   const loadCalendarStatuses = React.useCallback(async () => {
     try {
       const statuses = await calendarService.getStatus();
@@ -213,7 +213,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
     return () => window.removeEventListener('focus', handleWindowFocus);
   }, [loadCalendarStatuses]);
 
-  // FEATURE-020: Load SAP connection status on mount
+  // : Load SAP connection status on mount
   React.useEffect(() => {
     const loadSapStatus = async () => {
       try {
@@ -227,7 +227,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
     void loadSapStatus();
   }, []);
 
-  // FEATURE-017: Multi-provider calendar handlers
+  //  Multi-provider calendar handlers
   const handleConnectCalendar = React.useCallback(async (provider: 'google' | 'microsoft') => {
     console.warn(`[SettingsView] handleConnectCalendar called for provider: ${provider}`);
     const setLoading = provider === 'google' ? setIsLoadingGoogle : setIsLoadingMicrosoft;
@@ -372,7 +372,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
     const loadCalendarStatus = async () => {
       try {
         const statuses = await calendarService.getStatus();
-        // FEATURE-017: Find Google provider in array
+        //  Find Google provider in array
         const googleStatus = statuses.find((s) => s.provider === 'google');
         if (googleStatus) {
           setConnectedIntegrations((prev) => ({
@@ -416,7 +416,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
         if (!calendarEmail) return;
         setIsLoadingGoogle(true);
         try {
-          await calendarService.disconnect('google'); // FEATURE-017: provider parameter
+          await calendarService.disconnect('google'); //  provider parameter
           setConnectedIntegrations((prev) => ({
             ...prev,
             [id]: false,
@@ -431,12 +431,12 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
         // Connect with OAuth
         setIsLoadingGoogle(true);
         try {
-          await calendarService.connect('google'); // FEATURE-017: provider parameter
+          await calendarService.connect('google'); //  provider parameter
           // Poll for connection status
           const pollStatus = setInterval(() => {
             void (async () => {
               const statuses = await calendarService.getStatus();
-              // FEATURE-017: Find Google provider in array
+              //  Find Google provider in array
               const googleStatus = statuses.find((s) => s.provider === 'google');
               if (googleStatus?.connected) {
                 setConnectedIntegrations((prev) => ({
@@ -461,7 +461,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
         }
       }
     } else if (id === 'sap-s4hana') {
-      // FEATURE-020: Handle SAP S/4HANA with OAuth flow
+      // : Handle SAP S/4HANA with OAuth flow
       const isCurrentlyConnected = connectedIntegrations[id];
 
       if (isCurrentlyConnected) {
@@ -1020,7 +1020,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
             {/* Integrations Tab */}
             <TabsContent value="integrations" className="mt-0">
               <div className="space-y-3">
-                {/* FEATURE-017: Multi-provider calendar integration */}
+                {/*  Multi-provider calendar integration */}
                 <div className="mb-4">
                   <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium mb-3">
                     Calendar Integration

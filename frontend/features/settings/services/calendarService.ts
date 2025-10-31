@@ -8,7 +8,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 
 /**
  * Calendar provider type
- * FEATURE-017: Supports Google and Microsoft calendar providers
+ *  Supports Google and Microsoft calendar providers
  */
 export type CalendarProvider = 'google' | 'microsoft';
 
@@ -20,7 +20,7 @@ export const calendarService = {
   /**
    * Initiate Calendar OAuth flow for specified provider
    * Opens system browser with provider-specific consent screen
-   * FEATURE-017: Multi-provider support (google, microsoft)
+   *  Multi-provider support (google, microsoft)
    */
   connect: async (provider: CalendarProvider): Promise<void> => {
     try {
@@ -38,7 +38,7 @@ export const calendarService = {
   /**
    * Disconnect and revoke calendar access for specified provider
    * Clears tokens from keychain and database
-   * FEATURE-017: Provider-specific disconnect
+   *  Provider-specific disconnect
    */
   disconnect: async (provider: CalendarProvider): Promise<void> => {
     await invoke('disconnect_calendar', { provider });
@@ -47,7 +47,7 @@ export const calendarService = {
   /**
    * Get current connection status
    * Returns connection state, email, and last sync time
-   * FEATURE-017: Now returns array to support multiple providers
+   *  Now returns array to support multiple providers
    */
   getStatus: async (): Promise<CalendarConnectionStatus[]> => {
     return await invoke('get_calendar_connection_status');
@@ -67,7 +67,7 @@ export const calendarService = {
    * Manually trigger calendar sync for a specific provider
    * Fetches events and generates suggestions for the specified calendar
    * Automatically emits 'outbox-updated' event when complete
-   * FEATURE-017: Provider-specific sync
+   *  Provider-specific sync
    * @param provider - Provider to sync (google, microsoft)
    */
   syncProvider: async (provider: CalendarProvider): Promise<number> => {

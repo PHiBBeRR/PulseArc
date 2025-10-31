@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 2: WBS Autocomplete Component Tests
+ * Phase 2: WBS Autocomplete Component Tests
  * Unit tests for WBS autocomplete UI with FTS5 search
  *
  * Tests the autocomplete component for searching and selecting SAP WBS elements.
@@ -11,7 +11,7 @@
  * - User Interaction: Typing, selecting, keyboard navigation
  * - Favorites: Pinned WBS elements for quick access
  * - Recent Usage: Recently used WBS elements
- * - Enriched Metadata: Display of opportunity/deal information (FEATURE-029)
+ * - Enriched Metadata: Display of opportunity/deal information ()
  * - Loading States: Search debouncing and loading indicators
  * - Error Handling: Network failures, empty results
  */
@@ -46,7 +46,7 @@ describe('WbsAutocomplete', () => {
       description: 'Project Astro - Deals - M&A Tax',
       status: 'REL',
       cached_at: Date.now(),
-      // FEATURE-029: Enriched fields
+      // : Enriched fields
       opportunity_id: null,
       deal_name: null,
       target_company_name: null,
@@ -64,7 +64,7 @@ describe('WbsAutocomplete', () => {
       description: 'Project Beta - Deals - M&A Tax',
       status: 'REL',
       cached_at: Date.now(),
-      // FEATURE-029: Enriched fields
+      // : Enriched fields
       opportunity_id: null,
       deal_name: null,
       target_company_name: null,

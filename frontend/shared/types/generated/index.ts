@@ -25,7 +25,7 @@ export type { IdMapping } from './IdMapping';
 export type { Project } from './Project';
 export type { ProjectWithWbs } from './ProjectWithWbs';
 
-// FEATURE-020: SAP Integration Types
+// : SAP Integration Types
 export type { WbsElement } from './WbsElement';
 export type { OutboxStatusSummary } from './OutboxStatusSummary';
 export type { SapSyncSettings } from './SapSyncSettings';
@@ -47,11 +47,11 @@ export type { AiBatchStatus } from './AiBatchStatus';
 export type { ClassifiedTimeEntry } from './ClassifiedTimeEntry';
 export type { OpenAIBatchResponse } from './OpenAIBatchResponse';
 
-// FEATURE-021: Block Builder Types
+// : Block Builder Types
 export type { ActivityBreakdown } from './ActivityBreakdown';
 export type { ProposedBlock } from './ProposedBlock';
 
-// FEATURE-028: Idle Time Tracking Types
+// Idle Time Tracking Types
 export type { IdlePeriod } from './IdlePeriod';
 export type { IdleSummary } from './IdleSummary';
 export type { TimeEntryAnalytics } from './TimeEntryAnalytics';

@@ -38,7 +38,7 @@ export type EvidenceSignals = {
    */
   vdr_providers: Array<string>;
   /**
-   * FEATURE-029 Phase 4: Meeting platform metadata
+   *  Phase 4: Meeting platform metadata
    * Meeting platforms detected (e.g., ["zoom", "google_meet", "teams"])
    */
   meeting_platforms: Array<string>;

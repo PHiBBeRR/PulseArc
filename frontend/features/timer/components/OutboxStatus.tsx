@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 2: Outbox Status Component
+// Phase 2: Outbox Status Component
 // Displays SAP time entry outbox status with retry functionality
 
 import { Badge } from '@/shared/components/ui/badge';

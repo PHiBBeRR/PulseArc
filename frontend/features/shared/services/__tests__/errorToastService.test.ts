@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 4.4: Error Toast Service Tests
+// Phase 4.4: Error Toast Service Tests
 // Test coverage for SAP error display and user feedback
 
 import type { SapError } from '@/shared/types/SapError';

@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Idle Time Chart Component Tests (Phase 5)
+ * Idle Time Chart Component Tests (Phase 5)
  * Unit tests for IdleTimeChart visualization component
  *
  * Tests the chart component that displays idle time trends over a date range

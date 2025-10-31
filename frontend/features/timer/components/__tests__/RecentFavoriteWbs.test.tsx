@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 4: Recent/Favorite WBS Tests
+ * Phase 4: Recent/Favorite WBS Tests
  * Unit tests for recent and favorite WBS code tracking
  *
  * Tests the service that manages user's recently used and favorited WBS codes,
@@ -28,7 +28,7 @@ const createMockWbsElement = (code: string): WbsElement => ({
   description: `Description for ${code}`,
   status: 'REL',
   cached_at: Date.now(),
-  // FEATURE-029: Enriched fields
+  // : Enriched fields
   opportunity_id: null,
   deal_name: null,
   target_company_name: null,

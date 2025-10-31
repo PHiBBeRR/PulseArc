@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 2: SAP Settings Component Tests
+ * Phase 2: SAP Settings Component Tests
  * Unit tests for SAP settings UI component
  *
  * Tests the settings panel for configuring SAP integration, including

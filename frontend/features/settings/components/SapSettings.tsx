@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 2 & 3: SAP Settings Component
+// Phase 2 & 3: SAP Settings Component
 // Manage SAP S/4HANA connection, authentication, and sync settings
 
 import { Badge } from '@/shared/components/ui/badge';
@@ -45,12 +45,12 @@ export function SapSettings({ className }: SapSettingsProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // FEATURE-020 Phase 3: Sync settings state
+  // Phase 3: Sync settings state
   const [syncSettings, setSyncSettings] = useState<SapSyncSettings | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
-  // FEATURE-020 Phase 4.4: Health check and error handling state
+  // Phase 4.4: Health check and error handling state
   const [healthStatus, setHealthStatus] = useState<{
     healthy: boolean;
     latency_ms: number | null;
@@ -139,7 +139,7 @@ export function SapSettings({ className }: SapSettingsProps) {
     }
   }, []);
 
-  // FEATURE-020 Phase 3: Load sync settings
+  // Phase 3: Load sync settings
   const loadSyncSettings = useCallback(async () => {
     if (!isAuthenticated) return;
 
@@ -156,7 +156,7 @@ export function SapSettings({ className }: SapSettingsProps) {
     void loadSyncSettings();
   }, [loadSyncSettings]);
 
-  // FEATURE-020 Phase 4.4: Health check function
+  // Phase 4.4: Health check function
   const checkHealth = useCallback(async () => {
     if (!isAuthenticated) return;
 
@@ -193,7 +193,7 @@ export function SapSettings({ className }: SapSettingsProps) {
     };
   }, [isAuthenticated, checkHealth]);
 
-  // FEATURE-020 Phase 3: Sync settings handlers
+  // Phase 3: Sync settings handlers
   const handleToggleSync = useCallback(
     (enabled: boolean) => {
       if (!syncSettings) return;
@@ -264,7 +264,7 @@ export function SapSettings({ className }: SapSettingsProps) {
     })();
   }, [loadSyncSettings]);
 
-  // FEATURE-020 Phase 4.4: Retry sync handler
+  // Phase 4.4: Retry sync handler
   const handleRetrySync = useCallback(() => {
     void (async () => {
       setIsSyncing(true);
@@ -388,7 +388,7 @@ export function SapSettings({ className }: SapSettingsProps) {
         </CardContent>
       </Card>
 
-      {/* FEATURE-020 Phase 3: Sync Settings */}
+      {/* Phase 3: Sync Settings */}
       {isAuthenticated && syncSettings && (
         <Card>
           <CardHeader>
@@ -437,7 +437,7 @@ export function SapSettings({ className }: SapSettingsProps) {
 
             <Separator />
 
-            {/* FEATURE-020 Phase 4.4: Connection Health Status */}
+            {/* Phase 4.4: Connection Health Status */}
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <div className="font-medium">Connection Health</div>

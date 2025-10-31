@@ -4,7 +4,7 @@
  * Tests the modal UI that prompts users when idle time is detected.
  * Covers rendering, user interactions, and different idle duration displays.
  *
- * Related: FEATURE-028 (Idle Time Tracking - Phase 4 Frontend Integration)
+ * Related:  (Idle Time Tracking - Phase 4 Frontend Integration)
  */
 
 import { render, screen } from '@testing-library/react';
@@ -113,10 +113,10 @@ describe('IdleDetectionModal', () => {
   });
 
   // ============================================================================
-  // FEATURE-028: Idle Time Tracking Tests (Phase 4 - Frontend Integration)
+  // Idle Time Tracking Tests (Phase 4 - Frontend Integration)
   // ============================================================================
 
-  describe('FEATURE-028 Integration', () => {
+  describe(' Integration', () => {
     it.skip('should call update_idle_period_action when Keep Time clicked', async () => {
       // Test: Mock update_idle_period_action Tauri command
       // Test: Render modal with idle period ID

@@ -52,8 +52,8 @@ export function createMockActivitySnapshot(
     processed: false,
     batch_id: null,
     created_at: Date.now(),
-    is_idle: false, // FEATURE-028: Default to active
-    idle_duration_secs: 0, // FEATURE-028: No idle time by default
+    is_idle: false, // Default to active
+    idle_duration_secs: 0, // No idle time by default
     // processed_at is optional, omit by default
     ...overrides,
   };
@@ -82,9 +82,9 @@ export function createMockActivitySegment(
     detected_activity: 'Test Activity',
     extracted_signals_json: null,
     project_match_json: null,
-    idle_time_secs: 0, // FEATURE-028: No idle time by default
-    active_time_secs: 300, // FEATURE-028: 5 minutes active (300 seconds)
-    user_action: null, // FEATURE-028: No user action by default
+    idle_time_secs: 0, // No idle time by default
+    active_time_secs: 300, // 5 minutes active (300 seconds)
+    user_action: null, // No user action by default
     ...overrides,
   };
 }
@@ -207,7 +207,7 @@ export function createMockTimeEntryOutbox(
     // retry_after is optional, omit by default
     created_at: now,
     // sent_at is optional, omit by default
-    // FEATURE-020: SAP Integration fields (all null by default in Phase 0)
+    // : SAP Integration fields (all null by default in Phase 0)
     correlation_id: null,
     local_status: null,
     remote_status: null,

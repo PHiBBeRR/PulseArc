@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Idle Period Detail Component Tests (Phase 5)
+ * Idle Period Detail Component Tests (Phase 5)
  * Unit tests for IdlePeriodDetail component
  *
  * Tests the component that displays detailed information about a single

@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Idle Settings Component Tests (Phase 4)
+ * Idle Settings Component Tests (Phase 4)
  * Unit tests for IdleSettings configuration component
  *
  * Tests the settings UI that allows users to configure idle detection behavior

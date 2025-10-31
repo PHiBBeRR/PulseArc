@@ -1,4 +1,4 @@
-// FEATURE-020 Phase 4.4: Error Toast Service
+// Phase 4.4: Error Toast Service
 // Displays user-friendly error messages for SAP operations
 
 import type { SapError, SapErrorCategory } from '@/shared/types/SapError';

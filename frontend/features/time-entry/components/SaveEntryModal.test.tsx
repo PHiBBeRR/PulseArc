@@ -1,5 +1,5 @@
 /**
- * FEATURE-028: Save Entry Modal Idle Display Tests (Phase 4)
+ * Save Entry Modal Idle Display Tests (Phase 4)
  * Unit tests for SaveEntryModal component with idle time display
  *
  * Tests the modal for saving time entries, with special focus on displaying

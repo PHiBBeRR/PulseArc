@@ -319,25 +319,25 @@ export function ActivityTrackerView() {
     };
   }, []);
 
-  // FEATURE-012: Timer state synchronization (versioned, namespaced event)
+  // Timer state synchronization (versioned, namespaced event)
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
     const setupTimerStateListener = async () => {
       try {
-        // FEATURE-012: Record listener registration
+        // Record listener registration
         unlisten = await listen<TimerStateEventV1>(TIMER_STATE_EVT, (event) => {
           const p = event.payload;
           const receiveTime = Date.now();
 
-          // FEATURE-012: Validate payload with type guard
+          // Validate payload with type guard
           if (!isTimerStateEventV1(p)) {
             console.warn('[timer-state] Invalid or unknown payload version:', p);
             void idleSyncMetrics.recordInvalidPayload();
             return;
           }
 
-          // FEATURE-012: Record event reception with sync latency
+          // Record event reception with sync latency
           const syncLatencyMs = Math.max(0, receiveTime - p.ts);
           void idleSyncMetrics.recordTimerEventReception(syncLatencyMs);
 
@@ -345,7 +345,7 @@ export function ActivityTrackerView() {
           const prevState = prevTrackerStateRef.current;
           const newTrackerState = deriveTrackerState(p.state);
 
-          // FEATURE-012: Record state mirroring (tracker always mirrors timer)
+          // Record state mirroring (tracker always mirrors timer)
           void idleSyncMetrics.recordAutoStartTrackerRule(
             1, // Rule 1: Always mirror timer state
             p.state,
@@ -361,7 +361,7 @@ export function ActivityTrackerView() {
 
           // Timer is the source of truth for elapsed time
 
-          // FEATURE-012: Record state transition with duration
+          // Record state transition with duration
           if (prevState !== newTrackerState) {
             const transitionDurationMs = Math.round(performance.now() - transitionStart);
             void idleSyncMetrics.recordStateTransition(
@@ -430,7 +430,7 @@ export function ActivityTrackerView() {
     };
   }, []); // Only set up once on mount, never recreate
 
-  // FEATURE-012 Phase 5: Cross-window activity wake (emit throttled user-activity events)
+  // Cross-window activity wake (emit throttled user-activity events)
   useEffect(() => {
     let lastEmitTime = 0;
     const THROTTLE_MS = 1000; // Max 1 emit/second to prevent event bus flooding

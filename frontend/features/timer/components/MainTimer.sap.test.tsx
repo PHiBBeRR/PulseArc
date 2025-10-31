@@ -1,5 +1,5 @@
 /**
- * FEATURE-020 Phase 2: MainTimer SAP Integration Tests
+ * Phase 2: MainTimer SAP Integration Tests
  * Unit tests for SAP integration in MainTimer component
  *
  * Tests the integration of SAP WBS autocomplete and validation
@@ -21,7 +21,7 @@
 import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 describe.skip('MainTimer SAP Integration', () => {
-  // TODO(FEATURE-020): Implement during Phase 2 development
+  // TODO(): Implement during Phase 2 development
   // These tests validate SAP features in MainTimer
 
   beforeEach(() => {
