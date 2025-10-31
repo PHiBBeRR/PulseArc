@@ -7,6 +7,8 @@
 //! - **SeqCst ordering** for atomics used in derived metrics (avg_fetch_time)
 //! - **No locking needed** - simple atomic counters
 //! - **MetricsResult returns** for future extensibility (currently always Ok)
+//! - **Microsecond storage** - stores raw durations in µs, reporting helpers
+//!   convert to ms
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
@@ -19,10 +21,10 @@ use crate::observability::MetricsResult;
 /// (quotas, validation), but currently always succeed.
 #[derive(Debug, Default)]
 pub struct FetchMetrics {
-    /// Total time spent fetching data in milliseconds
-    pub total_fetch_time_ms: AtomicU64,
-    /// Last fetch time in milliseconds
-    pub last_fetch_time_ms: AtomicU64,
+    /// Total time spent fetching data in microseconds
+    pub total_fetch_time_micros: AtomicU64,
+    /// Last fetch time in microseconds
+    pub last_fetch_time_micros: AtomicU64,
     /// Number of fetch operations recorded
     pub fetch_count: AtomicUsize,
     /// Number of errors encountered
@@ -35,8 +37,8 @@ impl FetchMetrics {
     /// Create new FetchMetrics instance
     pub fn new() -> Self {
         Self {
-            total_fetch_time_ms: AtomicU64::new(0),
-            last_fetch_time_ms: AtomicU64::new(0),
+            total_fetch_time_micros: AtomicU64::new(0),
+            last_fetch_time_micros: AtomicU64::new(0),
             fetch_count: AtomicUsize::new(0),
             errors: AtomicUsize::new(0),
             timeouts: AtomicUsize::new(0),
@@ -47,14 +49,14 @@ impl FetchMetrics {
     ///
     /// Currently always succeeds. Future versions may enforce quotas.
     pub fn record_fetch_time(&self, duration: Duration) -> MetricsResult<()> {
-        let ms = duration.as_millis() as u64;
+        let micros = duration.as_micros() as u64;
 
         // SeqCst for consistency with avg_fetch_time calculation
-        self.total_fetch_time_ms.fetch_add(ms, Ordering::SeqCst);
+        self.total_fetch_time_micros.fetch_add(micros, Ordering::SeqCst);
         self.fetch_count.fetch_add(1, Ordering::SeqCst);
 
         // Relaxed OK: last_fetch_time is not used in derived metrics
-        self.last_fetch_time_ms.store(ms, Ordering::Relaxed);
+        self.last_fetch_time_micros.store(micros, Ordering::Relaxed);
 
         Ok(())
     }
@@ -85,24 +87,24 @@ impl FetchMetrics {
     /// Uses SeqCst to ensure consistent snapshot of total time and count.
     pub fn get_avg_fetch_time_ms(&self) -> f64 {
         // SeqCst for consistent snapshot
-        let total_time = self.total_fetch_time_ms.load(Ordering::SeqCst);
+        let total_time = self.total_fetch_time_micros.load(Ordering::SeqCst);
         let count = self.fetch_count.load(Ordering::SeqCst);
 
         if count == 0 {
             return 0.0;
         }
 
-        total_time as f64 / count as f64
+        (total_time as f64 / count as f64) / 1_000.0
     }
 
     /// Get the last fetch time in milliseconds
     pub fn get_last_fetch_time_ms(&self) -> u64 {
-        self.last_fetch_time_ms.load(Ordering::Relaxed)
+        self.last_fetch_time_micros.load(Ordering::Relaxed) / 1_000
     }
 
     /// Get the total fetch time in milliseconds
     pub fn get_total_fetch_time_ms(&self) -> u64 {
-        self.total_fetch_time_ms.load(Ordering::SeqCst)
+        self.total_fetch_time_micros.load(Ordering::SeqCst) / 1_000
     }
 
     /// Get the fetch count
@@ -143,8 +145,8 @@ impl FetchMetrics {
 
         let cache_misses = total_calls.saturating_sub(cache_hits);
         let avg_fetch_time = if cache_misses > 0 {
-            let total_time = self.total_fetch_time_ms.load(Ordering::SeqCst);
-            total_time as f64 / cache_misses as f64
+            let total_time = self.total_fetch_time_micros.load(Ordering::SeqCst);
+            (total_time as f64 / cache_misses as f64) / 1_000.0
         } else {
             0.0
         };
@@ -176,18 +178,18 @@ mod tests {
     #[test]
     fn test_record_fetch_time() {
         let metrics = FetchMetrics::new();
-        assert_eq!(metrics.total_fetch_time_ms.load(Ordering::SeqCst), 0);
-        assert_eq!(metrics.last_fetch_time_ms.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.total_fetch_time_micros.load(Ordering::SeqCst), 0);
+        assert_eq!(metrics.last_fetch_time_micros.load(Ordering::Relaxed), 0);
         assert_eq!(metrics.fetch_count.load(Ordering::SeqCst), 0);
 
         metrics.record_fetch_time(Duration::from_millis(100)).unwrap();
-        assert_eq!(metrics.total_fetch_time_ms.load(Ordering::SeqCst), 100);
-        assert_eq!(metrics.last_fetch_time_ms.load(Ordering::Relaxed), 100);
+        assert_eq!(metrics.total_fetch_time_micros.load(Ordering::SeqCst), 100_000);
+        assert_eq!(metrics.last_fetch_time_micros.load(Ordering::Relaxed), 100_000);
         assert_eq!(metrics.fetch_count.load(Ordering::SeqCst), 1);
 
         metrics.record_fetch_time(Duration::from_millis(200)).unwrap();
-        assert_eq!(metrics.total_fetch_time_ms.load(Ordering::SeqCst), 300);
-        assert_eq!(metrics.last_fetch_time_ms.load(Ordering::Relaxed), 200);
+        assert_eq!(metrics.total_fetch_time_micros.load(Ordering::SeqCst), 300_000);
+        assert_eq!(metrics.last_fetch_time_micros.load(Ordering::Relaxed), 200_000);
         assert_eq!(metrics.fetch_count.load(Ordering::SeqCst), 2);
     }
 

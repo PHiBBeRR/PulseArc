@@ -15,6 +15,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
+use super::DEFAULT_RING_BUFFER_CAPACITY;
 use crate::observability::{MetricsError, MetricsResult};
 
 /// Database connection pool performance metrics
@@ -69,12 +70,16 @@ impl DbMetrics {
     pub fn new() -> Self {
         Self {
             connections_acquired: AtomicU64::new(0),
-            connection_acquisition_times_ms: Mutex::new(VecDeque::with_capacity(1000)),
+            connection_acquisition_times_ms: Mutex::new(VecDeque::with_capacity(
+                DEFAULT_RING_BUFFER_CAPACITY,
+            )),
             connection_timeouts: AtomicU64::new(0),
             connection_errors: AtomicU64::new(0),
 
             queries_executed: AtomicU64::new(0),
-            query_execution_times_ms: Mutex::new(VecDeque::with_capacity(1000)),
+            query_execution_times_ms: Mutex::new(VecDeque::with_capacity(
+                DEFAULT_RING_BUFFER_CAPACITY,
+            )),
             query_errors: AtomicU64::new(0),
 
             peak_concurrent_connections: AtomicU64::new(0),
@@ -116,7 +121,7 @@ impl DbMetrics {
 
         // Ring buffer: O(1) push_back + pop_front
         times.push_back(duration_ms);
-        if times.len() > 1000 {
+        if times.len() > DEFAULT_RING_BUFFER_CAPACITY {
             times.pop_front();
         }
 
@@ -227,7 +232,7 @@ impl DbMetrics {
 
         // Ring buffer: O(1) push_back + pop_front
         times.push_back(duration_ms);
-        if times.len() > 1000 {
+        if times.len() > DEFAULT_RING_BUFFER_CAPACITY {
             times.pop_front();
         }
 
@@ -507,7 +512,7 @@ pub struct DbStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DEFAULT_RING_BUFFER_CAPACITY, *};
 
     #[test]
     fn test_connection_acquisition_metrics() {
@@ -661,17 +666,18 @@ mod tests {
         let metrics = DbMetrics::new();
 
         // Add 1001 samples to trigger eviction
-        for i in 0..=1000 {
-            metrics.record_connection_acquired(i).unwrap();
+        for i in 0..=DEFAULT_RING_BUFFER_CAPACITY {
+            let millis = u64::try_from(i).expect("ring buffer index fits into u64");
+            metrics.record_connection_acquired(millis).unwrap();
         }
 
-        // Should only keep last 1000
+        // Should only keep last N
         let times = metrics.connection_acquisition_times_ms.lock().unwrap();
-        assert_eq!(times.len(), 1000);
+        assert_eq!(times.len(), DEFAULT_RING_BUFFER_CAPACITY);
         // First element should be 1 (0 was evicted)
         assert_eq!(times[0], 1);
-        // Last element should be 1000
-        assert_eq!(times[999], 1000);
+        // Last element should be capacity (inclusive range)
+        assert_eq!(times[DEFAULT_RING_BUFFER_CAPACITY - 1], DEFAULT_RING_BUFFER_CAPACITY as u64);
     }
 
     #[test]

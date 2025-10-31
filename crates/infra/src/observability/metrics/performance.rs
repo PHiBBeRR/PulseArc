@@ -5,14 +5,16 @@
 //!
 //! ## Design
 //! - **Aggregation pattern** - Holds all individual metrics types
-//! - **Convenience methods** - Delegates to underlying metrics for common operations
+//! - **Convenience methods** - Delegates to underlying metrics for common
+//!   operations
 //! - **Thread-safe** - All underlying metrics use atomics/locks appropriately
 //!
 //! ## Usage
 //!
 //! ```rust
-//! use pulsearc_infra::observability::metrics::PerformanceMetrics;
 //! use std::time::Duration;
+//!
+//! use pulsearc_infra::observability::metrics::PerformanceMetrics;
 //!
 //! let metrics = PerformanceMetrics::new();
 //!
@@ -45,7 +47,8 @@ pub struct PerformanceMetrics {
     pub call: CallMetrics,
     /// Cache performance metrics (hits, misses, hit rate)
     pub cache: CacheMetrics,
-    /// Database connection pool metrics (connections, queries, pool utilization)
+    /// Database connection pool metrics (connections, queries, pool
+    /// utilization)
     pub db: DbMetrics,
     /// HTTP fetch metrics (timing, errors, timeouts)
     pub fetch: FetchMetrics,
@@ -303,15 +306,9 @@ mod tests {
         let metrics = PerformanceMetrics::new();
 
         // Record fetches
-        metrics
-            .record_fetch_time(Duration::from_millis(100))
-            .unwrap();
-        metrics
-            .record_fetch_time(Duration::from_millis(200))
-            .unwrap();
-        metrics
-            .record_fetch_time(Duration::from_millis(300))
-            .unwrap();
+        metrics.record_fetch_time(Duration::from_millis(100)).unwrap();
+        metrics.record_fetch_time(Duration::from_millis(200)).unwrap();
+        metrics.record_fetch_time(Duration::from_millis(300)).unwrap();
 
         // Verify average
         assert_eq!(metrics.avg_fetch_time_ms(), 200.0);
@@ -391,9 +388,7 @@ mod tests {
         metrics.record_cache_miss().unwrap();
 
         // Fetch from upstream
-        metrics
-            .record_fetch_time(Duration::from_millis(250))
-            .unwrap();
+        metrics.record_fetch_time(Duration::from_millis(250)).unwrap();
 
         // Check cache again (hit)
         metrics.record_call().unwrap();

@@ -13,14 +13,13 @@ use std::time::{Duration as StdDuration, Instant};
 
 use chrono::{Duration, NaiveDate};
 use pulsearc_core::tracking::ports::{SegmentRepository, SnapshotRepository};
-use pulsearc_infra::database::{SqliteSegmentRepository, SqliteSnapshotRepository};
+use pulsearc_infra::database::{SqlCipherActivityRepository, SqlCipherSegmentRepository};
 use rusqlite::params;
 
 #[tokio::test]
-#[ignore] // Remove this once SegmentRepository is implemented
 async fn test_segment_repository_uses_index_friendly_date_queries() {
     let db = support::setup_segment_db();
-    let repo = SqliteSegmentRepository::new(db.manager.clone());
+    let repo = SqlCipherSegmentRepository::new(db.manager.clone());
 
     let date = NaiveDate::from_ymd_opt(2025, 11, 1).expect("valid date");
     let (day_start, day_end) = day_bounds(date);
@@ -68,7 +67,7 @@ async fn test_segment_repository_uses_index_friendly_date_queries() {
 #[ignore] // Remove this once SnapshotRepository is implemented
 async fn test_snapshot_repository_uses_index_friendly_date_queries() {
     let db = support::setup_snapshot_db();
-    let repo = SqliteSnapshotRepository::new(db.manager.clone());
+    let repo = SqlCipherActivityRepository::new(db.manager.clone());
 
     let date = NaiveDate::from_ymd_opt(2025, 11, 1).expect("valid date");
     let (day_start, day_end) = day_bounds(date);
@@ -108,10 +107,9 @@ async fn test_snapshot_repository_uses_index_friendly_date_queries() {
 }
 
 #[tokio::test]
-#[ignore] // Performance regression test
 async fn test_date_query_performance_under_10ms() {
     let db = support::setup_segment_db();
-    let repo = SqliteSegmentRepository::new(db.manager.clone());
+    let repo = SqlCipherSegmentRepository::new(db.manager.clone());
 
     let base_date = NaiveDate::from_ymd_opt(2025, 10, 1).expect("valid base date");
     {
@@ -161,10 +159,9 @@ async fn test_date_query_performance_under_10ms() {
 }
 
 #[tokio::test]
-#[ignore] // Boundary correctness check
 async fn test_date_query_correctness_at_day_boundaries() {
     let db = support::setup_segment_db();
-    let repo = SqliteSegmentRepository::new(db.manager.clone());
+    let repo = SqlCipherSegmentRepository::new(db.manager.clone());
 
     let date = NaiveDate::from_ymd_opt(2025, 11, 1).expect("valid date");
     let (day_start, day_end) = day_bounds(date);

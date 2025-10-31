@@ -14,7 +14,7 @@ use hyper::{Body, Response, Server, StatusCode};
 use infra_baselines::init_test_encryption_key;
 use legacy_shim::mdm::{MdmClient, MdmConfig, PolicySetting, PolicyValue};
 #[cfg(target_os = "macos")]
-use legacy_shim::{check_ax_permission, MacOsActivityProvider};
+use legacy_shim::MacOsActivityProvider;
 use legacy_shim::{DbManager as LegacyDbManager, HttpClient};
 use rusqlite::params;
 use rustls::{Certificate as RustlsCertificate, PrivateKey, ServerConfig};
@@ -300,11 +300,6 @@ fn benchmark_legacy_macos_activity_provider_ax_off(c: &mut Criterion) {
     });
 
     group.finish();
-
-    match previous {
-        Some(val) => std::env::set_var("PULSARC_FORCE_AX_DENIED", val),
-        None => std::env::remove_var("PULSARC_FORCE_AX_DENIED"),
-    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -461,8 +456,13 @@ fn benchmark_legacy_mdm_client(c: &mut Criterion) {
             let url = url.clone();
             let ca = ca.clone();
             async move {
-                let client =
-                    MdmClient::with_ca_cert(url.clone(), &ca).expect("MDM fetch_config_cold client init");
+                let client = MdmClient::builder(url.clone())
+                    .ca_cert_path(&ca)
+                    .no_pool()
+                    .fresh_tls_config()
+                    .timeout(Duration::from_secs(5))
+                    .build()
+                    .expect("MDM fetch_config_cold client init");
                 let config = client.fetch_config().await.expect("MDM cold fetch_config");
                 black_box(config);
             }

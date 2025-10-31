@@ -1,7 +1,9 @@
-//! Observer-related metrics for tracking macOS Accessibility API observer behavior
+//! Observer-related metrics for tracking macOS Accessibility API observer
+//! behavior
 //!
-//! This module tracks metrics related to OS-level observers including notifications,
-//! registration timing, and permission status for macOS Accessibility API integration.
+//! This module tracks metrics related to OS-level observers including
+//! notifications, registration timing, and permission status for macOS
+//! Accessibility API integration.
 //!
 //! ## Design
 //! - **Simple atomic counters** - No locking needed
@@ -70,8 +72,7 @@ impl ObserverMetrics {
     /// Currently always succeeds. Future versions may enforce quotas.
     pub fn record_notification(&self) -> MetricsResult<()> {
         // Relaxed OK: independent counter
-        self.observer_notifications_received
-            .fetch_add(1, Ordering::Relaxed);
+        self.observer_notifications_received.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -80,8 +81,7 @@ impl ObserverMetrics {
     /// Currently always succeeds. Future versions may enforce validation.
     pub fn record_registration_time(&self, ms: u64) -> MetricsResult<()> {
         // Relaxed OK: independent value
-        self.observer_registration_time_ms
-            .store(ms, Ordering::Relaxed);
+        self.observer_registration_time_ms.store(ms, Ordering::Relaxed);
         Ok(())
     }
 
@@ -126,9 +126,7 @@ impl ObserverMetrics {
     /// Provides a consistent view of all metrics at a point in time.
     pub fn stats(&self) -> ObserverStats {
         ObserverStats {
-            notifications_received: self
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
+            notifications_received: self.observer_notifications_received.load(Ordering::Relaxed),
             registration_time_ms: self.observer_registration_time_ms.load(Ordering::Relaxed),
             cleanup_time_ms: self.observer_cleanup_time_ms.load(Ordering::Relaxed),
             ax_permission_granted: self.ax_permission_granted.load(Ordering::Relaxed),
@@ -142,10 +140,8 @@ impl ObserverMetrics {
     ///
     /// Currently always succeeds. Future versions may enforce validation.
     pub fn reset(&self) -> MetricsResult<()> {
-        self.observer_notifications_received
-            .store(0, Ordering::Relaxed);
-        self.observer_registration_time_ms
-            .store(0, Ordering::Relaxed);
+        self.observer_notifications_received.store(0, Ordering::Relaxed);
+        self.observer_registration_time_ms.store(0, Ordering::Relaxed);
         self.observer_cleanup_time_ms.store(0, Ordering::Relaxed);
         self.ax_permission_granted.store(false, Ordering::Relaxed);
         self.observer_failures.store(0, Ordering::Relaxed);
@@ -160,78 +156,39 @@ mod tests {
     #[test]
     fn test_record_notification() {
         let metrics = ObserverMetrics::new();
-        assert_eq!(
-            metrics
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
-            0
-        );
+        assert_eq!(metrics.observer_notifications_received.load(Ordering::Relaxed), 0);
 
         metrics.record_notification().unwrap();
-        assert_eq!(
-            metrics
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
-            1
-        );
+        assert_eq!(metrics.observer_notifications_received.load(Ordering::Relaxed), 1);
 
         metrics.record_notification().unwrap();
         metrics.record_notification().unwrap();
-        assert_eq!(
-            metrics
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
-            3
-        );
+        assert_eq!(metrics.observer_notifications_received.load(Ordering::Relaxed), 3);
     }
 
     #[test]
     fn test_record_registration_time() {
         let metrics = ObserverMetrics::new();
-        assert_eq!(
-            metrics
-                .observer_registration_time_ms
-                .load(Ordering::Relaxed),
-            0
-        );
+        assert_eq!(metrics.observer_registration_time_ms.load(Ordering::Relaxed), 0);
 
         metrics.record_registration_time(150).unwrap();
-        assert_eq!(
-            metrics
-                .observer_registration_time_ms
-                .load(Ordering::Relaxed),
-            150
-        );
+        assert_eq!(metrics.observer_registration_time_ms.load(Ordering::Relaxed), 150);
 
         // Should overwrite
         metrics.record_registration_time(200).unwrap();
-        assert_eq!(
-            metrics
-                .observer_registration_time_ms
-                .load(Ordering::Relaxed),
-            200
-        );
+        assert_eq!(metrics.observer_registration_time_ms.load(Ordering::Relaxed), 200);
     }
 
     #[test]
     fn test_record_cleanup_time() {
         let metrics = ObserverMetrics::new();
-        assert_eq!(
-            metrics.observer_cleanup_time_ms.load(Ordering::Relaxed),
-            0
-        );
+        assert_eq!(metrics.observer_cleanup_time_ms.load(Ordering::Relaxed), 0);
 
         metrics.record_cleanup_time(50).unwrap();
-        assert_eq!(
-            metrics.observer_cleanup_time_ms.load(Ordering::Relaxed),
-            50
-        );
+        assert_eq!(metrics.observer_cleanup_time_ms.load(Ordering::Relaxed), 50);
 
         metrics.record_cleanup_time(75).unwrap();
-        assert_eq!(
-            metrics.observer_cleanup_time_ms.load(Ordering::Relaxed),
-            75
-        );
+        assert_eq!(metrics.observer_cleanup_time_ms.load(Ordering::Relaxed), 75);
     }
 
     #[test]
@@ -290,32 +247,14 @@ mod tests {
         metrics.record_ax_permission_status(true).unwrap();
         metrics.record_failure("test").unwrap();
 
-        assert_eq!(
-            metrics
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
-            1
-        );
+        assert_eq!(metrics.observer_notifications_received.load(Ordering::Relaxed), 1);
 
         // Reset
         metrics.reset().unwrap();
 
-        assert_eq!(
-            metrics
-                .observer_notifications_received
-                .load(Ordering::Relaxed),
-            0
-        );
-        assert_eq!(
-            metrics
-                .observer_registration_time_ms
-                .load(Ordering::Relaxed),
-            0
-        );
-        assert_eq!(
-            metrics.observer_cleanup_time_ms.load(Ordering::Relaxed),
-            0
-        );
+        assert_eq!(metrics.observer_notifications_received.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.observer_registration_time_ms.load(Ordering::Relaxed), 0);
+        assert_eq!(metrics.observer_cleanup_time_ms.load(Ordering::Relaxed), 0);
         assert!(!metrics.ax_permission_granted.load(Ordering::Relaxed));
         assert_eq!(metrics.observer_failures.load(Ordering::Relaxed), 0);
     }

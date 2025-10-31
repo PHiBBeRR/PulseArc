@@ -27,3 +27,5 @@ core-foundation = "0.10"
 core-foundation-sys = "0.8"
 wait-timeout = "0.2"
 crossbeam-channel = "0.5"
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
+rustls-pemfile = { version = "2.0", features = ["std"] }

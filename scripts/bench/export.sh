@@ -12,6 +12,7 @@ PULSARC_ENABLE_MAC_BENCH=${PULSARC_ENABLE_MAC_BENCH:-} \
 cargo bench -p infra-baselines --bench baseline -- --save-baseline latest "$@"
 
 # Collate all sample.json files into a CSV summary
-python3 scripts/bench/export_samples.py "$CSV"
+python3 scripts/bench/criterion_to_csv.py
+cp target/criterion-summary.csv "$CSV"
 
 echo "Exported Criterion results to $CSV"

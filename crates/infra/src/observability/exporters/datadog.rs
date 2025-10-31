@@ -1,14 +1,16 @@
 //! Datadog DogStatsD metrics exporter
 //!
-//! Sends metrics to Datadog agent using raw UDP sockets (no external dependencies).
-//! Implements the DogStatsD protocol for gauges, counters, histograms, and timers.
+//! Sends metrics to Datadog agent using raw UDP sockets (no external
+//! dependencies). Implements the DogStatsD protocol for gauges, counters,
+//! histograms, and timers.
 //!
 //! ## Design
 //! - **Raw UDP sockets** - No cadence dependency, lightweight implementation
 //! - **Non-blocking** - Set to non-blocking mode to avoid blocking on send
 //! - **Best-effort delivery** - UDP is fire-and-forget, no retry logic
 //! - **Tag support** - DogStatsD tags for dimensional metrics
-//! - **Float support** - Preserves floating-point precision for gauges/histograms
+//! - **Float support** - Preserves floating-point precision for
+//!   gauges/histograms
 //!
 //! ## DogStatsD Protocol
 //! ```text
@@ -21,11 +23,12 @@
 //! - Histogram: `db.query.latency:123.45|h|#env:prod`
 //! - Timer: `db.connection.acquired:45|ms|#env:prod`
 
-use std::fmt::Display;
+use std::fmt::{Display, Write};
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 
-use crate::observability::{metrics::DbStats, MetricsResult};
+use crate::observability::metrics::DbStats;
+use crate::observability::MetricsResult;
 
 /// Default Datadog agent address (DogStatsD default port)
 pub const DEFAULT_DATADOG_ADDR: &str = "127.0.0.1:8125";
@@ -55,7 +58,8 @@ impl DatadogClient {
 
     /// Create new Datadog client with custom prefix
     ///
-    /// Prefix is prepended to all metric names (e.g., "pulsearc.db.connections.acquired").
+    /// Prefix is prepended to all metric names (e.g.,
+    /// "pulsearc.db.connections.acquired").
     pub fn with_prefix(prefix: &str) -> io::Result<Self> {
         let addr = DEFAULT_DATADOG_ADDR.to_socket_addrs()?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "Invalid Datadog address")
@@ -136,7 +140,8 @@ impl DatadogClient {
 
     /// Send a histogram metric (statistical distribution)
     ///
-    /// Histograms calculate statistics (P50, P95, P99, avg, etc.) on the server side.
+    /// Histograms calculate statistics (P50, P95, P99, avg, etc.) on the server
+    /// side.
     pub fn histogram(&self, name: &str, value: u64) -> MetricsResult<()> {
         self.send_metric(name, value, "h", &[])
     }
@@ -206,7 +211,8 @@ impl DatadogClient {
         self.send_metric(name, value, "h", tags)
     }
 
-    /// Send a timing metric with floating-point value (duration in milliseconds)
+    /// Send a timing metric with floating-point value (duration in
+    /// milliseconds)
     ///
     /// Use for sub-millisecond precision timing.
     pub fn timing_f64(&self, name: &str, duration_ms: f64) -> MetricsResult<()> {
@@ -229,8 +235,9 @@ impl DatadogClient {
 
     /// Send database metrics snapshot to Datadog
     ///
-    /// Sends all DbStats fields as DogStatsD metrics. Percentiles are sent as histograms,
-    /// counts as gauges, and rates as gauges (0-100). Preserves floating-point precision.
+    /// Sends all DbStats fields as DogStatsD metrics. Percentiles are sent as
+    /// histograms, counts as gauges, and rates as gauges (0-100). Preserves
+    /// floating-point precision.
     pub fn send_db_stats(&self, stats: &DbStats) -> MetricsResult<()> {
         // Connection acquisition metrics
         self.gauge("db.connections.acquired", stats.connections_acquired)?;
@@ -295,19 +302,25 @@ impl DatadogClient {
         // Build DogStatsD metric string: <PREFIX>.<NAME>:<VALUE>|<TYPE>|#<TAGS>
         let full_name = format!("{}.{}", self.prefix, name);
 
-        // Combine default tags with custom tags
-        let mut all_tags = self.default_tags.clone();
-        for (key, val) in custom_tags {
-            all_tags.push(format!("{}:{}", key, val));
+        let mut metric = format!("{}:{}|{}", full_name, value, metric_type);
+        if !self.default_tags.is_empty() || !custom_tags.is_empty() {
+            metric.push_str("|#");
+            let mut first = true;
+            for tag in &self.default_tags {
+                if !first {
+                    metric.push(',');
+                }
+                first = false;
+                metric.push_str(tag);
+            }
+            for (key, val) in custom_tags {
+                if !first {
+                    metric.push(',');
+                }
+                first = false;
+                let _ = write!(&mut metric, "{}:{}", key, val);
+            }
         }
-
-        // Format: metric_name:value|type|#tag1:val1,tag2:val2
-        let metric = if all_tags.is_empty() {
-            format!("{}:{}|{}", full_name, value, metric_type)
-        } else {
-            let tags_str = all_tags.join(",");
-            format!("{}:{}|{}|#{}", full_name, value, metric_type, tags_str)
-        };
 
         // Send via UDP (non-blocking, best-effort)
         match self.socket.send_to(metric.as_bytes(), self.agent_addr) {

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use pulsearc_core::TrackingService;
 use pulsearc_domain::{Config, Result};
 use pulsearc_infra::{
-    DbManager, InstanceLock, KeyManager, MacOsActivityProvider, SqliteActivityRepository,
+    DbManager, InstanceLock, KeyManager, MacOsActivityProvider, SqlCipherActivityRepository,
 };
 
 /// Application context - holds all services and dependencies
@@ -47,7 +47,7 @@ impl AppContext {
         let provider = Arc::new(MacOsActivityProvider::new());
 
         // Initialize activity repository
-        let repository = Arc::new(SqliteActivityRepository::new(db.clone()));
+        let repository = Arc::new(SqlCipherActivityRepository::new(db.clone()));
 
         // Create tracking service
         let tracking_service = Arc::new(TrackingService::new(provider, repository));

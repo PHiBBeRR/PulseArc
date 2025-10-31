@@ -11,4 +11,4 @@ pub use http::{HttpClient, HttpError, RetryConfig};
 pub use macos::{
     check_ax_permission, ActivityContext, ActivityError, MacOsActivityProvider, WindowContext,
 };
-pub use mdm::{MdmClient, MdmConfig, PolicySetting, PolicyValue};
+pub use mdm::{MdmClient, MdmClientBuilder, MdmConfig, PolicySetting, PolicyValue};

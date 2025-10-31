@@ -7,6 +7,9 @@
 .DEFAULT_GOAL := help
 
 PULSARC_TEST_DB_KEY ?= test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+BENCH_CRATE ?= infra-baselines
+BENCH_TARGET ?= baseline
+BASELINE ?= $(shell git rev-parse --short HEAD)
 
 ##@ General
 
@@ -156,13 +159,25 @@ tree: ## Show dependency tree
 	pnpm list --depth=1
 
 bench: ## Run infra baseline benchmarks (DB/HTTP/MDM + macOS AX-off)
-	PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) cargo bench -p infra-baselines --bench baseline
+	PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) cargo bench -p $(BENCH_CRATE) --bench $(BENCH_TARGET)
 
 mac-bench-prep: ## Build bench binary and open System Settings to grant Accessibility
-	bash scripts/mac/prepare-ax-bench.sh
+	BENCH_CRATE=$(BENCH_CRATE) BENCH_TARGET=$(BENCH_TARGET) bash scripts/mac/prepare-ax-bench.sh
 
 mac-bench: ## Run infra baselines with macOS AX-on enabled (requires Accessibility grant)
-	PULSARC_ENABLE_MAC_BENCH=1 PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) cargo bench -p infra-baselines --bench baseline
+	PULSARC_ENABLE_MAC_BENCH=1 PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) \
+		cargo bench -p $(BENCH_CRATE) --bench $(BENCH_TARGET)
+
+bench-save: ## Save current bench run as a Criterion baseline (BASELINE=identifier)
+	PULSARC_ENABLE_MAC_BENCH=1 PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) \
+		cargo bench -p $(BENCH_CRATE) --bench $(BENCH_TARGET) -- --save-baseline "$(BASELINE)"
+
+bench-diff: ## Compare benches against a previously saved baseline (BASELINE=identifier)
+	PULSARC_ENABLE_MAC_BENCH=1 PULSARC_TEST_DB_KEY=$(PULSARC_TEST_DB_KEY) \
+		cargo bench -p $(BENCH_CRATE) --bench $(BENCH_TARGET) -- --baseline "$(BASELINE)"
+
+bench-csv: ## Export Criterion samples to target/criterion-summary.csv
+	python3 scripts/bench/criterion_to_csv.py
 
 doctor: ## Check development environment
 	@echo "Checking development environment..."

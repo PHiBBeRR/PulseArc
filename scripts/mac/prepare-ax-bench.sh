@@ -6,18 +6,21 @@ if [[ $(uname -s) != "Darwin" ]]; then
   exit 1
 fi
 
+BENCH_CRATE=${BENCH_CRATE:-infra-baselines}
+BENCH_TARGET=${BENCH_TARGET:-baseline}
+
 echo "▶ Building benchmark binary so macOS can register its signature (no benches run)…"
-PULSARC_ENABLE_MAC_BENCH=1 cargo bench -p infra-baselines --bench baseline --no-run >/dev/null
+PULSARC_ENABLE_MAC_BENCH=1 cargo bench -p "$BENCH_CRATE" --bench "$BENCH_TARGET" --no-run >/dev/null
 
 echo "▶ Opening System Settings › Privacy & Security › Accessibility"
 open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
 
-cat <<'MSG'
+cat <<MSG
 
 Next steps:
-  1. In the Accessibility list, enable the `baseline` benchmark binary that just appeared.
+  1. In the Accessibility list, enable the benchmark binary that just appeared.
   2. Re-run the benches when ready:
-       PULSARC_ENABLE_MAC_BENCH=1 cargo bench -p infra-baselines --bench baseline
+       PULSARC_ENABLE_MAC_BENCH=1 cargo bench -p ${BENCH_CRATE} --bench ${BENCH_TARGET}
 
 The harness always records an AX-denied trace by temporarily applying
 PULSARC_FORCE_AX_DENIED=1 around that group, so you'll capture both paths.

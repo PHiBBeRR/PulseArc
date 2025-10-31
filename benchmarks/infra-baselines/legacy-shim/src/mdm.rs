@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::Certificate;
@@ -227,6 +229,109 @@ pub enum PolicyValue {
     Object(HashMap<String, String>),
 }
 
+pub struct MdmClientBuilder {
+    config_url: String,
+    ca_cert_path: Option<PathBuf>,
+    timeout: Duration,
+    no_pool: bool,
+    fresh_tls_config: bool,
+}
+
+impl MdmClientBuilder {
+    pub fn ca_cert_path(mut self, path: impl AsRef<Path>) -> Self {
+        self.ca_cert_path = Some(path.as_ref().to_path_buf());
+        self
+    }
+
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    pub fn no_pool(mut self) -> Self {
+        self.no_pool = true;
+        self
+    }
+
+    pub fn fresh_tls_config(mut self) -> Self {
+        self.fresh_tls_config = true;
+        self
+    }
+
+    pub fn build(self) -> MdmResult<MdmClient> {
+        Url::parse(&self.config_url).map_err(|_| MdmError::InvalidUrl(self.config_url.clone()))?;
+
+        // Ensure the aws-lc crypto provider is installed; ignore errors if it was
+        // already set.
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
+        let ca_bytes = match &self.ca_cert_path {
+            Some(path) => Some(std::fs::read(path).map_err(|e| {
+                MdmError::ConfigurationError(format!("Failed to read CA certificate: {e}"))
+            })?),
+            None => None,
+        };
+
+        let mut builder = reqwest::Client::builder().timeout(self.timeout).no_proxy();
+
+        if self.no_pool {
+            builder = builder.pool_max_idle_per_host(0).pool_idle_timeout(None);
+        }
+
+        if self.fresh_tls_config {
+            use rustls::client::Resumption;
+            use rustls::{ClientConfig, RootCertStore};
+
+            let mut root_store = RootCertStore::empty();
+
+            let ca_bytes = ca_bytes.as_ref().ok_or_else(|| {
+                MdmError::ConfigurationError(
+                    "CA certificate path required when using fresh TLS configuration".into(),
+                )
+            })?;
+
+            let mut reader = Cursor::new(ca_bytes.as_slice());
+            let certs =
+                rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>().map_err(|e| {
+                    MdmError::ConfigurationError(format!("Invalid CA certificate: {e}"))
+                })?;
+
+            if certs.is_empty() {
+                return Err(MdmError::ConfigurationError(
+                    "CA certificate bundle did not contain any certificates".into(),
+                ));
+            }
+
+            let (added, ignored) = root_store.add_parsable_certificates(certs.iter().cloned());
+            if added == 0 {
+                return Err(MdmError::ConfigurationError(format!(
+                    "CA certificate bundle did not contain any parsable certificates ({} ignored)",
+                    ignored
+                )));
+            }
+
+            let root_store = Arc::new(root_store);
+            let mut tls =
+                ClientConfig::builder().with_root_certificates(root_store).with_no_client_auth();
+            tls.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+            tls.resumption = Resumption::disabled();
+
+            builder = builder.use_preconfigured_tls(tls);
+        } else if let Some(bytes) = ca_bytes.as_ref() {
+            let cert = Certificate::from_pem(bytes).map_err(|e| {
+                MdmError::ConfigurationError(format!("Invalid CA certificate: {e}"))
+            })?;
+            builder = builder.add_root_certificate(cert);
+        }
+
+        let client = builder.build().map_err(|e| {
+            MdmError::ConfigurationError(format!("Failed to build HTTP client: {e}"))
+        })?;
+
+        Ok(MdmClient { client, config_url: self.config_url, timeout: self.timeout })
+    }
+}
+
 pub struct MdmClient {
     client: reqwest::Client,
     config_url: String,
@@ -235,43 +340,14 @@ pub struct MdmClient {
 
 impl MdmClient {
     pub fn new(config_url: impl Into<String>) -> MdmResult<Self> {
-        let config_url = config_url.into();
-        Url::parse(&config_url).map_err(|_| MdmError::InvalidUrl(config_url.clone()))?;
-
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .no_proxy()
-            .build()
-            .map_err(|e| {
-                MdmError::ConfigurationError(format!("Failed to build HTTP client: {e}"))
-            })?;
-
-        Ok(Self { client, config_url, timeout: Duration::from_secs(30) })
+        Self::builder(config_url).build()
     }
 
     pub fn with_ca_cert(
         config_url: impl Into<String>,
         ca_cert_path: impl AsRef<Path>,
     ) -> MdmResult<Self> {
-        let config_url = config_url.into();
-        Url::parse(&config_url).map_err(|_| MdmError::InvalidUrl(config_url.clone()))?;
-
-        let ca_cert_bytes = std::fs::read(ca_cert_path.as_ref()).map_err(|e| {
-            MdmError::ConfigurationError(format!("Failed to read CA certificate: {e}"))
-        })?;
-        let ca_cert = Certificate::from_pem(&ca_cert_bytes)
-            .map_err(|e| MdmError::ConfigurationError(format!("Invalid CA certificate: {e}")))?;
-
-        let client = reqwest::Client::builder()
-            .add_root_certificate(ca_cert)
-            .timeout(Duration::from_secs(30))
-            .no_proxy()
-            .build()
-            .map_err(|e| {
-                MdmError::ConfigurationError(format!("Failed to build HTTP client: {e}"))
-            })?;
-
-        Ok(Self { client, config_url, timeout: Duration::from_secs(30) })
+        Self::builder(config_url).ca_cert_path(ca_cert_path).build()
     }
 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
@@ -304,5 +380,15 @@ impl MdmClient {
         let remote_config = self.fetch_config().await?;
         local_config.merge_remote(remote_config)?;
         Ok(local_config)
+    }
+
+    pub fn builder(config_url: impl Into<String>) -> MdmClientBuilder {
+        MdmClientBuilder {
+            config_url: config_url.into(),
+            ca_cert_path: None,
+            timeout: Duration::from_secs(30),
+            no_pool: false,
+            fresh_tls_config: false,
+        }
     }
 }

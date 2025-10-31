@@ -19,7 +19,6 @@ use pulsearc_domain::OutboxStatus;
 use pulsearc_infra::integrations::sap::SapForwarder;
 
 #[tokio::test]
-#[ignore] // Remove this once SAP forwarder is implemented in Phase 3C.2
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_derives_date_from_created_at() {
     let log_handle = support::init_test_logger();
@@ -38,7 +37,6 @@ async fn test_sap_forwarder_derives_date_from_created_at() {
 }
 
 #[tokio::test]
-#[ignore] // Remove this once SAP forwarder is implemented
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_uses_payload_date_when_present() {
     let log_handle = support::init_test_logger();
@@ -58,7 +56,6 @@ async fn test_sap_forwarder_uses_payload_date_when_present() {
 }
 
 #[tokio::test]
-#[ignore] // Remove this once SAP forwarder is implemented
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_handles_invalid_created_at() {
     let log_handle = support::init_test_logger();

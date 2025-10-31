@@ -181,22 +181,22 @@ let results = stmt
 **Baseline Metrics to Capture:**
 ```
 Database Operations (legacy):
-- Snapshot save: 0.056 ms (p50), 0.067 ms (p99)
-- Time-range query: 0.050 ms (p50), 0.052 ms (p99)
-- Bulk insert (1000): 3.49 ms (p50), 4.11 ms (p99)
+- Snapshot save: 0.055 ms (p50), 0.067 ms (p99)
+- Time-range query: 0.049 ms (p50), 0.055 ms (p99)
+- Bulk insert (1000): 3.58 ms (p50), 4.19 ms (p99)
 
 MDM Client (legacy shim):
-- fetch_config (warm): 0.062 ms (p50), 0.066 ms (p99)
-- fetch_and_merge (warm): 0.062 ms (p50), 0.065 ms (p99)
-- fetch_config (cold TLS): 3.88 ms (p50), 4.23 ms (p99)
+- fetch_config (warm): 0.063 ms (p50), 0.066 ms (p99)
+- fetch_and_merge (warm): 0.063 ms (p50), 0.069 ms (p99)
+- fetch_config (cold TLS): 3.03 ms (p50), 3.17 ms (p99)
 
 Activity Provider (legacy, macOS):
-- Fetch (AX granted): 0.97 ms (p50), 1.22 ms (p99)
-- Fetch with enrichment (AX granted): 0.99 ms (p50), 1.19 ms (p99)
-- Fetch (AX forced off): 0.99 ms (p50), 1.10 ms (p99)
+- Fetch (AX granted): 0.96 ms (p50), 1.18 ms (p99)
+- Fetch with enrichment (AX granted): 0.95 ms (p50), 1.24 ms (p99)
+- Fetch (AX forced off): 0.00011 ms (p50), 0.00014 ms (p99)
 
 HTTP Client (legacy):
-- Single request: 0.064 ms (p50), 0.073 ms (p99)
+- Single request: 0.064 ms (p50), 0.091 ms (p99)
 - With retry: 1.003 s (p50), 1.003 s (p99)
 ```
 
@@ -484,16 +484,16 @@ As part of configuration infrastructure, also completed MDM remote configuration
 - Block history queries
 
 **Implementation Checklist:**
-- [ ] Create `crates/infra/src/database/block_repository.rs`
-- [ ] Implement `BlockRepository` trait
-- [ ] Port `save_proposed_block()` method
-- [ ] Port `get_proposed_blocks()` method
-- [ ] Port `approve_block()` method
-- [ ] Port `reject_block()` method
-- [ ] Port `get_block_history()` method
-- [ ] Convert sync code to async
-- [ ] Add unit tests
-- [ ] Integration tests with workflow scenarios
+- [x] Create `crates/infra/src/database/block_repository.rs`
+- [x] Implement `BlockRepository` trait
+- [x] Port `save_proposed_block()` method
+- [x] Port `get_proposed_blocks()` method
+- [x] Port `approve_block()` method
+- [x] Port `reject_block()` method
+- [x] Port `get_block_history()` method
+- [x] Convert sync code to async
+- [x] Add unit tests
+- [x] Integration tests with workflow scenarios
 
 **Acceptance Criteria:**
 - [ ] Saves blocks with all context signals

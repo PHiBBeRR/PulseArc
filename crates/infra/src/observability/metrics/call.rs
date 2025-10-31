@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use super::DEFAULT_RING_BUFFER_CAPACITY;
 use crate::observability::{MetricsError, MetricsResult};
 
 /// Metrics for tracking API call patterns and timing
@@ -50,7 +51,7 @@ impl CallMetrics {
             first_call_time_ms: AtomicU64::new(0),
             has_first_call: AtomicBool::new(false),
             start_time: Mutex::new(Some(Instant::now())),
-            fetch_times: Mutex::new(VecDeque::with_capacity(1000)),
+            fetch_times: Mutex::new(VecDeque::with_capacity(DEFAULT_RING_BUFFER_CAPACITY)),
         }
     }
 
@@ -103,7 +104,7 @@ impl CallMetrics {
 
         // Ring buffer: O(1) push_back + pop_front
         times.push_back(ms);
-        if times.len() > 1000 {
+        if times.len() > DEFAULT_RING_BUFFER_CAPACITY {
             times.pop_front(); // O(1) eviction
         }
 
@@ -213,7 +214,7 @@ impl CallMetrics {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DEFAULT_RING_BUFFER_CAPACITY, *};
 
     #[test]
     fn test_record_call() {
@@ -306,20 +307,24 @@ mod tests {
     fn test_fetch_times_ring_buffer() {
         let metrics = CallMetrics::new();
 
-        // Add more than 1000 entries
-        for i in 0..1100 {
-            metrics.record_fetch_time(Duration::from_millis(i)).unwrap();
+        // Add more than capacity entries
+        for i in 0..DEFAULT_RING_BUFFER_CAPACITY + 100 {
+            let millis = u64::try_from(i).expect("ring buffer index fits into u64");
+            metrics.record_fetch_time(Duration::from_millis(millis)).unwrap();
         }
 
-        // Should only keep last 1000 (ring buffer with FIFO eviction)
+        // Should only keep last N (ring buffer with FIFO eviction)
         let times = match metrics.fetch_times.lock() {
             Ok(guard) => guard,
             Err(e) => e.into_inner(),
         };
-        assert_eq!(times.len(), 1000);
+        assert_eq!(times.len(), DEFAULT_RING_BUFFER_CAPACITY);
         // First entry should be 100 (0-99 were evicted via pop_front)
         assert_eq!(times[0], 100);
-        assert_eq!(times[999], 1099);
+        assert_eq!(
+            times[DEFAULT_RING_BUFFER_CAPACITY - 1],
+            (DEFAULT_RING_BUFFER_CAPACITY + 100 - 1) as u64
+        );
     }
 
     #[test]
