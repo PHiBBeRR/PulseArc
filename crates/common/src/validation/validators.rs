@@ -255,7 +255,7 @@ where
     /// # Example
     ///
     /// ```
-    /// use pulsearc_common::validation::validators::{CollectionValidator, EmailValidator};
+    /// use pulsearc_common::validation::{CollectionValidator, EmailValidator};
     ///
     /// let validator = CollectionValidator::new().min_size(1).item_validator(EmailValidator::new());
     /// ```
