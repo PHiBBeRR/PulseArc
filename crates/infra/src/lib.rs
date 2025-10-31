@@ -3,6 +3,7 @@
 //! Infrastructure implementations of core domain ports.
 //!
 //! This crate contains:
+//! - Configuration loading
 //! - Database implementations (SQLite/SQLCipher)
 //! - HTTP client implementations
 //! - Platform-specific code (macOS Accessibility API)
@@ -13,17 +14,23 @@
 //! - Depends on `pulsearc-common` and `pulsearc-core`
 //! - Contains all "impure" code (I/O, platform APIs)
 
+pub mod config;
 pub mod database;
+pub mod errors;
 pub mod http;
 pub mod instance_lock;
 pub mod integrations;
 pub mod key_manager;
+pub mod mdm;
 pub mod platform;
 
 // Re-export commonly used items
+pub use config::*;
 pub use database::*;
-pub use http::*;
+pub use errors::*;
+pub use http::{HttpClient, HttpClientBuilder};
 pub use instance_lock::*;
 pub use integrations::*;
 pub use key_manager::*;
+pub use mdm::*;
 pub use platform::*;

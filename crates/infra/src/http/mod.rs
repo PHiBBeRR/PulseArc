@@ -1,4 +1,5 @@
 //! HTTP client implementations
 
-// Placeholder for HTTP client implementations
-pub struct HttpClient;
+pub mod client;
+
+pub use client::{HttpClient, HttpClientBuilder};
