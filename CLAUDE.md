@@ -148,18 +148,22 @@ If any rule requires an exception, add a short "Deviation" section in the PR wit
 
 ### Common Module Organization (`pulsearc-common`)
 
-The `pulsearc-common` crate provides shared utilities organized in tiers:
+The `pulsearc-common` crate provides shared utilities organized in tiers.
+
+**📖 For comprehensive API documentation, usage examples, and migration guides, see [API_GUIDE.md](crates/common/docs/API_GUIDE.md)**
+
+#### Module Tiers
 
 **Foundation Tier** (feature = `foundation`):
 - `error` — `CommonError` type with classification and context
 - `validation` — Field validators, rule builders, validation framework
 - `utils` — Macros, serde helpers
 - `collections` — Specialized data structures (bloom filter, bounded queue, LRU, trie, ring buffer)
-- `privacy` — Data hashing and pattern detection
 
 **Runtime Tier** (feature = `runtime`):
 - `cache` — Thread-safe caching with TTL and eviction
 - `crypto` — AES-256-GCM encryption primitives
+- `privacy` — Data hashing and pattern detection
 - `time` — Duration formatting, intervals, timers, cron support
 - `resilience` — **Generic** circuit breaker and retry implementations
 - `sync` — Domain-specific sync queue with integrated resilience
@@ -191,3 +195,10 @@ The `pulsearc-common` crate provides shared utilities organized in tiers:
 
 #### Testing Utilities (feature = `test-utils`)
 - `testing` — Mock clocks, builders, matchers, temp files, fixtures
+
+---
+
+**📚 Additional Resources:**
+- **[Common Crate API Guide](crates/common/docs/API_GUIDE.md)** — Comprehensive documentation with 100+ examples, best practices, and troubleshooting
+- **[Common Crate README](crates/common/README.md)** — Feature flags, directory structure, and quick start
+- **Module READMEs** — Detailed docs in each module directory (e.g., `crates/common/src/validation/README.md`)
