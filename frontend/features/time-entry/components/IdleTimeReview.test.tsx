@@ -1,12 +1,24 @@
-import { describe, it, beforeEach, afterEach, vi } from 'vitest';
+/**
+ * FEATURE-028: Idle Time Review Component Tests (Phase 4)
+ * Unit tests for IdleTimeReview component
+ *
+ * Tests the component that allows users to review and manage idle periods
+ * for a selected date. Provides timeline visualization and bulk editing capabilities.
+ *
+ * Test Coverage:
+ * - Timeline Rendering: Visual display of active and idle periods throughout the day
+ * - Idle Period Display: Showing all idle periods with durations and trigger types
+ * - Period Editing: Allowing users to update idle period actions (keep/discard)
+ * - Bulk Operations: Selecting and updating multiple idle periods at once
+ * - Filtering: Filtering idle periods by trigger type (threshold, lock, sleep)
+ * - Duration Display: Showing period durations in timeline and tooltips
+ * - Date Selection: Loading idle periods for different dates
+ * - Status Indicators: Visual cues for kept/discarded/pending periods
+ */
+
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 // import { render, screen, waitFor } from '@testing-library/react';
 // import userEvent from '@testing-library/user-event';
-
-// FEATURE-028: Idle Time Review Component Tests (Phase 4)
-//
-// This component allows users to review and manage idle periods for a selected date.
-// Users can bulk edit idle periods, filter by trigger type, and update individual
-// idle period decisions.
 
 describe('IdleTimeReview', () => {
   beforeEach(() => {
@@ -166,4 +178,3 @@ describe('IdleTimeReview', () => {
     // Test: Click retry, verify get_idle_periods called again
   });
 });
-

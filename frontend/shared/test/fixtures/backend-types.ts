@@ -10,20 +10,20 @@
  */
 
 import type {
-  ActivitySnapshot,
-  ActivitySegment,
-  ActivityContext,
-  WindowContext,
   ActivityCategory,
+  ActivityContext,
+  ActivityMetadata,
+  ActivitySegment,
+  ActivitySnapshot,
   BatchQueue,
   BatchStatus,
-  TimeEntryOutbox,
+  ConfidenceEvidence,
+  DatabaseStats,
   OutboxStatus,
   PrismaTimeEntryDto,
   SyncStats,
-  DatabaseStats,
-  ConfidenceEvidence,
-  ActivityMetadata,
+  TimeEntryOutbox,
+  WindowContext,
 } from '@/shared/types/generated';
 
 /* -------------------------------------------------------------------------- */
@@ -92,9 +92,7 @@ export function createMockActivitySegment(
 /**
  * Factory for WindowContext with sensible defaults
  */
-export function createMockWindowContext(
-  overrides: Partial<WindowContext> = {}
-): WindowContext {
+export function createMockWindowContext(overrides: Partial<WindowContext> = {}): WindowContext {
   return {
     app_name: 'Test App',
     window_title: 'Test Window',
@@ -167,9 +165,7 @@ export function createMockActivityMetadata(
  *
  * Optional fields (processed_at, processing_started_at, lease_expires_at) are undefined by default
  */
-export function createMockBatchQueue(
-  overrides: Partial<BatchQueue> = {}
-): BatchQueue {
+export function createMockBatchQueue(overrides: Partial<BatchQueue> = {}): BatchQueue {
   return {
     batch_id: `batch-${Date.now()}`,
     activity_count: 10,
@@ -278,9 +274,7 @@ export function createMockSyncStats(overrides: Partial<SyncStats> = {}): SyncSta
 /**
  * Factory for DatabaseStats with sensible defaults
  */
-export function createMockDatabaseStats(
-  overrides: Partial<DatabaseStats> = {}
-): DatabaseStats {
+export function createMockDatabaseStats(overrides: Partial<DatabaseStats> = {}): DatabaseStats {
   return {
     snapshot_count: 0,
     unprocessed_count: 0,

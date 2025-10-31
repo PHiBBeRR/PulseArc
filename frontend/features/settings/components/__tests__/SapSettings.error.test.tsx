@@ -1,11 +1,26 @@
-// FEATURE-020 Phase 4.4: SAP Settings Error Display Tests
-// Test coverage for error handling and health status in SAP settings
+/**
+ * FEATURE-020 Phase 4.4: SAP Settings Error Display Tests
+ * Tests for error handling and health status display in SAP settings
+ *
+ * Validates error handling, connection health monitoring, and retry logic
+ * in the SAP settings UI component.
+ *
+ * Test Coverage:
+ * - Error Display: Showing connection errors and health check failures
+ * - Health Status: Displaying SAP connection health indicators
+ * - Retry Logic: Manual retry button for failed sync operations
+ * - Error Messages: Clear, actionable error messages for users
+ * - Network Failures: Handling network disconnection gracefully
+ * - Auth Errors: Displaying authentication/token expiration errors
+ * - Loading States: Error recovery loading states
+ * - Toast Notifications: Error feedback via toast notifications
+ */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { SapSettings } from '../SapSettings';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as SapService from '../../services/sapService';
+import { SapSettings } from '../SapSettings';
 
 // Mock SAP service - must include all methods used by component
 vi.mock('../../services/sapService', () => ({

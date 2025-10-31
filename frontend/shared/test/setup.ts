@@ -1,6 +1,6 @@
-import { afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { cleanup } from '@testing-library/react';
+import { afterEach, vi } from 'vitest';
 
 // Cleanup after each test
 afterEach(() => {
@@ -89,12 +89,15 @@ if (!globalThis.PointerEvent) {
 
 // Mock hasPointerCapture and pointer capture methods for JSDOM
 if (typeof Element !== 'undefined') {
-  Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture || function() {
-    return false;
-  };
-  Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function() {};
-  Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture || function() {};
+  Element.prototype.hasPointerCapture =
+    Element.prototype.hasPointerCapture ||
+    function () {
+      return false;
+    };
+  Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || function () {};
+  Element.prototype.releasePointerCapture =
+    Element.prototype.releasePointerCapture || function () {};
 
   // Mock scrollIntoView for Radix UI Select
-  Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function() {};
+  Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || function () {};
 }

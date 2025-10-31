@@ -1,13 +1,13 @@
 /**
  * FEATURE-009: ProjectCache Service
- * 
+ *
  * Singleton cache for project ID → name mappings
  * Prevents N+1 query problem when displaying suggested entries
  * Uses 5-minute TTL to balance freshness vs performance
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import type { Project } from '@/shared/types/generated';
+import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Singleton cache for project ID → name mappings
@@ -107,4 +107,3 @@ class ProjectCache {
 
 // Export singleton instance
 export const projectCache = new ProjectCache();
-

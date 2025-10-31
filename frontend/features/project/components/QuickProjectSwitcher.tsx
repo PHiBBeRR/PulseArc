@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
-import { Zap } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getProjectColor } from '../utils/projectColors';
+import { ErrorMessage, LoadingSpinner } from '@/shared/components';
 import { haptic } from '@/shared/utils';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Zap } from 'lucide-react';
+import { useEffect } from 'react';
 import { useProjectStore } from '../stores';
-import { LoadingSpinner, ErrorMessage } from '@/shared/components';
 import type { QuickProjectSwitcherProps } from '../types';
+import { getProjectColor } from '../utils/projectColors';
 
 export function QuickProjectSwitcher({ isOpen, onClose, onSelect }: QuickProjectSwitcherProps) {
   const { recentProjects, loading, error, fetchRecentProjects } = useProjectStore();
@@ -40,10 +40,16 @@ export function QuickProjectSwitcher({ isOpen, onClose, onSelect }: QuickProject
             <div className="w-full max-w-xs bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] p-5 shadow-xl pointer-events-auto">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-200 dark:border-neutral-700">
                 <Zap className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">Quick Start</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">
+                  Quick Start
+                </span>
               </div>
               {error ? (
-                <ErrorMessage message={error} onRetry={() => void fetchRecentProjects()} className="py-8" />
+                <ErrorMessage
+                  message={error}
+                  onRetry={() => void fetchRecentProjects()}
+                  className="py-8"
+                />
               ) : loading ? (
                 <div className="py-8">
                   <LoadingSpinner size="md" text="Loading projects..." />

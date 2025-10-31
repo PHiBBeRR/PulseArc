@@ -1,11 +1,25 @@
-// FEATURE-020 Phase 2: SAP Settings Component Tests
-// Test coverage for SAP settings UI
+/**
+ * FEATURE-020 Phase 2: SAP Settings Component Tests
+ * Unit tests for SAP settings UI component
+ *
+ * Tests the settings panel for configuring SAP integration, including
+ * authentication status, connection management, and outbox monitoring.
+ *
+ * Test Coverage:
+ * - Connection Status: Display of authentication state
+ * - Login Flow: OAuth login initiation and completion
+ * - Logout: Disconnection and token revocation
+ * - Outbox Integration: Display of pending time entries
+ * - Error Handling: Network failures, auth errors
+ * - Loading States: During authentication checks
+ * - Toast Notifications: Success/error feedback to users
+ */
 
-import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SapSettings } from './SapSettings';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SapService } from '../services/sapService';
+import { SapSettings } from './SapSettings';
 
 // Mock SapService
 vi.mock('../services/sapService', () => ({

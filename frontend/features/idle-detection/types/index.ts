@@ -1,2 +1,6 @@
 // Idle Detection feature types
-export type { IdleDetectionModalProps, IdleDetectionState, IdleDetectionConfig } from './idle.types';
+export type {
+  IdleDetectionConfig,
+  IdleDetectionModalProps,
+  IdleDetectionState,
+} from './idle.types';

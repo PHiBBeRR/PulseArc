@@ -1,10 +1,10 @@
 // Analytics feature types
 export type {
-  TimePeriod,
-  AnalyticsViewProps,
-  TimeData,
-  PieChartData,
-  AnalyticsStats,
   AnalyticsPeriodData,
+  AnalyticsStats,
+  AnalyticsViewProps,
   DailyIdleSummary,
+  PieChartData,
+  TimeData,
+  TimePeriod,
 } from './analytics.types';

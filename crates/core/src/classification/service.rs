@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use pulsearc_shared::{ActivitySnapshot, Result, TimeEntry};
+use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
 use super::ports::{Classifier, TimeEntryRepository};
 

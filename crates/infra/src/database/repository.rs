@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use pulsearc_core::{ActivityRepository, TimeEntryRepository};
-use pulsearc_shared::{ActivitySnapshot, PulseArcError, Result, TimeEntry};
+use pulsearc_domain::{ActivitySnapshot, PulseArcError, Result, TimeEntry};
 use uuid::Uuid;
 
 use super::manager::DbManager;

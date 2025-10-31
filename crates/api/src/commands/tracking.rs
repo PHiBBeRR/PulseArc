@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use pulsearc_shared::{ActivityContext, Result};
+use pulsearc_domain::{ActivityContext, Result};
 use tauri::State;
 
 use crate::AppContext;

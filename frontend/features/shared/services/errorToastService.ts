@@ -1,8 +1,8 @@
 // FEATURE-020 Phase 4.4: Error Toast Service
 // Displays user-friendly error messages for SAP operations
 
-import { toast } from 'sonner';
 import type { SapError, SapErrorCategory } from '@/shared/types/SapError';
+import { toast } from 'sonner';
 
 type ToastAction = {
   label: string;
@@ -34,10 +34,7 @@ function getCategoryTitle(category: SapErrorCategory): string {
 /**
  * Determines appropriate action button for error category
  */
-function getErrorAction(
-  error: SapError,
-  retryCallback?: () => void
-): ToastAction | undefined {
+function getErrorAction(error: SapError, retryCallback?: () => void): ToastAction | undefined {
   // Authentication errors should show "Reconnect" instead of "Retry"
   if (error.category === 'Authentication' && retryCallback) {
     return {

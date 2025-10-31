@@ -1,2 +1,8 @@
 // Timer feature types
-export type { TimerState, timerState, TimerProps, NotificationTrigger, TimerIdleState } from './timer.types';
+export type {
+  NotificationTrigger,
+  TimerIdleState,
+  TimerProps,
+  TimerState,
+  timerState,
+} from './timer.types';

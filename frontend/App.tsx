@@ -1,20 +1,30 @@
-import { useState, useEffect, useRef, lazy, Suspense, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { ThemeProvider } from './shared/components/layout';
-import { MainTimer } from './features/timer';
-import { CompactQuickEntry } from './features/time-entry';
-import { ActivityTrackerView } from './features/activity-tracker';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TooltipProvider } from './components/ui/tooltip';
-import { TauriAPI, TauriEvents } from './shared/services/ipc';
-import { projectCache } from './shared/services';
+import { ActivityTrackerView } from './features/activity-tracker';
+import { CompactQuickEntry } from './features/time-entry';
+import { MainTimer } from './features/timer';
 import './globals.css';
+import { ThemeProvider } from './shared/components/layout';
+import { projectCache } from './shared/services';
+import { TauriAPI, TauriEvents } from './shared/services/ipc';
 
 // Lazy load heavy components for better initial load and view switching
-const EntriesView = lazy(() => import('./features/time-entry').then((m) => ({ default: m.EntriesView })));
-const SettingsView = lazy(() => import('./features/settings').then((m) => ({ default: m.SettingsView })));
-const AnalyticsView = lazy(() => import('./features/analytics').then((m) => ({ default: m.AnalyticsView })));
-const TimelineDayView = lazy(() => import('./features/timeline').then((m) => ({ default: m.TimelineDayView })));
-const BuildMyDayView = lazy(() => import('./features/build-my-day').then((m) => ({ default: m.BuildMyDayView })));
+const EntriesView = lazy(() =>
+  import('./features/time-entry').then((m) => ({ default: m.EntriesView }))
+);
+const SettingsView = lazy(() =>
+  import('./features/settings').then((m) => ({ default: m.SettingsView }))
+);
+const AnalyticsView = lazy(() =>
+  import('./features/analytics').then((m) => ({ default: m.AnalyticsView }))
+);
+const TimelineDayView = lazy(() =>
+  import('./features/timeline').then((m) => ({ default: m.TimelineDayView }))
+);
+const BuildMyDayView = lazy(() =>
+  import('./features/build-my-day').then((m) => ({ default: m.BuildMyDayView }))
+);
 const CompactErrorAlert = lazy(() =>
   import('./shared/components/feedback').then((m) => ({ default: m.CompactErrorAlert }))
 );
@@ -75,17 +85,18 @@ function AppContent() {
 
   // Notification trigger ref
   type NotificationFn = (
-     
     type: 'success' | 'error' | 'info' | 'warning',
-     
+
     message: string,
-     
+
     action?: { label: string; onClick: () => void }
   ) => void;
   const notificationTriggerRef = useRef<NotificationFn | null>(null);
 
   // Timer state - persisted across view navigation
-  const [timerState, setTimerState] = useState<'inactive' | 'active' | 'paused' | 'idle'>('inactive');
+  const [timerState, setTimerState] = useState<'inactive' | 'active' | 'paused' | 'idle'>(
+    'inactive'
+  );
   const [timerElapsed, setTimerElapsed] = useState(0);
 
   // Store window sizes for each view (persisted across navigation)
@@ -122,7 +133,6 @@ function AppContent() {
     return result;
   }, [params]);
 
-
   // Listen for manual window resizes and store the size for the current view
   useEffect(() => {
     if (!TauriAPI.isTauri()) return;
@@ -140,7 +150,7 @@ function AppContent() {
         // Store the new size for the current view
         viewSizesRef.current[currentView] = {
           width: Math.round(width),
-          height: Math.round(height)
+          height: Math.round(height),
         };
       });
     };
@@ -173,12 +183,14 @@ function AppContent() {
 
       // For entries/timeline/build views, use the config size based on view mode (day/week)
       // For other views, use stored size or default
-      const targetWidth = (currentView === 'entries' || currentView === 'timeline' || currentView === 'build')
-        ? config.width
-        : viewSizesRef.current[currentView].width;
-      const targetHeight = (currentView === 'entries' || currentView === 'timeline' || currentView === 'build')
-        ? config.height
-        : viewSizesRef.current[currentView].height;
+      const targetWidth =
+        currentView === 'entries' || currentView === 'timeline' || currentView === 'build'
+          ? config.width
+          : viewSizesRef.current[currentView].width;
+      const targetHeight =
+        currentView === 'entries' || currentView === 'timeline' || currentView === 'build'
+          ? config.height
+          : viewSizesRef.current[currentView].height;
 
       try {
         console.log(`🎬 Animating window resize to ${targetWidth}x${targetHeight}`);
@@ -451,7 +463,7 @@ function AppContent() {
 
     const setupListener = async () => {
       const { listen } = await import('@tauri-apps/api/event');
-      
+
       // TIER 0: Listen for cached startup data (instant display)
       cacheUnlisten = await listen('cached-data-loaded', (event) => {
         console.warn('⚡ PERF-002: Cached data loaded (instant)', event.payload);
@@ -530,7 +542,10 @@ function AppContent() {
                 onNotificationTriggerReady={(trigger: NotificationFn) => {
                   notificationTriggerRef.current = trigger;
                 }}
-                onTimerStateChange={(status: 'inactive' | 'active' | 'paused' | 'idle', elapsed: number) => {
+                onTimerStateChange={(
+                  status: 'inactive' | 'active' | 'paused' | 'idle',
+                  elapsed: number
+                ) => {
                   setTimerState(status);
                   setTimerElapsed(elapsed);
                 }}

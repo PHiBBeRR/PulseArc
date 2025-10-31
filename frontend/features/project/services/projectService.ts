@@ -1,6 +1,6 @@
 // Project business logic service
 
-import type { RecentProject, Project } from '../types';
+import type { Project, RecentProject } from '../types';
 
 export const projectService = {
   /**
@@ -9,7 +9,8 @@ export const projectService = {
   searchProjects: (query: string, projects: RecentProject[]): RecentProject[] => {
     const lowerQuery = query.toLowerCase();
     return projects.filter(
-      (p) => p.project.toLowerCase().includes(lowerQuery) || p.task.toLowerCase().includes(lowerQuery)
+      (p) =>
+        p.project.toLowerCase().includes(lowerQuery) || p.task.toLowerCase().includes(lowerQuery)
     );
   },
 

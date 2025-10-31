@@ -1,8 +1,8 @@
 // Time Entry feature Zustand store
+import type { PrismaTimeEntryDto, TimeEntryOutbox } from '@/shared/types/generated';
+import { formatTime } from '@/shared/utils/timeFormat';
 import { create } from 'zustand';
 import type { TimeEntry } from '../types';
-import type { TimeEntryOutbox, PrismaTimeEntryDto } from '@/shared/types/generated';
-import { formatTime } from '@/shared/utils/timeFormat';
 
 // Helper to format duration in seconds to "Xh Ym" format
 const formatDuration = (seconds: number): string => {
@@ -11,7 +11,6 @@ const formatDuration = (seconds: number): string => {
   return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 };
 
- 
 interface EntryState {
   // State
   entries: TimeEntry[];
@@ -37,7 +36,6 @@ interface EntryState {
   getEntryById: (id: string) => TimeEntry | undefined;
   filterEntriesByStatus: (status: 'pending' | 'approved' | 'suggested') => TimeEntry[];
 }
- 
 
 /**
  * Time Entry store - manages time entry state
@@ -99,10 +97,12 @@ export const useEntryStore = create<EntryState>((set, get) => ({
         // Calendar events: Use parsed project/task (backend handles "General" bucket)
         // AI entries: Use project cache lookup
         const projectDisplay = isCalendarEvent
-          ? dto?._displayProject ?? 'General'
+          ? (dto?._displayProject ?? 'General')
           : projectCache.getProjectName(dto?.projectId ?? 'unassigned');
 
-        const taskDisplay = isCalendarEvent ? dto?._displayTask ?? '' : dto?.notes ?? 'Activity detected';
+        const taskDisplay = isCalendarEvent
+          ? (dto?._displayTask ?? '')
+          : (dto?.notes ?? 'Activity detected');
 
         // Calendar events include parsed confidence, AI defaults to 85%
         const confidence = dto?._confidence ? Math.round(dto._confidence * 100) : 85;

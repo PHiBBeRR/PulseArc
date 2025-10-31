@@ -1,9 +1,26 @@
+/**
+ * Unit tests for MainTimer component
+ *
+ * Tests the main timer widget that handles time tracking functionality.
+ * This is the core UI component for starting/stopping timers, selecting
+ * projects, and managing time entries.
+ *
+ * Test Coverage:
+ * - Timer Controls: Start, stop, pause, resume functionality
+ * - Project Selection: Dropdown, recent projects, quick switching
+ * - Time Display: Elapsed time formatting and updates
+ * - Window Management: Size adjustments, show/hide behavior
+ * - Audio Feedback: Click sounds on user interactions
+ * - Event Handling: Tauri event listeners for backend updates
+ * - State Management: Timer state synchronization with backend
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { audioService } from '@/shared/services';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainTimer } from './MainTimer';
-import { audioService } from '@/shared/services';
 
 // Hoist mocks to avoid initialization errors
 const { mockUnlisten } = vi.hoisted(() => ({
@@ -143,7 +160,7 @@ describe('MainTimer - Audio Integration', () => {
 
       // Find and click the play/pause button
       const buttons = screen.getAllByRole('button');
-      const playButton = buttons.find(btn => {
+      const playButton = buttons.find((btn) => {
         const ariaLabel = btn.getAttribute('aria-label');
         return ariaLabel?.includes('Start') || ariaLabel?.includes('play');
       });

@@ -1,9 +1,7 @@
 // FEATURE-020 Phase 2: WBS Autocomplete Component
 // Searchable WBS code picker with FTS5 search
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronsUpDown, Loader2, Star, AlertCircle, AlertTriangle, CheckCircle } from 'lucide-react';
-import { cn } from '@/components/ui/utils';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -13,15 +11,21 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/components/ui/utils';
 import { SapService } from '@/features/settings/services/sapService';
 import { WbsUsageService } from '@/features/timer/services/wbsUsageService';
 import type { WbsElement } from '@/shared/types/generated';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  CheckCircle,
+  ChevronsUpDown,
+  Loader2,
+  Star,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 export type ValidationResponse = {
   status: 'Valid' | 'Warning' | 'Error';
@@ -41,7 +45,7 @@ export type WbsAutocompleteProps = {
 
 /**
  * WBS Autocomplete Component
- * 
+ *
  * Features:
  * - Real-time FTS5 full-text search (<50ms)
  * - Displays WBS code + project name + description
@@ -49,7 +53,7 @@ export type WbsAutocompleteProps = {
  * - Debounced search (200ms) to reduce Tauri IPC calls
  * - Loading state indicator
  * - Empty state handling
- * 
+ *
  * @example
  * ```tsx
  * <WbsAutocomplete
@@ -104,11 +108,13 @@ export function WbsAutocomplete({
 
       try {
         // Search for each favorite code to get full element data
-        const favoritePromises = favoriteCodes.map(code => SapService.searchWbs(code));
+        const favoritePromises = favoriteCodes.map((code) => SapService.searchWbs(code));
         const favoriteResults = await Promise.all(favoritePromises);
-        const favorites = favoriteResults.flat().filter((elem, index, self) =>
-          self.findIndex(e => e.wbs_code === elem.wbs_code) === index
-        );
+        const favorites = favoriteResults
+          .flat()
+          .filter(
+            (elem, index, self) => self.findIndex((e) => e.wbs_code === elem.wbs_code) === index
+          );
         setFavoriteElements(favorites);
       } catch (error) {
         console.error('Failed to fetch favorite WBS elements:', error);
@@ -180,15 +186,12 @@ export function WbsAutocomplete({
     [onChange]
   );
 
-  const handleToggleFavorite = useCallback(
-    (event: React.MouseEvent, code: string) => {
-      event.stopPropagation();
-      const newIsFavorite = WbsUsageService.toggleFavorite(code);
-      setFavoriteCodes(WbsUsageService.getFavorites());
-      return newIsFavorite;
-    },
-    []
-  );
+  const handleToggleFavorite = useCallback((event: React.MouseEvent, code: string) => {
+    event.stopPropagation();
+    const newIsFavorite = WbsUsageService.toggleFavorite(code);
+    setFavoriteCodes(WbsUsageService.getFavorites());
+    return newIsFavorite;
+  }, []);
 
   const handleClear = useCallback(() => {
     setSelectedElement(undefined);
@@ -212,9 +215,7 @@ export function WbsAutocomplete({
     return `${projectName} - ${clientName} - ${wbsCode}`;
   };
 
-  const displayText = selectedElement
-    ? formatWbsDisplay(selectedElement)
-    : value || placeholder;
+  const displayText = selectedElement ? formatWbsDisplay(selectedElement) : value || placeholder;
 
   return (
     <div className={cn('relative', className)}>
@@ -227,9 +228,7 @@ export function WbsAutocomplete({
             className={cn('w-full justify-between', buttonClassName)}
             disabled={disabled}
           >
-            <span className={cn('truncate', !value && 'text-muted-foreground')}>
-              {displayText}
-            </span>
+            <span className={cn('truncate', !value && 'text-muted-foreground')}>{displayText}</span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -244,9 +243,7 @@ export function WbsAutocomplete({
               {isSearching && (
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    Searching...
-                  </span>
+                  <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
                 </div>
               )}
 
@@ -269,9 +266,7 @@ export function WbsAutocomplete({
                             )}
                           />
                           <div className="flex flex-1 flex-col">
-                            <span className="text-sm">
-                              {formatWbsDisplay(element)}
-                            </span>
+                            <span className="text-sm">{formatWbsDisplay(element)}</span>
                           </div>
                           <button
                             type="button"
@@ -302,9 +297,7 @@ export function WbsAutocomplete({
                             )}
                           />
                           <div className="flex flex-1 flex-col">
-                            <span className="text-sm">
-                              {formatWbsDisplay(element)}
-                            </span>
+                            <span className="text-sm">{formatWbsDisplay(element)}</span>
                           </div>
                           <button
                             type="button"
@@ -344,7 +337,7 @@ export function WbsAutocomplete({
               {!isSearching && searchQuery && results.length > 0 && (
                 <CommandGroup heading="Search Results">
                   {results
-                    .filter(element => {
+                    .filter((element) => {
                       // Filter to show favorites/recent matching search query
                       const query = searchQuery.toLowerCase();
                       const matchesQuery =
@@ -439,7 +432,10 @@ export function WbsAutocomplete({
 
       {!isValidating && validationStatus?.status === 'Warning' && (
         <div className="mt-2 flex flex-col gap-2">
-          <Badge variant="outline" className="flex items-center gap-1 border-yellow-500 text-yellow-700 dark:text-yellow-400">
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1 border-yellow-500 text-yellow-700 dark:text-yellow-400"
+          >
             <AlertTriangle className="h-3 w-3" />
             <span>{validationStatus.message || 'Warning'}</span>
           </Badge>
@@ -465,4 +461,3 @@ export function WbsAutocomplete({
     </div>
   );
 }
-

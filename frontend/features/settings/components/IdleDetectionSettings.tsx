@@ -2,8 +2,8 @@
 //
 // This component provides UI for configuring idle detection settings.
 
-import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface IdleDetectionSettingsProps {
   className?: string;
@@ -36,32 +36,35 @@ export function IdleDetectionSettings({ className = '' }: IdleDetectionSettingsP
     void loadSettings();
   }, []);
 
-  const handleThresholdChange = useCallback((event: { target: { value: string } }) => {
-    const newThreshold = Number(event.target.value);
-    const previousThreshold = idleThreshold;
-    const previousPauseOnIdle = pauseOnIdle;
+  const handleThresholdChange = useCallback(
+    (event: { target: { value: string } }) => {
+      const newThreshold = Number(event.target.value);
+      const previousThreshold = idleThreshold;
+      const previousPauseOnIdle = pauseOnIdle;
 
-    // If selecting 0 (No Idle), disable pause on idle
-    const shouldPause = newThreshold > 0;
+      // If selecting 0 (No Idle), disable pause on idle
+      const shouldPause = newThreshold > 0;
 
-    setIdleThreshold(newThreshold);
-    setPauseOnIdle(shouldPause);
+      setIdleThreshold(newThreshold);
+      setPauseOnIdle(shouldPause);
 
-    void (async () => {
-      try {
-        // Update both settings
-        await invoke('set_idle_enabled', { enabled: shouldPause });
-        if (shouldPause) {
-          await invoke('set_idle_threshold', { threshold_secs: newThreshold });
+      void (async () => {
+        try {
+          // Update both settings
+          await invoke('set_idle_enabled', { enabled: shouldPause });
+          if (shouldPause) {
+            await invoke('set_idle_threshold', { threshold_secs: newThreshold });
+          }
+        } catch (error) {
+          console.error('Failed to update idle settings:', error);
+          // Revert on error
+          setIdleThreshold(previousThreshold);
+          setPauseOnIdle(previousPauseOnIdle);
         }
-      } catch (error) {
-        console.error('Failed to update idle settings:', error);
-        // Revert on error
-        setIdleThreshold(previousThreshold);
-        setPauseOnIdle(previousPauseOnIdle);
-      }
-    })();
-  }, [idleThreshold, pauseOnIdle]);
+      })();
+    },
+    [idleThreshold, pauseOnIdle]
+  );
 
   if (isLoading) {
     return (

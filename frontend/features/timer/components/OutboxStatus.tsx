@@ -1,13 +1,13 @@
 // FEATURE-020 Phase 2: Outbox Status Component
 // Displays SAP time entry outbox status with retry functionality
 
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
-import { cn } from '@/components/ui/utils';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/components/ui/utils';
 import { SapService, type OutboxStatus } from '@/features/settings/services/sapService';
+import { AlertCircle, CheckCircle, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 export type OutboxStatusProps = {
   refreshInterval?: number; // Auto-refresh interval in ms (default: 10000)
@@ -16,27 +16,24 @@ export type OutboxStatusProps = {
 
 /**
  * Outbox Status Component
- * 
+ *
  * Displays real-time status of SAP time entry outbox:
  * - Pending: Waiting to be sent
  * - Sent: Successfully posted to SAP
  * - Failed: Errors during submission (can retry)
- * 
+ *
  * Features:
  * - Auto-refresh every 10 seconds
  * - Manual refresh button
  * - Retry failed entries button
  * - Status badges with color coding
- * 
+ *
  * @example
  * ```tsx
  * <OutboxStatus refreshInterval={5000} />
  * ```
  */
-export function OutboxStatusComponent({
-  refreshInterval = 10000,
-  className,
-}: OutboxStatusProps) {
+export function OutboxStatusComponent({ refreshInterval = 10000, className }: OutboxStatusProps) {
   const [status, setStatus] = useState<OutboxStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -130,9 +127,7 @@ export function OutboxStatusComponent({
           </Badge>
         )}
 
-        {totalEntries === 0 && (
-          <span className="text-sm text-muted-foreground">No entries</span>
-        )}
+        {totalEntries === 0 && <span className="text-sm text-muted-foreground">No entries</span>}
       </div>
 
       {/* Action Buttons */}
@@ -172,4 +167,3 @@ export function OutboxStatusComponent({
     </div>
   );
 }
-

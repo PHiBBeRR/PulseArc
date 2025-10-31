@@ -1,8 +1,14 @@
 // Analytics business logic service
 
-import { invoke } from '@tauri-apps/api/core';
 import type { IdleSummary, TimeEntryAnalytics } from '@/shared/types/generated';
-import type { TimePeriod, TimeData, AnalyticsStats, PieChartData, DailyIdleSummary } from '../types';
+import { invoke } from '@tauri-apps/api/core';
+import type {
+  AnalyticsStats,
+  DailyIdleSummary,
+  PieChartData,
+  TimeData,
+  TimePeriod,
+} from '../types';
 
 export const analyticsService = {
   /**
@@ -31,7 +37,10 @@ export const analyticsService = {
    * @param startDate - Start date string in YYYY-MM-DD format
    * @param endDate - End date string in YYYY-MM-DD format
    */
-  fetchIdleSummariesForRange: async (startDate: string, endDate: string): Promise<DailyIdleSummary[]> => {
+  fetchIdleSummariesForRange: async (
+    startDate: string,
+    endDate: string
+  ): Promise<DailyIdleSummary[]> => {
     const summaries: DailyIdleSummary[] = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -60,7 +69,10 @@ export const analyticsService = {
    * @param endDate - End date string in YYYY-MM-DD format
    * @returns Time entry analytics with adjusted billable hours
    */
-  fetchTimeEntryAnalytics: async (startDate: string, endDate: string): Promise<TimeEntryAnalytics[]> => {
+  fetchTimeEntryAnalytics: async (
+    startDate: string,
+    endDate: string
+  ): Promise<TimeEntryAnalytics[]> => {
     try {
       return await invoke<TimeEntryAnalytics[]>('get_time_entry_analytics', {
         startDate,
@@ -71,7 +83,6 @@ export const analyticsService = {
       return [];
     }
   },
-
 
   /**
    * Convert TimeEntryAnalytics to TimeData format for charts
@@ -106,30 +117,56 @@ export const analyticsService = {
 
   /**
    * Calculate analytics statistics from TimeEntryAnalytics data
-   * 
+   *
    * This implementation now uses real time entry data with idle period adjustments.
-   * 
+   *
    * Idle time integration:
    * - Effective Work Time = Total Time - Discarded Idle
    * - Adjusted Billable = Billable entries - (Discarded idle within billable periods)
    * - Pending idle periods create uncertainty in billable calculations
    */
-  calculateStats: (data: TimeData[], idleSummaries?: DailyIdleSummary[], timeEntryAnalytics?: TimeEntryAnalytics[]): AnalyticsStats => {
+  calculateStats: (
+    data: TimeData[],
+    idleSummaries?: DailyIdleSummary[],
+    timeEntryAnalytics?: TimeEntryAnalytics[]
+  ): AnalyticsStats => {
     // If we have time entry analytics, use that for accurate calculations
     if (timeEntryAnalytics && timeEntryAnalytics.length > 0) {
       const totalBillable = timeEntryAnalytics.reduce((sum, a) => sum + a.billable_minutes / 60, 0);
-      const totalNonBillable = timeEntryAnalytics.reduce((sum, a) => sum + a.non_billable_minutes / 60, 0);
-      const adjustedBillable = timeEntryAnalytics.reduce((sum, a) => sum + a.adjusted_billable_minutes / 60, 0);
-      const adjustedNonBillable = timeEntryAnalytics.reduce((sum, a) => sum + a.adjusted_non_billable_minutes / 60, 0);
-      const effectiveWorkTime = timeEntryAnalytics.reduce((sum, a) => sum + a.effective_work_minutes / 60, 0);
-      const totalIdleDiscarded = timeEntryAnalytics.reduce((sum, a) => sum + a.idle_discarded_minutes / 60, 0);
-      const totalIdleKept = timeEntryAnalytics.reduce((sum, a) => sum + a.idle_kept_minutes / 60, 0);
-      const totalIdlePending = timeEntryAnalytics.reduce((sum, a) => sum + a.idle_pending_minutes / 60, 0);
+      const totalNonBillable = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.non_billable_minutes / 60,
+        0
+      );
+      const adjustedBillable = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.adjusted_billable_minutes / 60,
+        0
+      );
+      const adjustedNonBillable = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.adjusted_non_billable_minutes / 60,
+        0
+      );
+      const effectiveWorkTime = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.effective_work_minutes / 60,
+        0
+      );
+      const totalIdleDiscarded = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.idle_discarded_minutes / 60,
+        0
+      );
+      const totalIdleKept = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.idle_kept_minutes / 60,
+        0
+      );
+      const totalIdlePending = timeEntryAnalytics.reduce(
+        (sum, a) => sum + a.idle_pending_minutes / 60,
+        0
+      );
 
       const total = totalBillable + totalNonBillable;
       const billablePercentage = total > 0 ? Math.round((totalBillable / total) * 100) : 0;
       const adjustedTotal = adjustedBillable + adjustedNonBillable;
-      const adjustedBillablePercentage = adjustedTotal > 0 ? Math.round((adjustedBillable / adjustedTotal) * 100) : 0;
+      const adjustedBillablePercentage =
+        adjustedTotal > 0 ? Math.round((adjustedBillable / adjustedTotal) * 100) : 0;
 
       return {
         total,
@@ -168,7 +205,7 @@ export const analyticsService = {
       totalIdleKept = idleSummaries.reduce((sum, s) => sum + s.idleKeptSecs / 3600, 0);
       totalIdleDiscarded = idleSummaries.reduce((sum, s) => sum + s.idleDiscardedSecs / 3600, 0);
       totalIdlePending = idleSummaries.reduce((sum, s) => sum + s.idlePendingSecs / 3600, 0);
-      
+
       // Effective work time = active time + kept idle (time user chose to count)
       effectiveWorkTime = totalActive + totalIdleKept;
     }

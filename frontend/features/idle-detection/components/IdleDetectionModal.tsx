@@ -1,9 +1,14 @@
-import { AlertCircle, Clock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertCircle, Clock } from 'lucide-react';
 import type { IdleDetectionModalProps } from '../types';
 
-export function IdleDetectionModal({ isOpen, onKeepTime, onDiscardTime, idleMinutes }: IdleDetectionModalProps) {
+export function IdleDetectionModal({
+  isOpen,
+  onKeepTime,
+  onDiscardTime,
+  idleMinutes,
+}: IdleDetectionModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -27,10 +32,13 @@ export function IdleDetectionModal({ isOpen, onKeepTime, onDiscardTime, idleMinu
             <div className="w-full max-w-sm bg-black/[0.925] dark:bg-black/[0.925] border-2 border-white/20 dark:border-white/10 rounded-[40px] p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.6)_inset] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.1)_inset] pointer-events-auto">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10 dark:border-white/10">
                 <AlertCircle className="w-3.5 h-3.5 text-gray-400 dark:text-gray-400" />
-                <span className="text-sm text-gray-100 dark:text-gray-100 font-semibold">Idle Time Detected</span>
+                <span className="text-sm text-gray-100 dark:text-gray-100 font-semibold">
+                  Idle Time Detected
+                </span>
               </div>
               <p className="text-gray-400 dark:text-gray-400 text-sm mb-3">
-                You've been away for {idleMinutes} minutes. What would you like to do with this time?
+                You've been away for {idleMinutes} minutes. What would you like to do with this
+                time?
               </p>
 
               <div className="p-3 rounded-xl bg-white/10 dark:bg-white/10 border border-white/20 dark:border-white/20">
@@ -45,8 +53,8 @@ export function IdleDetectionModal({ isOpen, onKeepTime, onDiscardTime, idleMinu
               {idleMinutes >= 60 && (
                 <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                   <p className="text-xs text-yellow-300">
-                    Note: Long idle periods may include system sleep time.
-                    Future versions will detect sleep/wake cycles automatically.
+                    Note: Long idle periods may include system sleep time. Future versions will
+                    detect sleep/wake cycles automatically.
                   </p>
                 </div>
               )}

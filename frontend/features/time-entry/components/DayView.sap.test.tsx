@@ -1,7 +1,24 @@
-// FEATURE-020 Phase 2: DayView SAP Integration Tests
-// Test coverage for SAP features in DayView component
+/**
+ * FEATURE-020 Phase 2: DayView SAP Integration Tests
+ * Unit tests for SAP integration in DayView component
+ *
+ * Tests the integration of SAP WBS codes and project metadata
+ * within the daily time entry view.
+ *
+ * Test Coverage:
+ * - WBS Code Display: Showing WBS codes for each time entry
+ * - Project Names: Displaying project names alongside WBS codes
+ * - Description Tooltips: Full project descriptions on hover
+ * - Status Badges: Visual indicators for WBS status (REL, CLSD, TECO)
+ * - Time Aggregation: Grouping and summing time by WBS code
+ * - Validation Status: Showing validation errors for invalid WBS codes
+ * - Multi-WBS Support: Handling multiple WBS codes in single day
+ * - Outbox Integration: Showing pending submissions per WBS code
+ *
+ * Note: Tests skipped pending Phase 2 implementation
+ */
 
-import { describe, it, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 describe.skip('DayView SAP Integration', () => {
   // TODO(FEATURE-020): Implement during Phase 2 development

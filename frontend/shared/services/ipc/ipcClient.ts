@@ -138,8 +138,11 @@ export const ipcClient = {
     },
 
     // Listen to events from Rust backend
-     
-    listenToEvent: async (eventName: string, handler: (event: unknown) => void): Promise<() => void> => {
+
+    listenToEvent: async (
+      eventName: string,
+      handler: (event: unknown) => void
+    ): Promise<() => void> => {
       try {
         const { listen } = await import('@tauri-apps/api/event');
         const unlisten = await listen(eventName, handler);
@@ -153,7 +156,6 @@ export const ipcClient = {
 
   // Global shortcuts (requires Tauri configuration in Rust)
   shortcuts: {
-     
     register: async (_shortcut: string): Promise<boolean> => {
       if (!ipcClient.isTauri()) {
         console.warn('Global shortcuts only available in Tauri environment');
@@ -163,7 +165,7 @@ export const ipcClient = {
         // Dynamic import only when in Tauri
         const module = await import('@tauri-apps/api/window').catch(() => null);
         if (!module) return false;
-        
+
         // Note: globalShortcut API may not be available in web preview
         // Shortcut registration requested but not implemented yet
         return true;
@@ -173,7 +175,6 @@ export const ipcClient = {
       }
     },
 
-     
     unregister: async (_shortcut: string): Promise<boolean> => {
       if (!ipcClient.isTauri()) return false;
       // Shortcut unregistration requested but not implemented yet

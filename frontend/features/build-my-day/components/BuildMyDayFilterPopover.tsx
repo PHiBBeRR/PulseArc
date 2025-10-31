@@ -1,12 +1,8 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import { Filter, SortAsc, Check, Plane, Moon, CalendarIcon, Clock } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CalendarIcon, Check, Clock, Filter, Moon, Plane, SortAsc } from 'lucide-react';
+import { useCallback, useState, type ReactNode } from 'react';
 
 export type SortOption = 'most-recent' | 'oldest-first' | 'longest-duration' | 'shortest-duration';
 export type ContextFilter = 'travel' | 'after_hours' | 'weekend' | 'calendar';
@@ -31,12 +27,9 @@ export function BuildMyDayFilterPopover({
 }: BuildMyDayFilterPopoverProps) {
   const [activeTab, setActiveTab] = useState<'sort' | 'filter'>('sort');
 
-  const handleTabChange = useCallback(
-    (value: string) => {
-      setActiveTab(value as 'sort' | 'filter');
-    },
-    []
-  );
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value as 'sort' | 'filter');
+  }, []);
 
   const handleSortChange = useCallback(
     (value: SortOption) => {
@@ -101,7 +94,10 @@ export function BuildMyDayFilterPopover({
                   <Filter className="size-3.5" />
                   {activeFilterCount > 0 ? 'Clear' : 'Filter'}
                   {activeFilterCount > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1.5 text-[10px] bg-blue-500 text-white rounded-full">
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 h-4 min-w-4 px-1.5 text-[10px] bg-blue-500 text-white rounded-full"
+                    >
                       {activeFilterCount}
                     </Badge>
                   )}

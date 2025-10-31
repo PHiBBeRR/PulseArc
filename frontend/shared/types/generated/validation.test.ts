@@ -1,13 +1,20 @@
-// FEATURE-011: TypeScript Type Generation Validation Tests
-// Tests that verify TypeScript types are generated correctly from Rust
-//
-// These tests validate:
-// - [ ] OpenAIBatchResponse.ts type exists after codegen
-// - [ ] BatchProcessingResult.ts type exists
-// - [ ] AiBatchStatus.ts type exists
-// - [ ] Types have correct field types (i32 → number, etc.)
-//
-// Run with: npm run test -- shared/types/generated/validation.test.ts
+/**
+ * FEATURE-011: TypeScript Type Generation Validation Tests
+ * Tests that verify TypeScript types are generated correctly from Rust
+ *
+ * Validates the ts-rs code generation pipeline that creates TypeScript types
+ * from Rust structs. Ensures type safety between backend and frontend.
+ *
+ * Test Coverage:
+ * - File Existence: Generated type files exist after codegen
+ * - Type Structure: Correct field names and types
+ * - Type Conversion: Rust types → TypeScript types (i32 → number, etc.)
+ * - Optional Fields: Proper handling of Option<T> → T | null
+ * - Enums: Rust enums → TypeScript union types
+ * - Documentation: Doc comments preserved in generated types
+ *
+ * Note: Run `npm run codegen` before running these tests
+ */
 
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'fs';

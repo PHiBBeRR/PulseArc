@@ -137,8 +137,10 @@ export const entryService = {
    * Get confidence color for badge (red/yellow/green scale)
    */
   getConfidenceColor: (confidence: number): string => {
-    if (confidence >= 90) return 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30';
-    if (confidence >= 70) return 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30';
+    if (confidence >= 90)
+      return 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30';
+    if (confidence >= 70)
+      return 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30';
     return 'bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30';
   },
 

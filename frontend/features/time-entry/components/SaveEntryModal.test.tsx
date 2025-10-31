@@ -1,10 +1,23 @@
+/**
+ * FEATURE-028: Save Entry Modal Idle Display Tests (Phase 4)
+ * Unit tests for SaveEntryModal component with idle time display
+ *
+ * Tests the modal for saving time entries, with special focus on displaying
+ * idle time information: showing active duration and excluded idle periods.
+ *
+ * Test Coverage:
+ * - Active Time Display: Showing time minus excluded idle periods
+ * - Excluded Idle Display: Showing excluded idle time separately
+ * - Format Verification: "Active: 1h 30m (Excluded: 30m idle)" format
+ * - Conditional Display: Hiding idle info when no idle periods exist
+ * - Kept Idle Time: Including user-approved breaks in active time
+ * - Idle Breakdown: Tooltip showing detailed idle period breakdown
+ * - Save Functionality: Submitting entries with idle metadata
+ * - Form Validation: Project/task selection and duration checks
+ */
+
 import { describe, it } from 'vitest';
 // import { render, screen } from '@testing-library/react';
-
-// FEATURE-028: Save Entry Modal Idle Display Tests (Phase 4)
-//
-// These tests verify that the SaveEntryModal correctly displays idle time
-// information, showing both active duration and excluded idle time.
 
 describe('SaveEntryModal - Idle Display', () => {
   it.skip('should show active time duration', () => {
@@ -65,4 +78,3 @@ describe('SaveEntryModal - Idle Display', () => {
     // Test: Link to IdleTimeReview component
   });
 });
-

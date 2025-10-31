@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Sparkles, Bell, Zap } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Bell, Sparkles, Zap } from 'lucide-react';
+import { useState } from 'react';
 import type { SettingsPanelProps } from '../types';
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
@@ -45,7 +45,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm text-gray-700 dark:text-gray-300">Confidence threshold</Label>
+                  <Label className="text-sm text-gray-700 dark:text-gray-300">
+                    Confidence threshold
+                  </Label>
                   <span className="text-sm text-gray-900 dark:text-gray-100">{confidence[0]}%</span>
                 </div>
                 <Slider
@@ -75,14 +77,21 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <Label htmlFor="notifications" className="text-sm text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="notifications"
+                    className="text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Enable notifications
                   </Label>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Get notified about pending suggestions
                   </p>
                 </div>
-                <Switch id="notifications" checked={notifications} onCheckedChange={setNotifications} />
+                <Switch
+                  id="notifications"
+                  checked={notifications}
+                  onCheckedChange={setNotifications}
+                />
               </div>
             </div>
           </div>

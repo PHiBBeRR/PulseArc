@@ -1,37 +1,37 @@
 // Shared types
-export type { TimeEntry, Project, AppSettings, NotificationConfig, ViewMode } from './common.types';
+export type { AppSettings, NotificationConfig, Project, TimeEntry, ViewMode } from './common.types';
 
 // Auto-generated backend types (from Rust via ts-rs)
 export type {
-  ActivitySnapshot,
-  ActivitySegment,
-  ActivityContext,
-  WindowContext,
-  WorkType,
   ActivityCategory,
-  ConfidenceEvidence,
+  ActivityContext,
   ActivityMetadata,
+  ActivitySegment,
+  ActivitySnapshot,
   BatchQueue,
-  BatchStatus,
   BatchStats,
-  TimeEntryOutbox,
+  BatchStatus,
+  ConfidenceEvidence,
+  DatabaseStats,
+  DlqBatch,
+  IdMapping,
+  OutboxStats,
   OutboxStatus,
   PrismaTimeEntryDto,
-  IdMapping,
-  DatabaseStats,
   SyncStats,
-  OutboxStats,
-  DlqBatch,
+  TimeEntryOutbox,
+  WindowContext,
+  WorkType,
 } from './generated';
 
 // Tauri API wrappers with timestamp normalization
 export {
-  getRecentSnapshots,
+  getBatchStatus,
+  getCostSummary,
+  getDatabaseStats,
+  getOutboxStatus,
   getRecentActivities,
   getRecentSegments,
-  getBatchStatus,
-  getOutboxStatus,
+  getRecentSnapshots,
   getSyncStats,
-  getDatabaseStats,
-  getCostSummary,
 } from './tauri-backend.types';

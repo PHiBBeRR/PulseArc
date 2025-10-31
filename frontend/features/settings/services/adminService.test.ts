@@ -1,6 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { adminService } from './adminService';
+/**
+ * Unit tests for adminService
+ *
+ * Tests the service that provides administrative functions for managing
+ * local data, including clearing snapshots, outbox, and all data.
+ *
+ * Test Coverage:
+ * - Clear Snapshots: Removing all activity snapshots from local database
+ * - Clear Outbox: Removing all pending time entries from outbox
+ * - Clear All Data: Comprehensive cleanup of all local data
+ * - Error Handling: Propagating database errors
+ * - Command Invocation: Correct Tauri command calls
+ * - Sequential Operations: Proper ordering when clearing multiple datasets
+ */
+
 import { invoke } from '@tauri-apps/api/core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { adminService } from './adminService';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({

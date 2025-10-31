@@ -24,4 +24,4 @@ export interface SuggestionState {
  * Re-export generated backend types
  * These types are auto-generated from Rust structs
  */
-export type { WindowContext, ActivityContext } from '@/shared/types/generated';
+export type { ActivityContext, WindowContext } from '@/shared/types/generated';

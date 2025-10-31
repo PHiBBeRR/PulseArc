@@ -6,8 +6,6 @@
  * TODO(FEATURE-016): Complete implementation during Phase 3 Step 5
  */
 
-
-
 export interface SyncStatusProps {
   className?: string;
 }

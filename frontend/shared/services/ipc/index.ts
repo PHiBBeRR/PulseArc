@@ -1,5 +1,11 @@
 // Shared IPC services
-export { ipcClient, CompactModeConfig, NormalModeConfig, SystemTrayMenuItems, TauriEvents } from './ipcClient';
+export {
+  CompactModeConfig,
+  NormalModeConfig,
+  SystemTrayMenuItems,
+  TauriEvents,
+  ipcClient,
+} from './ipcClient';
 
 // Alias for backwards compatibility
 export { ipcClient as TauriAPI } from './ipcClient';

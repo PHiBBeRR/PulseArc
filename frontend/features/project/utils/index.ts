@@ -2,8 +2,8 @@
 export {
   PROJECT_COLORS,
   PROJECT_COLOR_MAP,
-  getProjectColor,
   assignProjectColor,
-  getHashedProjectColor,
   getAllColors,
+  getHashedProjectColor,
+  getProjectColor,
 } from './projectColors';

@@ -1,18 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, GripHorizontal, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { MarqueeText } from './MarqueeText';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { TimelineEntrySkeleton } from '@/shared/components/feedback';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { motion, AnimatePresence } from 'framer-motion';
-import { timelineService } from '../services/timelineService';
-import type { TimelineDayViewProps, TimelineEntry, DayData } from '../types';
-import { settingsService } from '../../settings/services/settingsService';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { TimelineEntrySkeleton } from '@/shared/components/feedback';
 import { formatTimeString } from '@/shared/utils/timeFormat';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, GripHorizontal } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { settingsService } from '../../settings/services/settingsService';
+import { timelineService } from '../services/timelineService';
+import type { DayData, TimelineDayViewProps, TimelineEntry } from '../types';
+import { MarqueeText } from './MarqueeText';
 
 export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +20,9 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
   const [weekData, setWeekData] = useState<DayData[]>([]);
-  const [weekCalendarEvents, setWeekCalendarEvents] = useState<Map<number, TimelineEntry[]>>(new Map());
+  const [weekCalendarEvents, setWeekCalendarEvents] = useState<Map<number, TimelineEntry[]>>(
+    new Map()
+  );
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Format hour label based on user's time format preference
@@ -40,10 +42,14 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
   };
 
   // Categorize calendar events based on keywords (same logic as SuggestedEntries)
-  const categorizeCalendarEvent = (projectName: string, taskName: string): 'personal' | 'general' | 'project' => {
-    const textToCheck = projectName === 'General'
-      ? taskName.toLowerCase()
-      : `${projectName} ${taskName}`.toLowerCase();
+  const categorizeCalendarEvent = (
+    projectName: string,
+    taskName: string
+  ): 'personal' | 'general' | 'project' => {
+    const textToCheck =
+      projectName === 'General'
+        ? taskName.toLowerCase()
+        : `${projectName} ${taskName}`.toLowerCase();
 
     // Project: contains "project" keyword
     if (textToCheck.match(/\bproject\b/i)) {
@@ -51,7 +57,11 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
     }
 
     // General/Admin keywords
-    if (textToCheck.match(/\b(team|admin|meeting|standup|sync|review|deployment|all-hands|townhall|status)\b/i)) {
+    if (
+      textToCheck.match(
+        /\b(team|admin|meeting|standup|sync|review|deployment|all-hands|townhall|status)\b/i
+      )
+    ) {
       return 'general';
     }
 
@@ -135,8 +145,8 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
   // Separate all-day events from regular events for day view
   const { allDayEvents, regularEvents } = useMemo(() => {
-    const allDay = timelineEntries.filter(entry => entry.isAllDay === true);
-    const regular = timelineEntries.filter(entry => entry.isAllDay !== true);
+    const allDay = timelineEntries.filter((entry) => entry.isAllDay === true);
+    const regular = timelineEntries.filter((entry) => entry.isAllDay !== true);
     return { allDayEvents: allDay, regularEvents: regular };
   }, [timelineEntries]);
 
@@ -145,7 +155,7 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
     const regularMap = new Map<number, TimelineEntry[]>();
 
     weekCalendarEvents.forEach((events, dayIndex) => {
-      const regular = events.filter(event => event.isAllDay !== true);
+      const regular = events.filter((event) => event.isAllDay !== true);
       regularMap.set(dayIndex, regular);
     });
 
@@ -157,7 +167,7 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
     const allDayMap = new Map<number, TimelineEntry[]>();
 
     weekCalendarEvents.forEach((events, dayIndex) => {
-      const allDay = events.filter(event => event.isAllDay === true);
+      const allDay = events.filter((event) => event.isAllDay === true);
       allDayMap.set(dayIndex, allDay);
     });
 
@@ -262,7 +272,11 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
             <div className="flex items-center gap-2">
               {/* View Mode Tabs */}
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'day' | 'week')} className="h-7">
+              <Tabs
+                value={viewMode}
+                onValueChange={(v) => setViewMode(v as 'day' | 'week')}
+                className="h-7"
+              >
                 <TabsList className="h-7 backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
                   <TabsTrigger value="day" className="h-6 text-xs px-2">
                     Day
@@ -287,7 +301,12 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
           {/* Date Navigation and Total Summary */}
           <div className="flex items-center justify-between gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigateDate('prev')} className="h-6 w-6 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigateDate('prev')}
+              className="h-6 w-6 flex-shrink-0"
+            >
               <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
 
@@ -315,13 +334,18 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                       <>
                         {weekData.reduce((sum, day) => sum + day.hours, 0).toFixed(1)}h ·{' '}
                         {weekData.reduce((sum, day) => sum + day.entries, 0)}{' '}
-                        {weekData.reduce((sum, day) => sum + day.entries, 0) === 1 ? 'event' : 'events'}
+                        {weekData.reduce((sum, day) => sum + day.entries, 0) === 1
+                          ? 'event'
+                          : 'events'}
                       </>
                     )}
                   </div>
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] shadow-xl" align="center">
+              <PopoverContent
+                className="w-auto p-0 bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] shadow-xl"
+                align="center"
+              >
                 <Calendar
                   mode="single"
                   selected={selectedDate}
@@ -336,7 +360,12 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
               </PopoverContent>
             </Popover>
 
-            <Button variant="ghost" size="icon" onClick={() => navigateDate('next')} className="h-6 w-6 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigateDate('next')}
+              className="h-6 w-6 flex-shrink-0"
+            >
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -351,13 +380,17 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
             <div className="space-y-2 mb-2">
               {allDayEvents.map((event) => {
                 const isCalendarEvent = event.isCalendarEvent === true;
-                const category = isCalendarEvent ? categorizeCalendarEvent(event.project, event.task) : 'general';
-                const colors = isCalendarEvent ? getCategoryColors(category) : {
-                  bg: 'bg-white/30 dark:bg-white/20',
-                  border: 'border-white/30 dark:border-white/20',
-                  dot: 'bg-blue-500 dark:bg-blue-400',
-                  text: 'text-gray-900 dark:text-gray-50',
-                };
+                const category = isCalendarEvent
+                  ? categorizeCalendarEvent(event.project, event.task)
+                  : 'general';
+                const colors = isCalendarEvent
+                  ? getCategoryColors(category)
+                  : {
+                      bg: 'bg-white/30 dark:bg-white/20',
+                      border: 'border-white/30 dark:border-white/20',
+                      dot: 'bg-blue-500 dark:bg-blue-400',
+                      text: 'text-gray-900 dark:text-gray-50',
+                    };
 
                 return (
                   <div
@@ -386,7 +419,10 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
           <div className="overflow-hidden px-4">
             <div className="min-w-[1400px]">
               {/* Day Headers */}
-              <div className="grid border-b border-white/10 dark:border-white/5" style={{ gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))' }}>
+              <div
+                className="grid border-b border-white/10 dark:border-white/5"
+                style={{ gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))' }}
+              >
                 {/* Empty cell for time column */}
                 <div className="p-2 text-center" />
                 {/* Day names */}
@@ -404,10 +440,14 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                     >
                       {/* Subtle white shading from the bottom */}
                       <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/20 to-transparent dark:from-white/10 pointer-events-none" />
-                      <div className={`relative text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <div
+                        className={`relative text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+                      >
                         {dayName}
                       </div>
-                      <div className={`relative text-[10px] mt-0.5 ${isToday ? 'text-blue-500 dark:text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <div
+                        className={`relative text-[10px] mt-0.5 ${isToday ? 'text-blue-500 dark:text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}
+                      >
                         {currentDayDate.getDate()}
                       </div>
                     </div>
@@ -416,8 +456,11 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
               </div>
 
               {/* All-Day Events Row */}
-              {Array.from(weekAllDayEvents.values()).some(events => events.length > 0) && (
-                <div className="grid border-b border-white/10 dark:border-white/5" style={{ gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))' }}>
+              {Array.from(weekAllDayEvents.values()).some((events) => events.length > 0) && (
+                <div
+                  className="grid border-b border-white/10 dark:border-white/5"
+                  style={{ gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))' }}
+                >
                   <div className="p-2 text-xs text-gray-500 dark:text-gray-400 text-right pr-2">
                     All-Day
                   </div>
@@ -431,13 +474,17 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                       >
                         {dayEvents.map((event) => {
                           const isCalendarEvent = event.isCalendarEvent === true;
-                          const category = isCalendarEvent ? categorizeCalendarEvent(event.project, event.task) : 'general';
-                          const colors = isCalendarEvent ? getCategoryColors(category) : {
-                            bg: 'bg-white/20 dark:bg-white/10',
-                            border: 'border-white/30 dark:border-white/20',
-                            dot: 'bg-blue-500 dark:bg-blue-400',
-                            text: 'text-gray-900 dark:text-gray-50',
-                          };
+                          const category = isCalendarEvent
+                            ? categorizeCalendarEvent(event.project, event.task)
+                            : 'general';
+                          const colors = isCalendarEvent
+                            ? getCategoryColors(category)
+                            : {
+                                bg: 'bg-white/20 dark:bg-white/10',
+                                border: 'border-white/30 dark:border-white/20',
+                                dot: 'bg-blue-500 dark:bg-blue-400',
+                                text: 'text-gray-900 dark:text-gray-50',
+                              };
 
                           return (
                             <div
@@ -445,8 +492,12 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                               className={`${colors.bg} border-l-4 ${colors.border.replace('border-', 'border-l-')} rounded-r px-1.5 py-1 cursor-pointer hover:brightness-110 transition-all flex items-center`}
                             >
                               <div className="flex items-center gap-1 min-w-0 flex-1">
-                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`} />
-                                <div className={`text-[9px] font-medium ${colors.text} flex-shrink-0`}>
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`}
+                                />
+                                <div
+                                  className={`text-[9px] font-medium ${colors.text} flex-shrink-0`}
+                                >
                                   {event.project}
                                 </div>
                                 <MarqueeText
@@ -506,7 +557,10 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                             style={{ top: `${topPosition}px` }}
                           >
                             {/* Hour label */}
-                            <div className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right flex-shrink-0" style={{ marginTop: '-5px' }}>
+                            <div
+                              className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right flex-shrink-0"
+                              style={{ marginTop: '-5px' }}
+                            >
                               {formatHourLabel(hour)}
                             </div>
                             {/* Horizontal line - aligned exactly at hour boundary, 2px to match event borders */}
@@ -523,14 +577,20 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                         const isCalendarEvent = entry.isCalendarEvent === true;
 
                         // Get category and colors for calendar events
-                        const category = isCalendarEvent ? categorizeCalendarEvent(entry.project, entry.task) : 'general';
-                        const colors = isCalendarEvent ? getCategoryColors(category) : {
-                          bg: 'bg-white/20 dark:bg-white/10',
-                          border: 'border-white/30 dark:border-white/20',
-                          dot: '',
-                          text: '',
-                        };
-                        const borderClass = isCalendarEvent ? `border-l-4 ${colors.border.replace('border-', 'border-l-')}` : 'border-l-4 border-gray-400';
+                        const category = isCalendarEvent
+                          ? categorizeCalendarEvent(entry.project, entry.task)
+                          : 'general';
+                        const colors = isCalendarEvent
+                          ? getCategoryColors(category)
+                          : {
+                              bg: 'bg-white/20 dark:bg-white/10',
+                              border: 'border-white/30 dark:border-white/20',
+                              dot: '',
+                              text: '',
+                            };
+                        const borderClass = isCalendarEvent
+                          ? `border-l-4 ${colors.border.replace('border-', 'border-l-')}`
+                          : 'border-l-4 border-gray-400';
 
                         return (
                           <div
@@ -555,11 +615,21 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
                                 return (
                                   <div className="flex-1 min-w-0 flex items-center gap-1">
-                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`} />
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`}
+                                    />
                                     <MarqueeText className="text-[11px] flex-1 min-w-0">
-                                      <span className={`font-medium ${colors.text}`}>{entry.project}</span>
-                                      <span className="text-gray-900 dark:text-gray-100"> · {entry.task}</span>
-                                      <span className="text-gray-600 dark:text-gray-400"> · {timeRange}</span>
+                                      <span className={`font-medium ${colors.text}`}>
+                                        {entry.project}
+                                      </span>
+                                      <span className="text-gray-900 dark:text-gray-100">
+                                        {' '}
+                                        · {entry.task}
+                                      </span>
+                                      <span className="text-gray-600 dark:text-gray-400">
+                                        {' '}
+                                        · {timeRange}
+                                      </span>
                                     </MarqueeText>
                                   </div>
                                 );
@@ -567,7 +637,9 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                             ) : (
                               <div className="flex-1 min-w-0 flex flex-col">
                                 <div className="flex items-center gap-1 mb-0.5">
-                                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`} />
+                                  <div
+                                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`}
+                                  />
                                   <MarqueeText
                                     text={entry.project}
                                     className={`text-[11px] font-medium ${colors.text} flex-1 min-w-0`}
@@ -588,7 +660,8 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
                                   return (
                                     <div className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight mt-0.5">
-                                      {formatTimeString(entry.startTime)} - {formatTimeString(endTime)}
+                                      {formatTimeString(entry.startTime)} -{' '}
+                                      {formatTimeString(endTime)}
                                     </div>
                                   );
                                 })()}
@@ -617,7 +690,15 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                     <div className="relative" style={{ height: '1440px' }}>
                       {/* Hour grid lines */}
                       {hours.map((hour) => (
-                        <div key={hour} className="absolute left-0 right-0 grid border-b border-white/10 dark:border-white/5" style={{ gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))', top: `${hour * 60}px`, height: '60px' }}>
+                        <div
+                          key={hour}
+                          className="absolute left-0 right-0 grid border-b border-white/10 dark:border-white/5"
+                          style={{
+                            gridTemplateColumns: '70px repeat(7, minmax(180px, 1fr))',
+                            top: `${hour * 60}px`,
+                            height: '60px',
+                          }}
+                        >
                           {/* Time label */}
                           <div className="p-2 text-xs text-gray-500 dark:text-gray-400 text-right pr-2">
                             {formatHourLabel(hour)}
@@ -656,14 +737,20 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                           const leftOffset = 70; // Time column width
 
                           // Get category and colors
-                          const category = event.isCalendarEvent ? categorizeCalendarEvent(event.project, event.task) : 'general';
-                          const colors = event.isCalendarEvent ? getCategoryColors(category) : {
-                            bg: 'bg-white/20 dark:bg-white/10',
-                            border: 'border-white/30 dark:border-white/20',
-                            dot: '',
-                            text: '',
-                          };
-                          const borderClass = event.isCalendarEvent ? `border-l-4 ${colors.border.replace('border-', 'border-l-')}` : 'border-l-4 border-gray-400';
+                          const category = event.isCalendarEvent
+                            ? categorizeCalendarEvent(event.project, event.task)
+                            : 'general';
+                          const colors = event.isCalendarEvent
+                            ? getCategoryColors(category)
+                            : {
+                                bg: 'bg-white/20 dark:bg-white/10',
+                                border: 'border-white/30 dark:border-white/20',
+                                dot: '',
+                                text: '',
+                              };
+                          const borderClass = event.isCalendarEvent
+                            ? `border-l-4 ${colors.border.replace('border-', 'border-l-')}`
+                            : 'border-l-4 border-gray-400';
 
                           return (
                             <div
@@ -698,11 +785,21 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
 
                                   return (
                                     <div className="flex items-center gap-1 min-w-0 w-full">
-                                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`} />
+                                      <div
+                                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`}
+                                      />
                                       <MarqueeText className="text-[9px] flex-1 min-w-0">
-                                        <span className={`font-medium ${colors.text}`}>{event.project}</span>
-                                        <span className="text-gray-900 dark:text-gray-100"> · {event.task}</span>
-                                        <span className="text-gray-600 dark:text-gray-400"> · {timeRange}</span>
+                                        <span className={`font-medium ${colors.text}`}>
+                                          {event.project}
+                                        </span>
+                                        <span className="text-gray-900 dark:text-gray-100">
+                                          {' '}
+                                          · {event.task}
+                                        </span>
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          {' '}
+                                          · {timeRange}
+                                        </span>
                                       </MarqueeText>
                                     </div>
                                   );
@@ -712,7 +809,9 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                                   {/* Longer events: Multi-line layout */}
                                   {/* Project name with colored dot indicator */}
                                   <div className="flex items-center gap-1 mb-0.5 min-w-0">
-                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`} />
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors.dot}`}
+                                    />
                                     <MarqueeText
                                       text={event.project}
                                       className={`text-[9px] font-medium ${colors.text} flex-1 min-w-0`}
@@ -726,21 +825,25 @@ export function TimelineDayView({ onBack, onViewModeChange }: TimelineDayViewPro
                                   />
 
                                   {/* Time (if enough height) */}
-                                  {height > 35 && (() => {
-                                    // Calculate end time
-                                    const [hours, minutes] = event.startTime.split(':').map(Number);
-                                    const startMinutes = (hours ?? 0) * 60 + (minutes ?? 0);
-                                    const endMinutes = startMinutes + event.duration;
-                                    const endHours = Math.floor(endMinutes / 60) % 24;
-                                    const endMins = endMinutes % 60;
-                                    const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+                                  {height > 35 &&
+                                    (() => {
+                                      // Calculate end time
+                                      const [hours, minutes] = event.startTime
+                                        .split(':')
+                                        .map(Number);
+                                      const startMinutes = (hours ?? 0) * 60 + (minutes ?? 0);
+                                      const endMinutes = startMinutes + event.duration;
+                                      const endHours = Math.floor(endMinutes / 60) % 24;
+                                      const endMins = endMinutes % 60;
+                                      const endTime = `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
 
-                                    return (
-                                      <div className="text-[9px] text-gray-600 dark:text-gray-400 leading-tight mt-0.5">
-                                        {formatTimeString(event.startTime)} - {formatTimeString(endTime)}
-                                      </div>
-                                    );
-                                  })()}
+                                      return (
+                                        <div className="text-[9px] text-gray-600 dark:text-gray-400 leading-tight mt-0.5">
+                                          {formatTimeString(event.startTime)} -{' '}
+                                          {formatTimeString(endTime)}
+                                        </div>
+                                      );
+                                    })()}
                                 </>
                               )}
                             </div>

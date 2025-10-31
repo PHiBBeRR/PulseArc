@@ -6,8 +6,8 @@
  * Always use reduce() to find latest snapshot, never assume [0] is latest
  */
 
-import { describe, it, expect } from 'vitest';
 import type { ActivitySnapshot } from '@/shared/types/generated';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Helper function to find the latest snapshot using reduce()

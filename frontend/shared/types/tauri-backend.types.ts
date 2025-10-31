@@ -14,34 +14,34 @@ import { invoke } from '@tauri-apps/api/core';
 
 // Re-export all generated types
 export type {
-  ActivitySnapshot,
-  ActivitySegment,
-  ActivityContext,
-  WindowContext,
-  WorkType,
   ActivityCategory,
-  ConfidenceEvidence,
+  ActivityContext,
   ActivityMetadata,
+  ActivitySegment,
+  ActivitySnapshot,
   BatchQueue,
-  BatchStatus,
   BatchStats,
-  TimeEntryOutbox,
+  BatchStatus,
+  ConfidenceEvidence,
+  DatabaseStats,
+  DlqBatch,
+  IdMapping,
+  OutboxStats,
   OutboxStatus,
   PrismaTimeEntryDto,
-  IdMapping,
-  DatabaseStats,
   SyncStats,
-  OutboxStats,
-  DlqBatch,
+  TimeEntryOutbox,
+  WindowContext,
+  WorkType,
 } from './generated';
 
 import type {
-  ActivitySnapshot,
   ActivitySegment,
+  ActivitySnapshot,
   BatchQueue,
-  TimeEntryOutbox,
-  SyncStats,
   DatabaseStats,
+  SyncStats,
+  TimeEntryOutbox,
 } from './generated';
 
 /* -------------------------------------------------------------------------- */
@@ -92,9 +92,7 @@ function normalizeTimestamps<T extends Record<string, unknown>>(
  */
 export async function getRecentSnapshots(): Promise<ActivitySnapshot[]> {
   const data = await invoke<ActivitySnapshot[]>('get_recent_snapshots');
-  return data.map((s) =>
-    normalizeTimestamps(s, ['timestamp', 'created_at', 'processed_at'])
-  );
+  return data.map((s) => normalizeTimestamps(s, ['timestamp', 'created_at', 'processed_at']));
 }
 
 /**
@@ -105,9 +103,7 @@ export async function getRecentSnapshots(): Promise<ActivitySnapshot[]> {
  */
 export async function getRecentActivities(limit?: number): Promise<ActivitySnapshot[]> {
   const data = await invoke<ActivitySnapshot[]>('get_recent_activities', { limit });
-  return data.map((s) =>
-    normalizeTimestamps(s, ['timestamp', 'created_at', 'processed_at'])
-  );
+  return data.map((s) => normalizeTimestamps(s, ['timestamp', 'created_at', 'processed_at']));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -121,9 +117,7 @@ export async function getRecentActivities(limit?: number): Promise<ActivitySnaps
  */
 export async function getRecentSegments(): Promise<ActivitySegment[]> {
   const data = await invoke<ActivitySegment[]>('get_recent_segments');
-  return data.map((s) =>
-    normalizeTimestamps(s, ['start_ts', 'end_ts', 'created_at'])
-  );
+  return data.map((s) => normalizeTimestamps(s, ['start_ts', 'end_ts', 'created_at']));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -158,9 +152,7 @@ export async function getBatchStatus(): Promise<BatchQueue[]> {
  */
 export async function getOutboxStatus(): Promise<TimeEntryOutbox[]> {
   const data = await invoke<TimeEntryOutbox[]>('get_outbox_status');
-  return data.map((o) =>
-    normalizeTimestamps(o, ['created_at', 'sent_at', 'retry_after'])
-  );
+  return data.map((o) => normalizeTimestamps(o, ['created_at', 'sent_at', 'retry_after']));
 }
 
 /* -------------------------------------------------------------------------- */

@@ -5,14 +5,14 @@
  * Tests Issue #1: Timer Display Shows Real Activity
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderWithProviders as render, screen, waitFor } from '@/shared/test/renderWithProviders';
-import { act } from '@testing-library/react';
-import type { ActivityContext } from '@/shared/types/tauri-backend.types';
 import {
   createMockActivityContext,
   createMockWindowContext,
 } from '@/shared/test/fixtures/backend-types';
+import { renderWithProviders as render, screen, waitFor } from '@/shared/test/renderWithProviders';
+import type { ActivityContext } from '@/shared/types/tauri-backend.types';
+import { act } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri APIs (must be hoisted before imports)
 const { mockInvoke, mockListen, mockUnlisten, mockEmit } = vi.hoisted(() => ({
@@ -44,7 +44,11 @@ vi.mock('@tauri-apps/api/window', () => ({
     hide: vi.fn().mockResolvedValue(undefined),
     setSize: vi.fn().mockResolvedValue(undefined),
   })),
-  LogicalSize: vi.fn().mockImplementation(function (this: { width: number; height: number }, width: number, height: number) {
+  LogicalSize: vi.fn().mockImplementation(function (
+    this: { width: number; height: number },
+    width: number,
+    height: number
+  ) {
     this.width = width;
     this.height = height;
     return this;
@@ -113,10 +117,7 @@ describe('MainTimer - Issue #1: Real-time Activity Display', () => {
       render(<MainTimer />);
 
       await waitFor(() => {
-        expect(mockListen).toHaveBeenCalledWith(
-          'activity-context-updated',
-          expect.any(Function)
-        );
+        expect(mockListen).toHaveBeenCalledWith('activity-context-updated', expect.any(Function));
       });
     });
 
@@ -309,7 +310,6 @@ describe('MainTimer - Issue #1: Real-time Activity Display', () => {
 
       await waitFor(() => expect(mockListen).toHaveBeenCalled());
 
-
       // Send malformed event payload
       await act(async () => {
         eventHandler?.({ payload: null });
@@ -339,7 +339,6 @@ describe('MainTimer - Issue #1: Real-time Activity Display', () => {
       render(<MainTimer />);
 
       await waitFor(() => expect(mockListen).toHaveBeenCalled());
-
 
       // Emit null activity (no current activity tracked)
       await act(async () => {

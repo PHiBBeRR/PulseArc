@@ -11,7 +11,6 @@ export interface TimerState {
   startTime?: Date;
 }
 
- 
 export interface TimerProps {
   onEntriesClick?: () => void;
   onSettingsClick?: () => void;
@@ -31,7 +30,6 @@ export type NotificationTrigger = (
   _message: string,
   _action?: { label: string; onClick: () => void }
 ) => void;
- 
 
 export interface TimerIdleState {
   showModal: boolean;

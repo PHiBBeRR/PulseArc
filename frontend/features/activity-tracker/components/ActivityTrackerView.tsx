@@ -1,14 +1,28 @@
-import React, { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
-import { X, Activity as ActivityIcon, Pause, Play, Settings, Lightbulb, ArrowRight, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, emit } from '@tauri-apps/api/event';
-import { type ActivityContext } from '../types';
-import { useSuggestionManager } from '../hooks/useSuggestionManager';
+import {
+  TIMER_STATE_EVT,
+  isTimerStateEventV1,
+  safeEmit,
+  type TimerStateEventV1,
+} from '@/shared/events/timer-events';
 import { audioService, idleSyncMetrics } from '@/shared/services';
 import { deriveTrackerState } from '@/shared/state/deriveTrackerState';
-import { TIMER_STATE_EVT, isTimerStateEventV1, type TimerStateEventV1, safeEmit } from '@/shared/events/timer-events';
+import { invoke } from '@tauri-apps/api/core';
+import { emit, listen } from '@tauri-apps/api/event';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Activity as ActivityIcon,
+  ArrowRight,
+  Check,
+  Lightbulb,
+  Pause,
+  Play,
+  Settings,
+  X,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { SaveEntryModal } from '../../time-entry';
+import { useSuggestionManager } from '../hooks/useSuggestionManager';
+import { type ActivityContext } from '../types';
 
 // Event system constants
 const EVENT_ACTIVITY_UPDATED = 'activity-context-updated';
@@ -57,11 +71,12 @@ export function ActivityTrackerView() {
   const [isHovering, setIsHovering] = useState(false);
   const [isWindowFocused, setIsWindowFocused] = useState(true);
   const [autoResize, setAutoResize] = useState(initialSettings.autoResize);
-  const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>(initialSettings.sidebarPosition);
+  const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>(
+    initialSettings.sidebarPosition
+  );
   const [showSettings, setShowSettings] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [savedElapsed, setSavedElapsed] = useState(0);
-
 
   // Load settings from localStorage and sync changes
   useEffect(() => {
@@ -77,7 +92,6 @@ export function ActivityTrackerView() {
           console.error('Failed to parse activityTrackerSettings from storage event:', err);
         }
       }
-
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -113,7 +127,7 @@ export function ActivityTrackerView() {
   const appName = activityContext?.active_app?.app_name ?? 'Pulsarc';
 
   // Determine if window should be expanded (focused or hovering, and auto-resize is enabled)
-  const isExpanded = autoResize ? (isWindowFocused || isHovering) : true;
+  const isExpanded = autoResize ? isWindowFocused || isHovering : true;
 
   // Fetch activity context
   const fetchContext = useCallback(async () => {
@@ -234,18 +248,15 @@ export function ActivityTrackerView() {
     const setupRealtimeListener = async () => {
       try {
         // Setup event listener
-        const unlistenFn = await listen<ActivityContext>(
-          EVENT_ACTIVITY_UPDATED,
-          (event) => {
-            console.log('📡 Real-time activity update received');
-            setActivityContext(event.payload);
-            setIsLoadingContext(false);
+        const unlistenFn = await listen<ActivityContext>(EVENT_ACTIVITY_UPDATED, (event) => {
+          console.log('📡 Real-time activity update received');
+          setActivityContext(event.payload);
+          setIsLoadingContext(false);
 
-            if (!hasReceivedInitialContext) {
-              setHasReceivedInitialContext(true);
-            }
+          if (!hasReceivedInitialContext) {
+            setHasReceivedInitialContext(true);
           }
-        );
+        });
 
         // Store in ref so cleanup can access it
         unlistenRef.current = unlistenFn;
@@ -315,84 +326,94 @@ export function ActivityTrackerView() {
     const setupTimerStateListener = async () => {
       try {
         // FEATURE-012: Record listener registration
-        unlisten = await listen<TimerStateEventV1>(
-          TIMER_STATE_EVT,
-          (event) => {
-            const p = event.payload;
-            const receiveTime = Date.now();
+        unlisten = await listen<TimerStateEventV1>(TIMER_STATE_EVT, (event) => {
+          const p = event.payload;
+          const receiveTime = Date.now();
 
-            // FEATURE-012: Validate payload with type guard
-            if (!isTimerStateEventV1(p)) {
-              console.warn('[timer-state] Invalid or unknown payload version:', p);
-              void idleSyncMetrics.recordInvalidPayload();
-              return;
-            }
-
-            // FEATURE-012: Record event reception with sync latency
-            const syncLatencyMs = Math.max(0, receiveTime - p.ts);
-            void idleSyncMetrics.recordTimerEventReception(syncLatencyMs);
-
-            const transitionStart = performance.now();
-            const prevState = prevTrackerStateRef.current;
-            const newTrackerState = deriveTrackerState(p.state);
-
-            // FEATURE-012: Record state mirroring (tracker always mirrors timer)
-            void idleSyncMetrics.recordAutoStartTrackerRule(
-              1, // Rule 1: Always mirror timer state
-              p.state,
-              false, // autoStartTracker removed
-              true // Always correct since we just mirror
-            );
-
-            console.log(`[Tracker] Event received: source=${p.source}, state=${p.state}, elapsed=${p.elapsed}, currentTrackerState=${trackerState}`);
-
-            setTrackerState(newTrackerState);
-
-            // Timer is the source of truth for elapsed time
-
-            // FEATURE-012: Record state transition with duration
-            if (prevState !== newTrackerState) {
-              const transitionDurationMs = Math.round(performance.now() - transitionStart);
-              void idleSyncMetrics.recordStateTransition(
-                prevState,
-                newTrackerState,
-                transitionDurationMs
-              );
-              prevTrackerStateRef.current = newTrackerState;
-            }
-
-            // Check if timer is responding with final elapsed after tracker stopped
-            console.log(`[Tracker] Modal check: source=${p.source}, state=${p.state}, elapsed=${p.elapsed}, newTrackerState=${newTrackerState}`);
-            if (p.source === 'timer' && p.state === 'inactive' && p.elapsed > 0 && newTrackerState === 'inactive') {
-              console.log(`📊 [Tracker] SHOWING MODAL with elapsed ${p.elapsed}s`);
-              setSavedElapsed(p.elapsed);
-              setShowSaveModal(true);
-            } else {
-              console.log(`[Tracker] Modal NOT shown - checks: source=${p.source === 'timer'}, inactive=${p.state === 'inactive'}, hasElapsed=${p.elapsed > 0}, trackerInactive=${newTrackerState === 'inactive'}`);
-            }
-
-            // Call backend commands to sync tracker state (only if event came from timer)
-            if (p.source === 'timer' && prevState !== newTrackerState) {
-              if (newTrackerState === 'active') {
-                // Start/resume the tracker backend
-                invoke('resume_tracker').catch((err) => {
-                  console.error('❌ Failed to resume tracker from timer event:', err);
-                });
-                void fetchContext();
-              } else if (newTrackerState === 'inactive' || newTrackerState === 'paused') {
-                // Pause the tracker backend
-                invoke('pause_tracker').catch((err) => {
-                  console.error('❌ Failed to pause tracker from timer event:', err);
-                });
-              }
-            } else if (newTrackerState === 'active' && p.state === 'active') {
-              // Fetch context even if state didn't change but we're active
-              void fetchContext();
-            }
-
-            console.log(`🔄 Timer state sync: ${p.state} → tracker: ${newTrackerState} (source: ${p.source}, elapsed: ${p.elapsed})`);
+          // FEATURE-012: Validate payload with type guard
+          if (!isTimerStateEventV1(p)) {
+            console.warn('[timer-state] Invalid or unknown payload version:', p);
+            void idleSyncMetrics.recordInvalidPayload();
+            return;
           }
-        );
+
+          // FEATURE-012: Record event reception with sync latency
+          const syncLatencyMs = Math.max(0, receiveTime - p.ts);
+          void idleSyncMetrics.recordTimerEventReception(syncLatencyMs);
+
+          const transitionStart = performance.now();
+          const prevState = prevTrackerStateRef.current;
+          const newTrackerState = deriveTrackerState(p.state);
+
+          // FEATURE-012: Record state mirroring (tracker always mirrors timer)
+          void idleSyncMetrics.recordAutoStartTrackerRule(
+            1, // Rule 1: Always mirror timer state
+            p.state,
+            false, // autoStartTracker removed
+            true // Always correct since we just mirror
+          );
+
+          console.log(
+            `[Tracker] Event received: source=${p.source}, state=${p.state}, elapsed=${p.elapsed}, currentTrackerState=${trackerState}`
+          );
+
+          setTrackerState(newTrackerState);
+
+          // Timer is the source of truth for elapsed time
+
+          // FEATURE-012: Record state transition with duration
+          if (prevState !== newTrackerState) {
+            const transitionDurationMs = Math.round(performance.now() - transitionStart);
+            void idleSyncMetrics.recordStateTransition(
+              prevState,
+              newTrackerState,
+              transitionDurationMs
+            );
+            prevTrackerStateRef.current = newTrackerState;
+          }
+
+          // Check if timer is responding with final elapsed after tracker stopped
+          console.log(
+            `[Tracker] Modal check: source=${p.source}, state=${p.state}, elapsed=${p.elapsed}, newTrackerState=${newTrackerState}`
+          );
+          if (
+            p.source === 'timer' &&
+            p.state === 'inactive' &&
+            p.elapsed > 0 &&
+            newTrackerState === 'inactive'
+          ) {
+            console.log(`📊 [Tracker] SHOWING MODAL with elapsed ${p.elapsed}s`);
+            setSavedElapsed(p.elapsed);
+            setShowSaveModal(true);
+          } else {
+            console.log(
+              `[Tracker] Modal NOT shown - checks: source=${p.source === 'timer'}, inactive=${p.state === 'inactive'}, hasElapsed=${p.elapsed > 0}, trackerInactive=${newTrackerState === 'inactive'}`
+            );
+          }
+
+          // Call backend commands to sync tracker state (only if event came from timer)
+          if (p.source === 'timer' && prevState !== newTrackerState) {
+            if (newTrackerState === 'active') {
+              // Start/resume the tracker backend
+              invoke('resume_tracker').catch((err) => {
+                console.error('❌ Failed to resume tracker from timer event:', err);
+              });
+              void fetchContext();
+            } else if (newTrackerState === 'inactive' || newTrackerState === 'paused') {
+              // Pause the tracker backend
+              invoke('pause_tracker').catch((err) => {
+                console.error('❌ Failed to pause tracker from timer event:', err);
+              });
+            }
+          } else if (newTrackerState === 'active' && p.state === 'active') {
+            // Fetch context even if state didn't change but we're active
+            void fetchContext();
+          }
+
+          console.log(
+            `🔄 Timer state sync: ${p.state} → tracker: ${newTrackerState} (source: ${p.source}, elapsed: ${p.elapsed})`
+          );
+        });
         console.log('✅ Timer state listener registered');
       } catch (error) {
         console.error('❌ Failed to setup timer state listener:', error);
@@ -841,13 +862,10 @@ export function ActivityTrackerView() {
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       layout
-      transition={{ type: "spring", stiffness: 200, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 25 }}
     >
       {/* Invisible drag region overlay */}
-      <div
-        data-tauri-drag-region
-        className="absolute top-0 left-0 right-0 h-12 cursor-move z-50"
-      />
+      <div data-tauri-drag-region className="absolute top-0 left-0 right-0 h-12 cursor-move z-50" />
 
       {/* Close button - top right */}
       {isHovering && (
@@ -862,7 +880,7 @@ export function ActivityTrackerView() {
       <motion.div
         className="relative w-full h-full backdrop-blur-[24px] flex flex-col rounded-[24px] overflow-hidden"
         layout
-        transition={{ type: "spring", stiffness: 200, damping: 25 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25 }}
       >
         {/* Subtle glow from sidebar when active/paused/idle/inactive */}
         <AnimatePresence>
@@ -881,29 +899,30 @@ export function ActivityTrackerView() {
                 bottom: isExpanded ? 0 : undefined,
                 width: isExpanded ? '200px' : '80px',
                 height: isExpanded ? undefined : '120px',
-                background: trackerState === 'idle'
-                  ? isExpanded
-                    ? sidebarPosition === 'left'
-                      ? 'linear-gradient(to right, rgba(14, 165, 233, 0.15), transparent)'
-                      : 'linear-gradient(to left, rgba(14, 165, 233, 0.15), transparent)'
-                    : 'linear-gradient(to bottom, rgba(14, 165, 233, 0.15), transparent)'
-                  : trackerState === 'inactive'
+                background:
+                  trackerState === 'idle'
                     ? isExpanded
                       ? sidebarPosition === 'left'
-                        ? 'linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent)'
-                        : 'linear-gradient(to left, rgba(255, 255, 255, 0.1), transparent)'
-                      : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent)'
-                  : trackerState === 'paused'
-                    ? isExpanded
-                      ? sidebarPosition === 'left'
-                        ? 'linear-gradient(to right, rgba(234, 179, 8, 0.15), transparent)'
-                        : 'linear-gradient(to left, rgba(234, 179, 8, 0.15), transparent)'
-                      : 'linear-gradient(to bottom, rgba(234, 179, 8, 0.15), transparent)'
-                    : isExpanded
-                      ? sidebarPosition === 'left'
-                        ? 'linear-gradient(to right, rgba(239, 68, 68, 0.15), transparent)'
-                        : 'linear-gradient(to left, rgba(239, 68, 68, 0.15), transparent)'
-                      : 'linear-gradient(to bottom, rgba(239, 68, 68, 0.15), transparent)',
+                        ? 'linear-gradient(to right, rgba(14, 165, 233, 0.15), transparent)'
+                        : 'linear-gradient(to left, rgba(14, 165, 233, 0.15), transparent)'
+                      : 'linear-gradient(to bottom, rgba(14, 165, 233, 0.15), transparent)'
+                    : trackerState === 'inactive'
+                      ? isExpanded
+                        ? sidebarPosition === 'left'
+                          ? 'linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent)'
+                          : 'linear-gradient(to left, rgba(255, 255, 255, 0.1), transparent)'
+                        : 'linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent)'
+                      : trackerState === 'paused'
+                        ? isExpanded
+                          ? sidebarPosition === 'left'
+                            ? 'linear-gradient(to right, rgba(234, 179, 8, 0.15), transparent)'
+                            : 'linear-gradient(to left, rgba(234, 179, 8, 0.15), transparent)'
+                          : 'linear-gradient(to bottom, rgba(234, 179, 8, 0.15), transparent)'
+                        : isExpanded
+                          ? sidebarPosition === 'left'
+                            ? 'linear-gradient(to right, rgba(239, 68, 68, 0.15), transparent)'
+                            : 'linear-gradient(to left, rgba(239, 68, 68, 0.15), transparent)'
+                          : 'linear-gradient(to bottom, rgba(239, 68, 68, 0.15), transparent)',
                 borderRadius: '24px',
               }}
             />
@@ -911,11 +930,17 @@ export function ActivityTrackerView() {
         </AnimatePresence>
 
         {/* Main horizontal layout */}
-        <div className={`flex h-full flex-1 ${sidebarPosition === 'right' ? 'flex-row-reverse' : ''}`}>
+        <div
+          className={`flex h-full flex-1 ${sidebarPosition === 'right' ? 'flex-row-reverse' : ''}`}
+        >
           {/* Sidebar - flexible but min width */}
           <div
             className={`w-20 min-w-[80px] flex-shrink-0 flex flex-col items-center justify-start p-3 transition-all duration-500 group/sidebar relative ${
-              isExpanded ? (sidebarPosition === 'left' ? 'border-r border-white/5' : 'border-l border-white/5') : ''
+              isExpanded
+                ? sidebarPosition === 'left'
+                  ? 'border-r border-white/5'
+                  : 'border-l border-white/5'
+                : ''
             }`}
           >
             {/* Activity Icon */}
@@ -1030,310 +1055,346 @@ export function ActivityTrackerView() {
           {/* Content Area - flexible, takes remaining space - hidden when minimized */}
           {isExpanded && (
             <div className="flex-1 min-w-0 p-4 flex flex-col space-y-3">
-            {showSettings ? (
-              /* Settings View */
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Settings className="w-3 h-3 text-white/60" />
-                  <span className="text-xs tracking-wide text-white/50 uppercase">Settings</span>
-                </div>
-
-                {/* Settings List */}
-                <div className="space-y-1.5">
-                  {/* Sidebar Position Setting */}
-                  <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 transition-all">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white/90 font-medium truncate">Action Bar Position</div>
-                        <div className="text-xs text-white/50 truncate mt-0.5">
-                          {sidebarPosition === 'left' ? 'Left side' : 'Right side'}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newValue = sidebarPosition === 'left' ? 'right' : 'left';
-                          setSidebarPosition(newValue);
-                          const settings: ActivityTrackerSettings = { autoResize, sidebarPosition: newValue };
-                          localStorage.setItem('activityTrackerSettings', JSON.stringify(settings));
-                          playSound();
-                        }}
-                        className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all flex-shrink-0"
-                      >
-                        {sidebarPosition === 'left' ? 'Left' : 'Right'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Auto-resize Setting */}
-                  <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 transition-all">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white/90 font-medium truncate">Auto-resize</div>
-                        <div className="text-xs text-white/50 truncate mt-0.5">
-                          Minimize when unfocused
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newValue = !autoResize;
-                          setAutoResize(newValue);
-                          const settings: ActivityTrackerSettings = { autoResize: newValue, sidebarPosition };
-                          localStorage.setItem('activityTrackerSettings', JSON.stringify(settings));
-                          playSound();
-                        }}
-                        className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${
-                          autoResize ? 'bg-green-500' : 'bg-white/20'
-                        }`}
-                      >
-                        <motion.div
-                          className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md"
-                          animate={{ x: autoResize ? 20 : 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Normal Content */
-              <>
-            {/* Dynamic header text with dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={trackerState}
-                  className="text-sm"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-                >
-                  {getHeaderText()}
-                </motion.div>
-              </AnimatePresence>
-
-              {/* App Dropdown */}
-              <AnimatePresence>
-                {showAppDropdown && activityContext?.recent_apps && activityContext.recent_apps.length > 0 && (
-                  <motion.div
-                    className="absolute top-full left-0 right-0 mt-2 z-50"
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-xl p-2 shadow-xl">
-                      <div className="text-[10px] text-white/50 uppercase tracking-wide px-2 py-1 mb-1">
-                        Switch to Recent App
-                      </div>
-                      <div className="space-y-1">
-                        {activityContext.recent_apps.slice(0, 3).map((app, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSelectAppFromDropdown(app.app_name)}
-                            className="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 text-left transition-all group"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm text-white/90 font-medium truncate">{app.app_name}</div>
-                                {app.window_title && (
-                                  <div className="text-xs text-white/50 truncate mt-0.5">{app.window_title}</div>
-                                )}
-                              </div>
-                              <ArrowRight className="w-3.5 h-3.5 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Input field with arrow button */}
-            <form onSubmit={handleSubmit} className="relative">
-              <input
-                ref={inputRef}
-                type="text"
-                value={activity}
-                onChange={handleInputChange}
-                placeholder="e.g., Reviewing time entries, Debugging timer logic..."
-                className={`w-full h-11 px-4 pr-11 rounded-[1.5rem] bg-white/10 border-2 transition-all duration-200 text-white placeholder-white/40 text-sm focus:outline-none ${
-                  trackerState === 'paused'
-                    ? 'border-white/20 focus:border-yellow-500/40'
-                    : trackerState === 'active'
-                      ? 'border-white/20 focus:border-red-500/40'
-                      : 'border-white/20 focus:border-white/30'
-                }`}
-              />
-              <button
-                type="submit"
-                disabled={!activity.trim()}
-                className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl flex items-center justify-center transition-all duration-500 ${getArrowButtonClasses()} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <ArrowRight className="w-3.5 h-3.5 text-white" />
-              </button>
-            </form>
-
-            {/* Paused state: Yes/No buttons or Recent Apps */}
-            <AnimatePresence>
-              {trackerState === 'paused' && !showRecentApps && (
-                <motion.div
-                  className="space-y-2"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {/* Question text */}
+              {showSettings ? (
+                /* Settings View */
+                <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <ActivityIcon className="w-3 h-3 text-yellow-500/60" />
-                    <span className="text-xs tracking-wide text-white/50 uppercase">
-                      Are you still working on{' '}
-                      <motion.span
-                        className="text-yellow-400 cursor-pointer hover:text-yellow-300 transition-colors normal-case"
-                        animate={{ opacity: [1, 0.6, 1] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                        onClick={handleToggleAppDropdown}
-                      >
-                        {appName}
-                      </motion.span>
-                      ?
-                    </span>
+                    <Settings className="w-3 h-3 text-white/60" />
+                    <span className="text-xs tracking-wide text-white/50 uppercase">Settings</span>
                   </div>
 
-                  {/* Yes/No buttons */}
-                  <div className="flex gap-2">
-                    <motion.button
-                      onClick={handleYesStillWorking}
-                      className="flex-1 h-10 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-400 flex items-center justify-center gap-2 transition-all"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Check className="w-4 h-4" />
-                      <span className="text-sm font-medium">Yes</span>
-                    </motion.button>
-                    <motion.button
-                      onClick={handleNoNotWorking}
-                      className="flex-1 h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 flex items-center justify-center gap-2 transition-all"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <X className="w-4 h-4" />
-                      <span className="text-sm font-medium">No</span>
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Recent Apps Selection */}
-              {trackerState === 'paused' && showRecentApps && activityContext?.recent_apps && (
-                <motion.div
-                  className="space-y-2"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <ActivityIcon className="w-3 h-3 text-yellow-500/60" />
-                    <span className="text-xs tracking-wide text-white/50 uppercase">Recent Apps</span>
-                  </div>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {activityContext.recent_apps.slice(0, 3).map((app, index) => (
-                      <motion.button
-                        key={index}
-                        onClick={() => void handleSelectRecentApp(app.app_name)}
-                        className="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-500/40 text-left transition-all group"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm text-white/90 font-medium truncate">{app.app_name}</div>
-                            {app.window_title && (
-                              <div className="text-xs text-white/50 truncate mt-0.5">{app.window_title}</div>
-                            )}
+                  {/* Settings List */}
+                  <div className="space-y-1.5">
+                    {/* Sidebar Position Setting */}
+                    <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 transition-all">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-white/90 font-medium truncate">
+                            Action Bar Position
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                          <div className="text-xs text-white/50 truncate mt-0.5">
+                            {sidebarPosition === 'left' ? 'Left side' : 'Right side'}
+                          </div>
                         </div>
-                      </motion.button>
-                    ))}
+                        <button
+                          onClick={() => {
+                            const newValue = sidebarPosition === 'left' ? 'right' : 'left';
+                            setSidebarPosition(newValue);
+                            const settings: ActivityTrackerSettings = {
+                              autoResize,
+                              sidebarPosition: newValue,
+                            };
+                            localStorage.setItem(
+                              'activityTrackerSettings',
+                              JSON.stringify(settings)
+                            );
+                            playSound();
+                          }}
+                          className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all flex-shrink-0"
+                        >
+                          {sidebarPosition === 'left' ? 'Left' : 'Right'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Auto-resize Setting */}
+                    <div className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 transition-all">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-white/90 font-medium truncate">
+                            Auto-resize
+                          </div>
+                          <div className="text-xs text-white/50 truncate mt-0.5">
+                            Minimize when unfocused
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newValue = !autoResize;
+                            setAutoResize(newValue);
+                            const settings: ActivityTrackerSettings = {
+                              autoResize: newValue,
+                              sidebarPosition,
+                            };
+                            localStorage.setItem(
+                              'activityTrackerSettings',
+                              JSON.stringify(settings)
+                            );
+                            playSound();
+                          }}
+                          className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${
+                            autoResize ? 'bg-green-500' : 'bg-white/20'
+                          }`}
+                        >
+                          <motion.div
+                            className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md"
+                            animate={{ x: autoResize ? 20 : 0 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                          />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </motion.div>
-              )}
+                </div>
+              ) : (
+                /* Normal Content */
+                <>
+                  {/* Dynamic header text with dropdown */}
+                  <div className="relative" ref={dropdownRef}>
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={trackerState}
+                        className="text-sm"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+                      >
+                        {getHeaderText()}
+                      </motion.div>
+                    </AnimatePresence>
 
-              {/* Suggestions section - only show when active */}
-              {trackerState === 'active' && currentSuggestion && (
-                <motion.div
-                  className="space-y-1.5"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-                >
-                  {/* Header */}
-                  <div className="flex items-center gap-1.5">
-                    <Lightbulb className="w-3 h-3 text-red-500/60" />
-                    <span className="text-xs tracking-wide text-white/50 uppercase">Suggested Activity</span>
+                    {/* App Dropdown */}
+                    <AnimatePresence>
+                      {showAppDropdown &&
+                        activityContext?.recent_apps &&
+                        activityContext.recent_apps.length > 0 && (
+                          <motion.div
+                            className="absolute top-full left-0 right-0 mt-2 z-50"
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <div className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-xl p-2 shadow-xl">
+                              <div className="text-[10px] text-white/50 uppercase tracking-wide px-2 py-1 mb-1">
+                                Switch to Recent App
+                              </div>
+                              <div className="space-y-1">
+                                {activityContext.recent_apps.slice(0, 3).map((app, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => handleSelectAppFromDropdown(app.app_name)}
+                                    className="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 text-left transition-all group"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm text-white/90 font-medium truncate">
+                                          {app.app_name}
+                                        </div>
+                                        {app.window_title && (
+                                          <div className="text-xs text-white/50 truncate mt-0.5">
+                                            {app.window_title}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <ArrowRight className="w-3.5 h-3.5 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* Suggestion card */}
-                  <motion.div
-                    className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center justify-between gap-2 group/card"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    transition={{
-                      duration: 0.6,
-                      ease: [0.4, 0, 0.2, 1],
-                    }}
-                  >
-                    {/* Activity text */}
-                    <span className="text-xs text-white/90 truncate flex-1 min-w-0">{currentSuggestion.text}</span>
-
-                    {/* Use button */}
-                    <motion.button
-                      onClick={handleUseSuggestion}
-                      className="h-6 px-2 text-[10px] text-white rounded-md bg-red-500 hover:bg-red-600 transition-all duration-500 flex-shrink-0"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                  {/* Input field with arrow button */}
+                  <form onSubmit={handleSubmit} className="relative">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={activity}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Reviewing time entries, Debugging timer logic..."
+                      className={`w-full h-11 px-4 pr-11 rounded-[1.5rem] bg-white/10 border-2 transition-all duration-200 text-white placeholder-white/40 text-sm focus:outline-none ${
+                        trackerState === 'paused'
+                          ? 'border-white/20 focus:border-yellow-500/40'
+                          : trackerState === 'active'
+                            ? 'border-white/20 focus:border-red-500/40'
+                            : 'border-white/20 focus:border-white/30'
+                      }`}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!activity.trim()}
+                      className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl flex items-center justify-center transition-all duration-500 ${getArrowButtonClasses()} disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      Use
-                    </motion.button>
+                      <ArrowRight className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </form>
 
-                    {/* Dismiss button */}
-                    <motion.button
-                      onClick={handleDismissSuggestion}
-                      className="h-6 w-6 rounded-md bg-white/5 hover:bg-white/10 text-white/60 flex items-center justify-center flex-shrink-0 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </motion.button>
-                  </motion.div>
-                </motion.div>
-              )}
+                  {/* Paused state: Yes/No buttons or Recent Apps */}
+                  <AnimatePresence>
+                    {trackerState === 'paused' && !showRecentApps && (
+                      <motion.div
+                        className="space-y-2"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {/* Question text */}
+                        <div className="flex items-center gap-1.5">
+                          <ActivityIcon className="w-3 h-3 text-yellow-500/60" />
+                          <span className="text-xs tracking-wide text-white/50 uppercase">
+                            Are you still working on{' '}
+                            <motion.span
+                              className="text-yellow-400 cursor-pointer hover:text-yellow-300 transition-colors normal-case"
+                              animate={{ opacity: [1, 0.6, 1] }}
+                              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                              onClick={handleToggleAppDropdown}
+                            >
+                              {appName}
+                            </motion.span>
+                            ?
+                          </span>
+                        </div>
 
-              {/* Empty state when active but no suggestions */}
-              {trackerState === 'active' && !currentSuggestion && !isLoadingContext && (
-                <motion.div
-                  className="flex flex-col items-center justify-center py-2 space-y-1"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <span className="text-xs text-white/40">Analyzing app activity...</span>
-                  <span className="text-[10px] text-white/30">AI will suggest tasks based on your patterns</span>
-                </motion.div>
+                        {/* Yes/No buttons */}
+                        <div className="flex gap-2">
+                          <motion.button
+                            onClick={handleYesStillWorking}
+                            className="flex-1 h-10 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-400 flex items-center justify-center gap-2 transition-all"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <Check className="w-4 h-4" />
+                            <span className="text-sm font-medium">Yes</span>
+                          </motion.button>
+                          <motion.button
+                            onClick={handleNoNotWorking}
+                            className="flex-1 h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 flex items-center justify-center gap-2 transition-all"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <X className="w-4 h-4" />
+                            <span className="text-sm font-medium">No</span>
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Recent Apps Selection */}
+                    {trackerState === 'paused' &&
+                      showRecentApps &&
+                      activityContext?.recent_apps && (
+                        <motion.div
+                          className="space-y-2"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <ActivityIcon className="w-3 h-3 text-yellow-500/60" />
+                            <span className="text-xs tracking-wide text-white/50 uppercase">
+                              Recent Apps
+                            </span>
+                          </div>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {activityContext.recent_apps.slice(0, 3).map((app, index) => (
+                              <motion.button
+                                key={index}
+                                onClick={() => void handleSelectRecentApp(app.app_name)}
+                                className="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-500/40 text-left transition-all group"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm text-white/90 font-medium truncate">
+                                      {app.app_name}
+                                    </div>
+                                    {app.window_title && (
+                                      <div className="text-xs text-white/50 truncate mt-0.5">
+                                        {app.window_title}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <ArrowRight className="w-3.5 h-3.5 text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                                </div>
+                              </motion.button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+
+                    {/* Suggestions section - only show when active */}
+                    {trackerState === 'active' && currentSuggestion && (
+                      <motion.div
+                        className="space-y-1.5"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+                      >
+                        {/* Header */}
+                        <div className="flex items-center gap-1.5">
+                          <Lightbulb className="w-3 h-3 text-red-500/60" />
+                          <span className="text-xs tracking-wide text-white/50 uppercase">
+                            Suggested Activity
+                          </span>
+                        </div>
+
+                        {/* Suggestion card */}
+                        <motion.div
+                          className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center justify-between gap-2 group/card"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{
+                            duration: 0.6,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                        >
+                          {/* Activity text */}
+                          <span className="text-xs text-white/90 truncate flex-1 min-w-0">
+                            {currentSuggestion.text}
+                          </span>
+
+                          {/* Use button */}
+                          <motion.button
+                            onClick={handleUseSuggestion}
+                            className="h-6 px-2 text-[10px] text-white rounded-md bg-red-500 hover:bg-red-600 transition-all duration-500 flex-shrink-0"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Use
+                          </motion.button>
+
+                          {/* Dismiss button */}
+                          <motion.button
+                            onClick={handleDismissSuggestion}
+                            className="h-6 w-6 rounded-md bg-white/5 hover:bg-white/10 text-white/60 flex items-center justify-center flex-shrink-0 transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </motion.button>
+                        </motion.div>
+                      </motion.div>
+                    )}
+
+                    {/* Empty state when active but no suggestions */}
+                    {trackerState === 'active' && !currentSuggestion && !isLoadingContext && (
+                      <motion.div
+                        className="flex flex-col items-center justify-center py-2 space-y-1"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <span className="text-xs text-white/40">Analyzing app activity...</span>
+                        <span className="text-[10px] text-white/30">
+                          AI will suggest tasks based on your patterns
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
               )}
-            </AnimatePresence>
-            </>
-            )}
-          </div>
+            </div>
           )}
         </div>
       </motion.div>

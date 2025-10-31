@@ -1,36 +1,36 @@
-import { useState, useEffect, useCallback } from 'react';
-import { listen } from '@tauri-apps/api/event';
 import { Badge } from '@/components/ui/badge';
-import {
-  Sparkles,
-  MoreHorizontal,
-  ArrowLeft,
-  Calendar,
-  Plus,
-  Edit2,
-  Trash2,
-  GripHorizontal,
-  Minus,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { haptic, quickConfetti } from '@/shared/utils';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { EntriesListSkeleton, InWidgetNotification, ErrorMessage } from '@/shared/components';
-import { useInWidgetNotification } from '@/shared/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { EntriesListSkeleton, ErrorMessage, InWidgetNotification } from '@/shared/components';
+import { useInWidgetNotification } from '@/shared/hooks';
+import { haptic, quickConfetti } from '@/shared/utils';
+import { listen } from '@tauri-apps/api/event';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
+  GripHorizontal,
+  Minus,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { entryService } from '../services/entryService';
 import { useEntryStore } from '../stores';
 import type { EntriesViewProps, TimeEntry } from '../types';
@@ -54,9 +54,16 @@ const formatDuration = (minutes: number): string => {
   return `${hours}h ${mins}m`;
 };
 
-export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotificationTriggerReady, onViewModeChange }: EntriesViewProps) {
+export function EntriesView({
+  onBack,
+  onQuickEntry,
+  showEmpty = false,
+  onNotificationTriggerReady,
+  onViewModeChange,
+}: EntriesViewProps) {
   // Zustand store
-  const { entries, loading, error, fetchEntries, updateEntry, deleteEntry, optimisticAddEntry } = useEntryStore();
+  const { entries, loading, error, fetchEntries, updateEntry, deleteEntry, optimisticAddEntry } =
+    useEntryStore();
 
   // Local UI state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -275,10 +282,11 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
 
-      const formatShort = (d: Date) => d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
+      const formatShort = (d: Date) =>
+        d.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
 
       return `${formatShort(monday)} - ${formatShort(sunday)}`;
     }
@@ -324,11 +332,14 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
     });
 
     // Group entries by project/WBS
-    const projectMap = new Map<string, {
-      project: string;
-      wbsCode?: string;
-      days: number[]; // Minutes for each day (Mon-Sun)
-    }>();
+    const projectMap = new Map<
+      string,
+      {
+        project: string;
+        wbsCode?: string;
+        days: number[]; // Minutes for each day (Mon-Sun)
+      }
+    >();
 
     entries.forEach((entry) => {
       // Parse the shortDate (MM/DD/YYYY format) to get the entry date
@@ -433,7 +444,11 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
 
             <div className="flex items-center gap-2">
               {/* View Mode Tabs */}
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'day' | 'week')} className="h-7">
+              <Tabs
+                value={viewMode}
+                onValueChange={(v) => setViewMode(v as 'day' | 'week')}
+                className="h-7"
+              >
                 <TabsList className="h-7 backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
                   <TabsTrigger value="day" className="h-6 text-xs px-2">
                     Day
@@ -481,7 +496,8 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                 {formatDate(selectedDate)}
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                {formatDuration(totalDuration)} · {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+                {formatDuration(totalDuration)} · {entries.length}{' '}
+                {entries.length === 1 ? 'entry' : 'entries'}
               </div>
             </div>
 
@@ -497,7 +513,11 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
         </div>
 
         {error ? (
-          <ErrorMessage message={error} onRetry={() => void fetchEntries(getTimeFilterForDate(selectedDate))} className="h-96" />
+          <ErrorMessage
+            message={error}
+            onRetry={() => void fetchEntries(getTimeFilterForDate(selectedDate))}
+            className="h-96"
+          />
         ) : showEmpty || (entries.length === 0 && !loading) ? (
           <div className="flex items-center justify-center h-96 p-8">
             <div className="text-center">
@@ -505,7 +525,9 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                 <Calendar className="w-6 h-6 text-gray-400 dark:text-gray-500" />
               </div>
               <h3 className="mb-1.5 text-gray-900 dark:text-gray-100 text-sm">No entries yet</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Start tracking your time</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                Start tracking your time
+              </p>
               <Button
                 onClick={onQuickEntry}
                 size="sm"
@@ -546,10 +568,16 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                               Project / WBS
                             </th>
                             {weekDates.map((date, i) => (
-                              <th key={i} className="text-center p-2 text-gray-900 dark:text-gray-100 font-medium min-w-[70px]">
+                              <th
+                                key={i}
+                                className="text-center p-2 text-gray-900 dark:text-gray-100 font-medium min-w-[70px]"
+                              >
                                 <div>{dayNames[i]}</div>
                                 <div className="text-[10px] text-gray-500 dark:text-gray-400 font-normal">
-                                  {date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                                  {date.toLocaleDateString('en-US', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                  })}
                                 </div>
                               </th>
                             ))}
@@ -562,7 +590,10 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                           {projectData.map((project, idx) => {
                             const rowTotal = project.days.reduce((sum, mins) => sum + mins, 0);
                             return (
-                              <tr key={idx} className="border-b border-white/10 dark:border-white/5 hover:bg-white/10 dark:hover:bg-white/5">
+                              <tr
+                                key={idx}
+                                className="border-b border-white/10 dark:border-white/5 hover:bg-white/10 dark:hover:bg-white/5"
+                              >
                                 <td className="p-2 text-gray-900 dark:text-gray-50 sticky left-0 bg-white/10 dark:bg-white/5 backdrop-blur-xl">
                                   <div className="truncate">
                                     {project.project}
@@ -574,7 +605,10 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                                   </div>
                                 </td>
                                 {project.days.map((minutes, i) => (
-                                  <td key={i} className="text-center p-2 text-gray-600 dark:text-gray-400">
+                                  <td
+                                    key={i}
+                                    className="text-center p-2 text-gray-600 dark:text-gray-400"
+                                  >
                                     {minutes > 0 ? formatDuration(minutes) : '-'}
                                   </td>
                                 ))}
@@ -591,7 +625,10 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                               Total Hours
                             </td>
                             {dayTotals.map((minutes, i) => (
-                              <td key={i} className="text-center p-2 text-gray-900 dark:text-gray-50 font-medium">
+                              <td
+                                key={i}
+                                className="text-center p-2 text-gray-900 dark:text-gray-50 font-medium"
+                              >
                                 {minutes > 0 ? formatDuration(minutes) : '-'}
                               </td>
                             ))}
@@ -613,69 +650,72 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
               {/* Day View - Entries List */}
               <div>
                 {entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-2xl p-3 hover:bg-white/15 dark:hover:bg-white/8 transition-colors mb-2.5"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Project/Category Name with Status Badge */}
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="text-sm text-gray-900 dark:text-gray-50 truncate">
-                              {entry.project}
-                              {entry.wbsCode && (
-                                <span className="text-gray-500 dark:text-gray-400 ml-1.5">
-                                  • {entry.wbsCode}
-                                </span>
-                              )}
-                            </div>
-                            {getStatusBadge(entry)}
+                  <div
+                    key={entry.id}
+                    className="backdrop-blur-xl bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-2xl p-3 hover:bg-white/15 dark:hover:bg-white/8 transition-colors mb-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Project/Category Name with Status Badge */}
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="text-sm text-gray-900 dark:text-gray-50 truncate">
+                            {entry.project}
+                            {entry.wbsCode && (
+                              <span className="text-gray-500 dark:text-gray-400 ml-1.5">
+                                • {entry.wbsCode}
+                              </span>
+                            )}
                           </div>
-                          {/* Task Description */}
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 truncate">
-                            {entry.task}
-                          </div>
-                          {/* Date and Duration */}
-                          <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                            <span>{entry.shortDate ?? entry.time}</span>
-                            <span>•</span>
-                            <span>{entry.duration}</span>
-                          </div>
+                          {getStatusBadge(entry)}
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-gray-700 dark:text-gray-300"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="backdrop-blur-[60px] bg-white/80 dark:bg-black/80 border-2 border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)]"
-                              sideOffset={5}
-                            >
-                              {entry.status === 'suggested' && (
-                                <DropdownMenuItem
-                                  className="cursor-pointer"
-                                  onSelect={() => void handleAcceptSuggestion(entry)}
-                                >
-                                  <Sparkles className="w-3.5 h-3.5 mr-2" />
-                                  Accept Suggestion
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem className="cursor-pointer" onSelect={() => handleEditStart(entry)}>
-                                <Edit2 className="w-3.5 h-3.5 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        {/* Task Description */}
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 truncate">
+                          {entry.task}
+                        </div>
+                        {/* Date and Duration */}
+                        <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                          <span>{entry.shortDate ?? entry.time}</span>
+                          <span>•</span>
+                          <span>{entry.duration}</span>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-gray-700 dark:text-gray-300"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="backdrop-blur-[60px] bg-white/80 dark:bg-black/80 border-2 border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)]"
+                            sideOffset={5}
+                          >
+                            {entry.status === 'suggested' && (
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onSelect={() => void handleAcceptSuggestion(entry)}
+                              >
+                                <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                Accept Suggestion
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onSelect={() => handleEditStart(entry)}
+                            >
+                              <Edit2 className="w-3.5 h-3.5 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -706,7 +746,9 @@ export function EntriesView({ onBack, onQuickEntry, showEmpty = false, onNotific
                 <div className="w-full max-w-xs bg-black/[0.925] dark:bg-black/[0.925] border-2 border-white/20 dark:border-white/10 rounded-[40px] p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.6)_inset] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.1)_inset] pointer-events-auto">
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10 dark:border-white/10">
                     <Edit2 className="w-3.5 h-3.5 text-gray-400 dark:text-gray-400" />
-                    <span className="text-sm text-gray-100 dark:text-gray-100 font-semibold">Edit Entry</span>
+                    <span className="text-sm text-gray-100 dark:text-gray-100 font-semibold">
+                      Edit Entry
+                    </span>
                   </div>
 
                   <div className="space-y-2.5">

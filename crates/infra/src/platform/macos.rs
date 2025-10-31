@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use pulsearc_core::ActivityProvider;
-use pulsearc_shared::{ActivityContext, Result};
+use pulsearc_domain::{ActivityContext, Result};
 
 /// macOS activity provider using Accessibility API
 pub struct MacOsActivityProvider {

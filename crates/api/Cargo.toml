@@ -19,7 +19,8 @@ tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 # Internal crates
-pulsearc-shared = { workspace = true }
+pulsearc-common = { workspace = true, features = ["platform", "observability"] }
+pulsearc-domain = { workspace = true }
 pulsearc-core = { workspace = true }
 pulsearc-infra = { workspace = true }
 

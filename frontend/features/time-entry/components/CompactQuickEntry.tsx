@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Loader2, Plus, Minus, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { WbsElement } from '@/shared/types/generated';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Loader2, Minus, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { WbsAutocomplete } from '../../timer/components/WbsAutocomplete';
 import type { CompactQuickEntryProps, EntryData } from '../types';
-import type { WbsElement } from '@/shared/types/generated';
 
 // Helper functions for duration parsing and formatting
 const parseDuration = (duration: string): number => {
@@ -114,7 +114,9 @@ export function CompactQuickEntry({
             <div className="w-full max-w-xs bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] p-5 shadow-xl pointer-events-auto">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-200 dark:border-neutral-700">
                 <Plus className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">Quick Entry</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">
+                  Quick Entry
+                </span>
               </div>
 
               <div className="space-y-2.5">
@@ -131,7 +133,9 @@ export function CompactQuickEntry({
                     buttonClassName={`bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 h-8 text-sm ${errors.project ? 'border-red-500' : ''}`}
                     popoverClassName="w-[280px] bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                   />
-                  {errors.project && <p className="text-xs text-red-500 mt-1">WBS code is required</p>}
+                  {errors.project && (
+                    <p className="text-xs text-red-500 mt-1">WBS code is required</p>
+                  )}
                 </div>
 
                 <div>
@@ -163,7 +167,10 @@ export function CompactQuickEntry({
                       onClick={() => {
                         const minutes = parseDuration(formData.duration);
                         if (minutes > 15) {
-                          setFormData((prev) => ({ ...prev, duration: formatDuration(minutes - 15) }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            duration: formatDuration(minutes - 15),
+                          }));
                         }
                       }}
                       className="h-8 w-8 p-0 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300"
@@ -173,7 +180,9 @@ export function CompactQuickEntry({
                     <Input
                       id="duration"
                       value={formData.duration}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, duration: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, duration: e.target.value }))
+                      }
                       className={`h-8 flex-1 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 text-gray-900 dark:text-gray-100 text-sm text-center ${errors.duration ? 'border-red-500' : ''}`}
                       placeholder="e.g., 1h 30m"
                     />
@@ -182,14 +191,19 @@ export function CompactQuickEntry({
                       variant="ghost"
                       onClick={() => {
                         const minutes = parseDuration(formData.duration);
-                        setFormData((prev) => ({ ...prev, duration: formatDuration(minutes + 15) }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          duration: formatDuration(minutes + 15),
+                        }));
                       }}
                       className="h-8 w-8 p-0 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  {errors.duration && <p className="text-xs text-red-500 mt-1">Duration is required</p>}
+                  {errors.duration && (
+                    <p className="text-xs text-red-500 mt-1">Duration is required</p>
+                  )}
                 </div>
               </div>
 

@@ -1,4 +1,20 @@
-import { describe, it, expect } from 'vitest';
+/**
+ * Unit tests for timer event types and validators
+ *
+ * Tests the type guards and validators for timer state events that flow between
+ * the backend and frontend via Tauri's event system.
+ *
+ * Test Coverage:
+ * - Type Guard Validation: isTimerStateEventV1 correctly validates event payloads
+ * - Valid Payloads: All valid timer states (inactive, active, paused, idle)
+ * - Valid Sources: Both timer and tracker event sources
+ * - Invalid Payloads: Null, undefined, malformed objects
+ * - Missing Fields: Handling incomplete event data
+ * - Type Safety: Runtime validation matches TypeScript types
+ * - Version Handling: Event versioning (v1) validation
+ */
+
+import { describe, expect, it } from 'vitest';
 import { isTimerStateEventV1, type TimerStateEventV1 } from './timer-events';
 
 describe('isTimerStateEventV1', () => {
@@ -14,7 +30,12 @@ describe('isTimerStateEventV1', () => {
   });
 
   it('should return true for all valid states', () => {
-    const states: Array<'inactive' | 'active' | 'paused' | 'idle'> = ['inactive', 'active', 'paused', 'idle'];
+    const states: Array<'inactive' | 'active' | 'paused' | 'idle'> = [
+      'inactive',
+      'active',
+      'paused',
+      'idle',
+    ];
 
     states.forEach((state) => {
       const payload: TimerStateEventV1 = {
@@ -62,7 +83,9 @@ describe('isTimerStateEventV1', () => {
     expect(isTimerStateEventV1({ v: 1 })).toBe(false);
     expect(isTimerStateEventV1({ state: 'active', v: 1 })).toBe(false);
     expect(isTimerStateEventV1({ state: 'active', elapsed: 120, v: 1 })).toBe(false);
-    expect(isTimerStateEventV1({ state: 'active', elapsed: 120, ts: Date.now(), v: 1 })).toBe(false);
+    expect(isTimerStateEventV1({ state: 'active', elapsed: 120, ts: Date.now(), v: 1 })).toBe(
+      false
+    );
   });
 
   it('should return false for wrong source', () => {
@@ -114,4 +137,3 @@ describe('isTimerStateEventV1', () => {
     expect(isTimerStateEventV1([])).toBe(false);
   });
 });
-

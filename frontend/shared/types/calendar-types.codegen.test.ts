@@ -1,15 +1,23 @@
-// FEATURE-017: Calendar Types Code Generation Tests
-// Tests for TypeScript types generated from Rust via ts-rs
-//
-// These tests validate type generation:
-// - [x] CalendarConnectionStatus includes provider field
-// - [x] Provider field is string type
-// - [x] Types match Rust struct definitions
-//
-// Run with: npm run test -- calendar-types.codegen.test.ts
+/**
+ * FEATURE-017: Calendar Types Code Generation Tests
+ * Tests for TypeScript types generated from Rust via ts-rs
+ *
+ * Validates that calendar-related TypeScript types are correctly generated
+ * from Rust structs, ensuring type safety between backend and frontend.
+ *
+ * Test Coverage:
+ * - Type Generation: CalendarConnectionStatus includes all required fields
+ * - Provider Field: Provider field exists and is string type
+ * - Type Matching: TypeScript types match Rust struct definitions
+ * - Field Types: Correct type conversion (i64 → number, String → string)
+ * - Optional Fields: Proper handling of Option<T> → T | null
+ * - Multi-Provider Support: Handles different calendar providers (google, microsoft)
+ *
+ * Note: Tests validate types after running `npm run codegen`
+ */
 
-import { describe, it, expect } from 'vitest';
 import type { CalendarConnectionStatus } from '@/shared/types/generated/CalendarConnectionStatus';
+import { describe, expect, it } from 'vitest';
 
 describe('Calendar Types - Code Generation', () => {
   // ==========================================================================
@@ -26,7 +34,7 @@ describe('Calendar Types - Code Generation', () => {
       lastSync: 1705316400,
       syncEnabled: true,
     };
-    
+
     expect(status.provider).toBe('google');
     expect(typeof status.provider).toBe('string');
   });
@@ -41,7 +49,7 @@ describe('Calendar Types - Code Generation', () => {
       lastSync: 1705316400,
       syncEnabled: true,
     };
-    
+
     const microsoftStatus: CalendarConnectionStatus = {
       provider: 'microsoft',
       connected: true,
@@ -49,7 +57,7 @@ describe('Calendar Types - Code Generation', () => {
       lastSync: 1705316500,
       syncEnabled: true,
     };
-    
+
     expect(typeof googleStatus.provider).toBe('string');
     expect(typeof microsoftStatus.provider).toBe('string');
     expect(googleStatus.provider).toBe('google');
@@ -60,7 +68,7 @@ describe('Calendar Types - Code Generation', () => {
     // AC: TypeScript type matches Rust struct field names
     // AC: All fields from Rust struct present in TS type
     // AC: Field types match (string, boolean, number | null, etc.)
-    
+
     // Expected structure from Rust:
     // pub struct CalendarConnectionStatus {
     //     pub provider: String,
@@ -69,22 +77,22 @@ describe('Calendar Types - Code Generation', () => {
     //     pub last_sync: Option<i64>,
     //     pub sync_enabled: bool,
     // }
-    
+
     const status: CalendarConnectionStatus = {
-      provider: 'google',      // String
-      connected: true,          // bool
-      email: 'test@test.com',   // Option<String> (nullable)
-      lastSync: 1705316400,     // Option<i64> (nullable number)
-      syncEnabled: true,        // bool
+      provider: 'google', // String
+      connected: true, // bool
+      email: 'test@test.com', // Option<String> (nullable)
+      lastSync: 1705316400, // Option<i64> (nullable number)
+      syncEnabled: true, // bool
     };
-    
+
     // Verify all required fields are present and correct types
     expect(typeof status.provider).toBe('string');
     expect(typeof status.connected).toBe('boolean');
     expect(typeof status.email).toBe('string'); // Can also be null
     expect(typeof status.lastSync).toBe('number'); // Can also be null
     expect(typeof status.syncEnabled).toBe('boolean');
-    
+
     // Verify nullable fields work
     const statusWithNulls: CalendarConnectionStatus = {
       provider: 'microsoft',
@@ -93,9 +101,8 @@ describe('Calendar Types - Code Generation', () => {
       lastSync: null,
       syncEnabled: false,
     };
-    
+
     expect(statusWithNulls.email).toBeNull();
     expect(statusWithNulls.lastSync).toBeNull();
   });
 });
-

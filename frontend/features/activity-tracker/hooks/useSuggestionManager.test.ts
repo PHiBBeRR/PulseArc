@@ -1,8 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useSuggestionManager } from './useSuggestionManager';
-import type { ActivityContext } from '../types';
+/**
+ * FIX-010 Issue #8: useSuggestionManager Hook Tests
+ * Unit tests for suggestion management logic
+ *
+ * Tests the React hook that manages activity-based suggestions for time entry.
+ * Handles suggestion creation, updates, dismissal, and interaction with user input.
+ *
+ * Test Coverage:
+ * - Basic Behavior: Suggestion creation when activity is detected
+ * - User Input Handling: Suppression of suggestions when user types
+ * - Tracking State: Suggestions only shown during active tracking
+ * - Suggestion Updates: Handling changing activity contexts
+ * - Dismissal Logic: User-initiated and automatic dismissal
+ * - Edge Cases: Empty activities, rapid changes, state transitions
+ * - Confidence Scoring: Activity confidence level handling
+ */
+
 import { createMockActivityContext } from '@/shared/test/fixtures/backend-types';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityContext } from '../types';
+import { useSuggestionManager } from './useSuggestionManager';
 
 describe('useSuggestionManager (FIX-010 Issue #8)', () => {
   const originalLog = console.log;

@@ -1,6 +1,6 @@
 //! Project management commands
 
-use pulsearc_shared::Result;
+use pulsearc_domain::Result;
 use serde::{Deserialize, Serialize};
 
 /// Minimal project info for frontend display

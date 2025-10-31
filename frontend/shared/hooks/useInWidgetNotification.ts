@@ -1,6 +1,6 @@
 // Hook for managing in-widget notifications
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 type NotificationType = 'success' | 'error' | 'info' | 'warning';
 

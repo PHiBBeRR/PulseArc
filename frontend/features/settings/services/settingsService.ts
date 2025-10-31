@@ -1,6 +1,6 @@
 // Settings business logic service
 
-import type { Integration, SettingsState, MLSettings, NotificationSettings } from '../types';
+import type { Integration, MLSettings, NotificationSettings, SettingsState } from '../types';
 
 // Available integrations (legacy - most moved to CalendarProviderCard)
 // Note: Microsoft Teams is now part of the Microsoft 365 calendar integration
@@ -71,7 +71,7 @@ export const settingsService = {
       const json = JSON.stringify(settings);
       console.warn('💾 [settingsService] saveSettings - saving to localStorage:', {
         settings,
-        json
+        json,
       });
       localStorage.setItem('timer-settings', json);
       // Verify it was saved

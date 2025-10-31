@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronDown, RefreshCw, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +6,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { CalendarConnectionStatus } from '@/shared/types/generated/CalendarConnectionStatus';
+import { Check, ChevronDown, RefreshCw, X } from 'lucide-react';
+import { useState } from 'react';
 import { calendarService } from '../services/calendarService';
 
 type CalendarProvider = 'google' | 'microsoft';
@@ -29,12 +29,14 @@ type ProviderConfig = {
 const PROVIDER_CONFIGS: Record<CalendarProvider, ProviderConfig> = {
   google: {
     name: 'Google Calendar',
-    iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg',
+    iconUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg',
     iconAlt: 'Google Calendar',
   },
   microsoft: {
     name: 'Microsoft 365',
-    iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Microsoft_365_%282022%29.svg/512px-Microsoft_365_%282022%29.svg.png',
+    iconUrl:
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Microsoft_365_%282022%29.svg/512px-Microsoft_365_%282022%29.svg.png',
     iconAlt: 'Microsoft 365',
   },
 };
@@ -54,7 +56,9 @@ export function CalendarProviderCard({
     setIsSyncing(true);
     try {
       const count = await calendarService.syncProvider(provider);
-      console.warn(`[CalendarProviderCard] ${provider} calendar synced: ${count} suggestions generated`);
+      console.warn(
+        `[CalendarProviderCard] ${provider} calendar synced: ${count} suggestions generated`
+      );
     } catch (error) {
       console.error(`[CalendarProviderCard] Failed to sync ${provider} calendar:`, error);
     } finally {
@@ -88,10 +92,7 @@ export function CalendarProviderCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem
-              onClick={() => void handleSyncCalendar()}
-              disabled={isSyncing}
-            >
+            <DropdownMenuItem onClick={() => void handleSyncCalendar()} disabled={isSyncing}>
               <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Syncing...' : 'Sync Now'}
             </DropdownMenuItem>
@@ -122,4 +123,3 @@ export function CalendarProviderCard({
     </div>
   );
 }
-

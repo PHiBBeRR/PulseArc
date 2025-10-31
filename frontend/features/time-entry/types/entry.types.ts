@@ -1,5 +1,5 @@
 // Time Entry feature types
-import type { ActivityContext, ActivityBreakdown } from '@/shared/types/generated';
+import type { ActivityBreakdown, ActivityContext } from '@/shared/types/generated';
 
 export interface TimeEntry {
   id: string;
@@ -35,7 +35,7 @@ export interface SaveEntryModalProps {
 export interface CompactQuickEntryProps {
   isOpen: boolean;
   onClose: () => void;
-   
+
   onSave?: (data: EntryData) => void;
   isLoading?: boolean;
   showValidationErrors?: boolean;
@@ -54,14 +54,15 @@ export interface EntriesViewProps {
   showEmpty?: boolean;
   onViewModeChange?: (viewMode: 'day' | 'week') => void;
 
-  onNotificationTriggerReady?: (_trigger: (
-     
-    _type: 'success' | 'error' | 'info' | 'warning',
-     
-    _message: string,
-     
-    _action?: { label: string; onClick: () => void }
-  ) => void) => void;
+  onNotificationTriggerReady?: (
+    _trigger: (
+      _type: 'success' | 'error' | 'info' | 'warning',
+
+      _message: string,
+
+      _action?: { label: string; onClick: () => void }
+    ) => void
+  ) => void;
 }
 
 export interface EntriesPanelProps {

@@ -5,10 +5,10 @@
  * Tests Issue #3: Project Store Fetches Real Recent Projects
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
-import type { ActivitySnapshot } from '@/shared/types/tauri-backend.types';
 import { createMockActivitySnapshot } from '@/shared/test/fixtures/backend-types';
+import type { ActivitySnapshot } from '@/shared/types/tauri-backend.types';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke (must be hoisted before imports)
 const { mockInvoke } = vi.hoisted(() => ({
@@ -186,7 +186,7 @@ describe('ProjectStore - Issue #3: Fetch Real Recent Projects', () => {
   describe('Loading State Management', () => {
     it('should set loading=true while fetching', async () => {
       // Function to manually resolve the Promise (assigned in Promise callback)
-       
+
       let resolveInvoke: ((_: ActivitySnapshot[]) => void) | undefined;
 
       mockInvoke.mockReturnValue(

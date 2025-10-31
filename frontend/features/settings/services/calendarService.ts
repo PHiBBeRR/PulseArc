@@ -1,10 +1,10 @@
 // FEATURE-015/017: Calendar Integration - Frontend Service
 // Service for calendar OAuth and sync commands (Google + Microsoft)
 
-import { invoke } from '@tauri-apps/api/core';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import type { CalendarConnectionStatus } from '@/shared/types/generated/CalendarConnectionStatus';
 import type { CalendarSyncSettings } from '@/shared/types/generated/CalendarSyncSettings';
+import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 /**
  * Calendar provider type
@@ -84,10 +84,7 @@ export const calendarService = {
   /**
    * Update calendar sync settings
    */
-  updateSettings: async (
-    userEmail: string,
-    settings: CalendarSyncSettings,
-  ): Promise<void> => {
+  updateSettings: async (userEmail: string, settings: CalendarSyncSettings): Promise<void> => {
     await invoke('update_calendar_sync_settings', {
       user_email: userEmail,
       settings,

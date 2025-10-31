@@ -1,6 +1,6 @@
 //! Encryption key management using system keyring
 use keyring::Entry;
-use pulsearc_shared::{PulseArcError, Result};
+use pulsearc_domain::{PulseArcError, Result};
 use rand::Rng;
 
 const SERVICE_NAME: &str = "com.pulsearc.app";

@@ -1,4 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+/**
+ * Unit tests for idleDetectionService
+ *
+ * Tests idle time calculation, threshold detection, duration formatting,
+ * and configuration management for the idle detection feature.
+ *
+ * This service provides utilities for:
+ * - Calculating idle minutes from timestamps
+ * - Checking if idle time exceeds thresholds
+ * - Formatting idle durations for display (e.g., "2h 5m")
+ * - Managing idle detection configuration
+ * - Generating user-facing messages and severity levels
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idleDetectionService } from './idleDetectionService';
 
 describe('idleDetectionService', () => {
@@ -17,7 +31,7 @@ describe('idleDetectionService', () => {
     });
 
     it('should calculate 5 minutes correctly', () => {
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
       expect(idleDetectionService.calculateIdleMinutes(fiveMinutesAgo)).toBe(5);
     });
 
@@ -32,7 +46,7 @@ describe('idleDetectionService', () => {
     });
 
     it('should calculate large idle times correctly', () => {
-      const twoHours = Date.now() - (120 * 60 * 1000);
+      const twoHours = Date.now() - 120 * 60 * 1000;
       expect(idleDetectionService.calculateIdleMinutes(twoHours)).toBe(120);
     });
 
@@ -44,22 +58,22 @@ describe('idleDetectionService', () => {
 
   describe('isIdleThresholdExceeded', () => {
     it('should return false when below threshold', () => {
-      const twoMinutesAgo = Date.now() - (2 * 60 * 1000);
+      const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
       expect(idleDetectionService.isIdleThresholdExceeded(twoMinutesAgo, 5)).toBe(false);
     });
 
     it('should return true when at threshold', () => {
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
       expect(idleDetectionService.isIdleThresholdExceeded(fiveMinutesAgo, 5)).toBe(true);
     });
 
     it('should return true when exceeding threshold', () => {
-      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
       expect(idleDetectionService.isIdleThresholdExceeded(tenMinutesAgo, 5)).toBe(true);
     });
 
     it('should use default threshold of 5 minutes when not specified', () => {
-      const sixMinutesAgo = Date.now() - (6 * 60 * 1000);
+      const sixMinutesAgo = Date.now() - 6 * 60 * 1000;
       expect(idleDetectionService.isIdleThresholdExceeded(sixMinutesAgo)).toBe(true);
     });
 
@@ -69,7 +83,7 @@ describe('idleDetectionService', () => {
     });
 
     it('should handle different thresholds', () => {
-      const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
+      const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
       expect(idleDetectionService.isIdleThresholdExceeded(fifteenMinutesAgo, 10)).toBe(true);
       expect(idleDetectionService.isIdleThresholdExceeded(fifteenMinutesAgo, 20)).toBe(false);
     });

@@ -1,10 +1,31 @@
+/**
+ * Unit tests for SuggestedEntries component
+ *
+ * Tests the component that displays AI-suggested time entries based on
+ * detected activities. Users can accept, dismiss, or edit suggestions.
+ *
+ * Test Coverage:
+ * - Rendering: Display of suggested entries with project, task, and duration
+ * - User Actions: Accept, dismiss, and edit suggestion interactions
+ * - Confidence Display: Visual indicators for suggestion confidence levels
+ * - Project Resolution: Resolving project IDs to names via projectCache
+ * - Haptic Feedback: Touch feedback on user interactions
+ * - Empty States: Handling no suggestions available
+ * - Real-time Updates: Event listener for new suggestions from backend
+ * - Outbox Integration: Showing pending submissions
+ * - Batch Operations: Accepting multiple suggestions at once
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createMockPrismaTimeEntryDto,
+  createMockTimeEntryOutbox,
+} from '@/shared/test/fixtures/backend-types';
+import type { PrismaTimeEntryDto, TimeEntryOutbox } from '@/shared/types/generated';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SuggestedEntries } from './SuggestedEntries';
-import { createMockTimeEntryOutbox, createMockPrismaTimeEntryDto } from '@/shared/test/fixtures/backend-types';
-import type { TimeEntryOutbox, PrismaTimeEntryDto } from '@/shared/types/generated';
 
 // Hoist mocks to avoid initialization errors
 const { mockInvoke, mockListen, mockUnlisten } = vi.hoisted(() => ({
@@ -142,9 +163,12 @@ describe('SuggestedEntries', () => {
       const pendingEntry = createOutboxWithDto({ id: 'loading-test', status: 'pending' });
 
       // Delay the response to simulate loading
-      mockInvoke.mockImplementation(() => new Promise((resolve) => {
-        setTimeout(() => resolve([pendingEntry]), 100);
-      }));
+      mockInvoke.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve([pendingEntry]), 100);
+          })
+      );
 
       render(<SuggestedEntries />);
 
@@ -199,11 +223,21 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string, args?: unknown) => {
         if (cmd === 'get_proposed_blocks') {
           // When fetching with status='suggested' (for display), return suggested blocks
-          if (args && typeof args === 'object' && 'status' in args && (args as { status: string }).status === 'suggested') {
+          if (
+            args &&
+            typeof args === 'object' &&
+            'status' in args &&
+            (args as { status: string }).status === 'suggested'
+          ) {
             return Promise.resolve(suggestedBlocks);
           }
           // When fetching with status='pending' (for unclassified count), return empty (all are suggested)
-          if (args && typeof args === 'object' && 'status' in args && (args as { status: string }).status === 'pending') {
+          if (
+            args &&
+            typeof args === 'object' &&
+            'status' in args &&
+            (args as { status: string }).status === 'pending'
+          ) {
             return Promise.resolve([]);
           }
           return Promise.resolve([]);
@@ -233,11 +267,21 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string, args?: unknown) => {
         if (cmd === 'get_proposed_blocks') {
           // When fetching with status='suggested' (for display), return empty
-          if (args && typeof args === 'object' && 'status' in args && (args as { status: string }).status === 'suggested') {
+          if (
+            args &&
+            typeof args === 'object' &&
+            'status' in args &&
+            (args as { status: string }).status === 'suggested'
+          ) {
             return Promise.resolve([]);
           }
           // When fetching with status='pending' (for unclassified count), return pending blocks
-          if (args && typeof args === 'object' && 'status' in args && (args as { status: string }).status === 'pending') {
+          if (
+            args &&
+            typeof args === 'object' &&
+            'status' in args &&
+            (args as { status: string }).status === 'pending'
+          ) {
             return Promise.resolve(pendingBlocks);
           }
           return Promise.resolve([]);
@@ -394,7 +438,9 @@ describe('SuggestedEntries', () => {
       render(<SuggestedEntries />);
 
       await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /suggestions/i, selected: true })).toBeInTheDocument();
+        expect(
+          screen.getByRole('tab', { name: /suggestions/i, selected: true })
+        ).toBeInTheDocument();
       });
 
       const dismissedTab = screen.getByRole('tab', { name: /dismissed/i });
@@ -898,7 +944,9 @@ describe('SuggestedEntries', () => {
       await waitFor(() => {
         expect(mockInvoke).toHaveBeenCalledWith('restore_suggestion', { id: 'restore-1' });
         // Should auto-switch to suggestions tab
-        expect(screen.getByRole('tab', { name: /suggestions/i, selected: true })).toBeInTheDocument();
+        expect(
+          screen.getByRole('tab', { name: /suggestions/i, selected: true })
+        ).toBeInTheDocument();
       });
     });
 
@@ -967,7 +1015,10 @@ describe('SuggestedEntries', () => {
         return Promise.resolve(mockUnlisten);
       });
 
-      const initialEntry = createOutboxWithDto({ id: 'initial', status: 'pending' }, { notes: 'Initial' });
+      const initialEntry = createOutboxWithDto(
+        { id: 'initial', status: 'pending' },
+        { notes: 'Initial' }
+      );
       const updatedEntries = [
         createOutboxWithDto({ id: 'new-1', status: 'pending' }, { notes: 'New Entry 1' }),
         createOutboxWithDto({ id: 'new-2', status: 'pending' }, { notes: 'New Entry 2' }),
@@ -1135,7 +1186,9 @@ describe('SuggestedEntries', () => {
         return Promise.resolve([]);
       });
 
-      const { rerender } = render(<SuggestedEntries onBuildMyDay={onBuildMyDay} isBuilding={false} />);
+      const { rerender } = render(
+        <SuggestedEntries onBuildMyDay={onBuildMyDay} isBuilding={false} />
+      );
 
       rerender(<SuggestedEntries onBuildMyDay={onBuildMyDay} isBuilding={true} />);
 

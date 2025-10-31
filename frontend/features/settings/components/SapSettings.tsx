@@ -1,18 +1,9 @@
 // FEATURE-020 Phase 2 & 3: SAP Settings Component
 // Manage SAP S/4HANA connection, authentication, and sync settings
 
-import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, Loader2, LogIn, LogOut, RefreshCw, Trash2 } from 'lucide-react';
-import { cn } from '@/components/ui/utils';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
-import { SapService } from '../services/sapService';
-import { OutboxStatusComponent } from '@/features/timer/components/OutboxStatus';
-import type { SapSyncSettings } from '@/shared/types/generated/SapSyncSettings';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -20,6 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/components/ui/utils';
+import { OutboxStatusComponent } from '@/features/timer/components/OutboxStatus';
+import type { SapSyncSettings } from '@/shared/types/generated/SapSyncSettings';
+import { CheckCircle, Loader2, LogIn, LogOut, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { SapService } from '../services/sapService';
 
 export type SapSettingsProps = {
   className?: string;
@@ -27,13 +27,13 @@ export type SapSettingsProps = {
 
 /**
  * SAP Settings Component
- * 
+ *
  * Provides UI for:
  * - View authentication status
  * - Login/logout with Auth0 OAuth
  * - View outbox status
  * - Manage forwarder (start/stop)
- * 
+ *
  * @example
  * ```tsx
  * <SapSettings />
@@ -116,8 +116,7 @@ export function SapSettings({ className }: SapSettingsProps) {
 
       // OAuth callback will be handled by Tauri event listener (see useEffect above)
       // After user completes auth in browser, backend emits 'sap-oauth-callback' event
-      toast.info('Complete login in browser, then return to app')
-      
+      toast.info('Complete login in browser, then return to app');
     } catch (error) {
       console.error('Login failed:', error);
       toast.error('Failed to start SAP login');
@@ -195,36 +194,42 @@ export function SapSettings({ className }: SapSettingsProps) {
   }, [isAuthenticated, checkHealth]);
 
   // FEATURE-020 Phase 3: Sync settings handlers
-  const handleToggleSync = useCallback((enabled: boolean) => {
-    if (!syncSettings) return;
+  const handleToggleSync = useCallback(
+    (enabled: boolean) => {
+      if (!syncSettings) return;
 
-    void (async () => {
-      try {
-        await SapService.updateSyncSettings(enabled, syncSettings.sync_interval_hours);
-        setSyncSettings({ ...syncSettings, enabled });
-        toast.success(enabled ? 'Background sync enabled' : 'Background sync disabled');
-      } catch (error) {
-        console.error('Failed to update sync settings:', error);
-        toast.error('Failed to update sync settings');
-      }
-    })();
-  }, [syncSettings]);
+      void (async () => {
+        try {
+          await SapService.updateSyncSettings(enabled, syncSettings.sync_interval_hours);
+          setSyncSettings({ ...syncSettings, enabled });
+          toast.success(enabled ? 'Background sync enabled' : 'Background sync disabled');
+        } catch (error) {
+          console.error('Failed to update sync settings:', error);
+          toast.error('Failed to update sync settings');
+        }
+      })();
+    },
+    [syncSettings]
+  );
 
-  const handleIntervalChange = useCallback((value: string) => {
-    if (!syncSettings) return;
+  const handleIntervalChange = useCallback(
+    (value: string) => {
+      if (!syncSettings) return;
 
-    const interval = parseInt(value, 10);
-    void (async () => {
-      try {
-        await SapService.updateSyncSettings(syncSettings.enabled, interval);
-        setSyncSettings({ ...syncSettings, sync_interval_hours: interval });
-        toast.success(`Sync interval updated to ${interval} hour${interval > 1 ? 's' : ''}`);
-      } catch (error) {
-        console.error('Failed to update sync interval:', error);
-        toast.error('Failed to update sync interval');
-      }
-    })();
-  }, [syncSettings]);
+      const interval = parseInt(value, 10);
+      void (async () => {
+        try {
+          await SapService.updateSyncSettings(syncSettings.enabled, interval);
+          setSyncSettings({ ...syncSettings, sync_interval_hours: interval });
+          toast.success(`Sync interval updated to ${interval} hour${interval > 1 ? 's' : ''}`);
+        } catch (error) {
+          console.error('Failed to update sync interval:', error);
+          toast.error('Failed to update sync interval');
+        }
+      })();
+    },
+    [syncSettings]
+  );
 
   const handleSyncNow = useCallback(() => {
     void (async () => {
@@ -338,11 +343,7 @@ export function SapSettings({ className }: SapSettingsProps) {
                   )}
                 </Button>
               ) : (
-                <Button
-                  onClick={() => void handleLogin()}
-                  disabled={isLoggingIn}
-                  className="gap-2"
-                >
+                <Button onClick={() => void handleLogin()} disabled={isLoggingIn} className="gap-2">
                   {isLoggingIn ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -392,9 +393,7 @@ export function SapSettings({ className }: SapSettingsProps) {
         <Card>
           <CardHeader>
             <CardTitle>WBS Sync Settings</CardTitle>
-            <CardDescription>
-              Configure background WBS code synchronization
-            </CardDescription>
+            <CardDescription>Configure background WBS code synchronization</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Background Sync Toggle */}
@@ -405,10 +404,7 @@ export function SapSettings({ className }: SapSettingsProps) {
                   Automatically sync WBS codes from SAP
                 </p>
               </div>
-              <Switch
-                checked={syncSettings.enabled}
-                onCheckedChange={handleToggleSync}
-              />
+              <Switch checked={syncSettings.enabled} onCheckedChange={handleToggleSync} />
             </div>
 
             <Separator />
@@ -449,7 +445,9 @@ export function SapSettings({ className }: SapSettingsProps) {
                   <div className="flex items-center gap-2">
                     {healthStatus.healthy ? (
                       <>
-                        <Badge variant="default" className="bg-green-600">Healthy</Badge>
+                        <Badge variant="default" className="bg-green-600">
+                          Healthy
+                        </Badge>
                         {healthStatus.latency_ms && (
                           <span className="text-xs text-muted-foreground">
                             {healthStatus.latency_ms}ms
@@ -471,21 +469,25 @@ export function SapSettings({ className }: SapSettingsProps) {
                   <p className="text-sm text-muted-foreground">Checking...</p>
                 )}
               </div>
-              {isCheckingHealth && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              {isCheckingHealth && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
 
             {/* Offline Indicator */}
-            {healthStatus && !healthStatus.healthy && healthStatus.last_error?.toLowerCase().includes('offline') && (
-              <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20">
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-destructive" />
-                  <span className="font-medium text-destructive">Offline</span>
+            {healthStatus &&
+              !healthStatus.healthy &&
+              healthStatus.last_error?.toLowerCase().includes('offline') && (
+                <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                    <span className="font-medium text-destructive">Offline</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No internet connection. Time entries will be queued locally.
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  No internet connection. Time entries will be queued locally.
-                </p>
-              </div>
-            )}
+              )}
 
             <Separator />
 
@@ -501,7 +503,13 @@ export function SapSettings({ className }: SapSettingsProps) {
                   </p>
                 </div>
                 {syncSettings.last_sync_status && (
-                  <Badge variant={syncSettings.last_sync_status.toLowerCase().includes('success') ? 'default' : 'destructive'}>
+                  <Badge
+                    variant={
+                      syncSettings.last_sync_status.toLowerCase().includes('success')
+                        ? 'default'
+                        : 'destructive'
+                    }
+                  >
                     {syncSettings.last_sync_status}
                   </Badge>
                 )}
@@ -511,35 +519,33 @@ export function SapSettings({ className }: SapSettingsProps) {
               {syncSettings.last_sync_status &&
                 !syncSettings.last_sync_status.toLowerCase().includes('success') &&
                 syncSettings.last_sync_status.length > 0 && (
-                <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20">
-                  <p className="text-sm text-destructive">
-                    {syncSettings.last_sync_status}
-                  </p>
-                  {/* Show retry button for network errors (not validation errors) */}
-                  {!syncSettings.last_sync_status.toLowerCase().includes('invalid') &&
-                    !syncSettings.last_sync_status.toLowerCase().includes('validation') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleRetrySync()}
-                      disabled={isSyncing}
-                      className="mt-2"
-                    >
-                      {isSyncing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Retrying...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Retry Sync
-                        </>
+                  <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20">
+                    <p className="text-sm text-destructive">{syncSettings.last_sync_status}</p>
+                    {/* Show retry button for network errors (not validation errors) */}
+                    {!syncSettings.last_sync_status.toLowerCase().includes('invalid') &&
+                      !syncSettings.last_sync_status.toLowerCase().includes('validation') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleRetrySync()}
+                          disabled={isSyncing}
+                          className="mt-2"
+                        >
+                          {isSyncing ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Retrying...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Retry Sync
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
             </div>
 
             <Separator />
@@ -589,8 +595,8 @@ export function SapSettings({ className }: SapSettingsProps) {
             {/* Info Section */}
             <div className="rounded-lg bg-muted p-4">
               <p className="text-sm text-muted-foreground">
-                WBS codes are cached locally for faster search. Background sync keeps the cache up to date with SAP.
-                Cache expires after 24 hours.
+                WBS codes are cached locally for faster search. Background sync keeps the cache up
+                to date with SAP. Cache expires after 24 hours.
               </p>
             </div>
           </CardContent>
@@ -599,4 +605,3 @@ export function SapSettings({ className }: SapSettingsProps) {
     </div>
   );
 }
-

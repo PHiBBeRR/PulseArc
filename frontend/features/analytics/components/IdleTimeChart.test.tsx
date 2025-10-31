@@ -1,11 +1,24 @@
+/**
+ * FEATURE-028: Idle Time Chart Component Tests (Phase 5)
+ * Unit tests for IdleTimeChart visualization component
+ *
+ * Tests the chart component that displays idle time trends over a date range
+ * using a stacked bar chart showing active vs idle time breakdown.
+ *
+ * Test Coverage:
+ * - Chart Rendering: Daily idle time visualization with proper axes
+ * - Stacked Bars: Active time (green) and idle time (different color)
+ * - Color Coding: Visual distinction between active and idle periods
+ * - Tooltips: Hover displays showing detailed breakdown and percentages
+ * - Missing Data: Handling dates with no activity data
+ * - Date Range Selection: Chart updates based on selected date range
+ * - Responsive Design: Chart adapts to different container sizes
+ * - Legend: Clear labeling of active vs idle time
+ */
+
 import { describe, it } from 'vitest';
 // import { render, screen } from '@testing-library/react';
 // import userEvent from '@testing-library/user-event';
-
-// FEATURE-028: Idle Time Chart Component Tests (Phase 5)
-//
-// This component displays idle time trends over a date range using a stacked
-// bar chart showing active vs idle time breakdown.
 
 describe('IdleTimeChart', () => {
   it.skip('should render daily idle time chart', () => {
@@ -97,4 +110,3 @@ describe('IdleTimeChart', () => {
     // Test: Verify retry button available
   });
 });
-

@@ -1,7 +1,24 @@
-// FEATURE-020 Phase 2: MainTimer SAP Integration Tests
-// Test coverage for SAP integration in MainTimer component
+/**
+ * FEATURE-020 Phase 2: MainTimer SAP Integration Tests
+ * Unit tests for SAP integration in MainTimer component
+ *
+ * Tests the integration of SAP WBS autocomplete and validation
+ * within the main timer UI component.
+ *
+ * Test Coverage:
+ * - WBS Autocomplete: Replacing text input with WbsAutocomplete component
+ * - Selection Handling: Populating timer state with selected WBS code
+ * - Project Display: Showing project name alongside WBS code
+ * - Description Tooltips: Displaying full WBS description on hover
+ * - Validation: Validating WBS codes before creating time entries
+ * - Error Handling: Displaying validation errors and blocked WBS codes
+ * - Recent/Favorites: Integration with recent and favorite WBS lists
+ * - Outbox Display: Showing pending time entries awaiting SAP submission
+ *
+ * Note: Tests skipped pending Phase 2 implementation
+ */
 
-import { describe, it, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 describe.skip('MainTimer SAP Integration', () => {
   // TODO(FEATURE-020): Implement during Phase 2 development

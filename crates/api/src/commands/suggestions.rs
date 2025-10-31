@@ -1,6 +1,6 @@
 //! Time entry suggestions and proposed blocks commands
 
-use pulsearc_shared::Result;
+use pulsearc_domain::Result;
 use serde::{Deserialize, Serialize};
 
 /// Outbox entry for time suggestions

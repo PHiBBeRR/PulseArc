@@ -1,7 +1,7 @@
 //! Port interfaces for activity classification
 
 use async_trait::async_trait;
-use pulsearc_shared::{ActivitySnapshot, Result, TimeEntry};
+use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
 /// Trait for classifying activities into time entries
 #[async_trait]

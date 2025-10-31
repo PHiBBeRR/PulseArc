@@ -1,15 +1,26 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Zap, ChevronLeft, ChevronRight, GripHorizontal, CalendarDays, Plane, Moon, Clock, Calendar as CalendarIcon } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { ScrollArea } from '../../../components/ui/scroll-area';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { Calendar } from '../../../components/ui/calendar';
-import { Badge } from '../../../components/ui/badge';
-import { invoke } from '@tauri-apps/api/core';
-import { haptic, celebrateWithConfetti } from '@/shared/utils';
-import { useInWidgetNotification } from '@/shared/hooks';
 import { InWidgetNotification } from '@/shared/components/feedback';
+import { useInWidgetNotification } from '@/shared/hooks';
 import type { ProposedBlock } from '@/shared/types/generated';
+import { celebrateWithConfetti, haptic } from '@/shared/utils';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  ArrowLeft,
+  CalendarDays,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  GripHorizontal,
+  Moon,
+  Plane,
+  Zap,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { Calendar } from '../../../components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
+import { ScrollArea } from '../../../components/ui/scroll-area';
 
 type BuildMyDayViewProps = {
   onBack: () => void;
@@ -155,7 +166,10 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
         throw buildError;
       }
 
-      showNotification('success', `Built ${blocks.length} block${blocks.length !== 1 ? 's' : ''} for ${formatDate(selectedDate)}`);
+      showNotification(
+        'success',
+        `Built ${blocks.length} block${blocks.length !== 1 ? 's' : ''} for ${formatDate(selectedDate)}`
+      );
       haptic.success();
 
       // Confetti celebration
@@ -178,7 +192,10 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
     }
   };
 
-  const totalDurationSeconds = unclassifiedBlocks.reduce((sum, block) => sum + block.duration_secs, 0);
+  const totalDurationSeconds = unclassifiedBlocks.reduce(
+    (sum, block) => sum + block.duration_secs,
+    0
+  );
   const totalDurationMinutes = Math.round(totalDurationSeconds / 60);
 
   return (
@@ -248,7 +265,10 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
                 </div>
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] shadow-xl" align="center">
+            <PopoverContent
+              className="w-auto p-0 bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 rounded-[40px] shadow-xl"
+              align="center"
+            >
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -280,7 +300,9 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
         <div className="flex items-center justify-center h-96 p-8">
           <div className="flex items-center gap-3">
             <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 dark:border-neutral-700 dark:border-t-neutral-400 rounded-full animate-spin" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">Loading activity blocks...</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Loading activity blocks...
+            </span>
           </div>
         </div>
       ) : unclassifiedBlocks.length === 0 ? (
@@ -289,7 +311,9 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20">
               <Zap className="w-6 h-6 text-gray-400 dark:text-gray-500" />
             </div>
-            <h3 className="mb-1.5 text-gray-900 dark:text-gray-100 text-sm">No unclassified blocks</h3>
+            <h3 className="mb-1.5 text-gray-900 dark:text-gray-100 text-sm">
+              No unclassified blocks
+            </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               All activity for {formatDate(selectedDate)} has been classified
             </p>
@@ -302,7 +326,8 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
               const durationMinutes = Math.round(block.duration_secs / 60);
               const activeMinutes = Math.round((block.duration_secs - block.total_idle_secs) / 60);
               const idleMinutes = Math.round(block.total_idle_secs / 60);
-              const primaryActivity = block.activities.length > 0 ? block.activities[0]?.name : 'Unknown';
+              const primaryActivity =
+                block.activities.length > 0 ? block.activities[0]?.name : 'Unknown';
 
               return (
                 <div
@@ -341,25 +366,37 @@ export function BuildMyDayView({ onBack }: BuildMyDayViewProps) {
                   {/* Context Badges (raw metadata, NOT classification) */}
                   <div className="flex flex-wrap items-center gap-1.5">
                     {block.is_travel && (
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-5 px-1.5 bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30"
+                      >
                         <Plane className="w-2.5 h-2.5 mr-0.5" />
                         Travel
                       </Badge>
                     )}
                     {block.is_after_hours && (
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-5 px-1.5 bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30"
+                      >
                         <Moon className="w-2.5 h-2.5 mr-0.5" />
                         After Hours
                       </Badge>
                     )}
                     {block.is_weekend && (
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-500/30">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-5 px-1.5 bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-500/30"
+                      >
                         <CalendarIcon className="w-2.5 h-2.5 mr-0.5" />
                         Weekend
                       </Badge>
                     )}
                     {block.has_calendar_overlap && (
-                      <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-5 px-1.5 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30"
+                      >
                         <Clock className="w-2.5 h-2.5 mr-0.5" />
                         Calendar
                       </Badge>

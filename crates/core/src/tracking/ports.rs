@@ -4,7 +4,7 @@
 //! and infrastructure implementations.
 
 use async_trait::async_trait;
-use pulsearc_shared::{ActivityContext, ActivitySnapshot, Result};
+use pulsearc_domain::{ActivityContext, ActivitySnapshot, Result};
 
 /// Trait for capturing activity from the operating system
 #[async_trait]

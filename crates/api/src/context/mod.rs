@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use pulsearc_core::TrackingService;
-use pulsearc_infra::{DbManager, InstanceLock, MacOsActivityProvider, SqliteActivityRepository};
 // TODO: Re-add KeyManager when encryption is re-enabled
 // use pulsearc_infra::KeyManager;
-use pulsearc_shared::{Config, Result};
+use pulsearc_domain::{Config, Result};
+use pulsearc_infra::{DbManager, InstanceLock, MacOsActivityProvider, SqliteActivityRepository};
 
 /// Application context - holds all services and dependencies
 pub struct AppContext {

@@ -8,7 +8,7 @@
 //! - Use cases and services
 //!
 //! ## Architecture Principles
-//! - Only depends on `pulsearc-shared`
+//! - Only depends on `pulsearc-common`
 //! - No database, HTTP, or platform code
 //! - All external dependencies via traits
 //! - Pure, testable business logic

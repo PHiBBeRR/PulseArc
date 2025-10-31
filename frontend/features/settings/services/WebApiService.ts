@@ -5,8 +5,8 @@
  * Provides frontend interface to Rust backend OAuth and sync commands.
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import type { OutboxStatusSummary } from '@/shared/types/generated';
+import { invoke } from '@tauri-apps/api/core';
 
 export type WebApiAuthStatus = {
   authenticated: boolean;

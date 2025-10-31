@@ -1,10 +1,26 @@
+/**
+ * Unit tests for ActivityTrackerView component (Layout B)
+ *
+ * Tests the activity tracker UI that displays detected activities and allows
+ * users to start/stop tracking. This is an alternative layout to the main timer.
+ *
+ * Test Coverage:
+ * - Rendering: Activity display, timer controls, suggestions
+ * - User Interactions: Start/stop tracking, accepting suggestions
+ * - Window Management: Size adjustments for expanded/collapsed states
+ * - Audio Feedback: Click sounds on user actions
+ * - Event Handling: Tauri event listeners for backend activity updates
+ * - State Management: Tracking state synchronization
+ * - Suggestion Integration: Activity-based suggestion display and handling
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { audioService } from '@/shared/services';
+import { invoke } from '@tauri-apps/api/core';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityTrackerView } from './ActivityTrackerView';
-import { invoke } from '@tauri-apps/api/core';
-import { audioService } from '@/shared/services';
 
 vi.mock('@tauri-apps/api/core');
 const mockInvoke = vi.mocked(invoke);
@@ -59,7 +75,7 @@ describe('ActivityTrackerView - Layout B', () => {
       if (
         typeof message === 'string' &&
         (message.includes('Failed to resize window') ||
-         message.includes('Failed to setup initial context listener'))
+          message.includes('Failed to setup initial context listener'))
       ) {
         return;
       }
@@ -152,8 +168,8 @@ describe('ActivityTrackerView - Layout B', () => {
 
       // Find the toggle button (Activity icon button in sidebar)
       const toggleButtons = screen.getAllByRole('button');
-      const activityButton = toggleButtons.find(btn =>
-        btn.querySelector('svg') && btn.className.includes('bg-white/10')
+      const activityButton = toggleButtons.find(
+        (btn) => btn.querySelector('svg') && btn.className.includes('bg-white/10')
       );
 
       if (activityButton) {
@@ -176,9 +192,8 @@ describe('ActivityTrackerView - Layout B', () => {
       render(<ActivityTrackerView />);
 
       const buttons = screen.getAllByRole('button');
-      const settingsButton = buttons.find(btn =>
-        btn.className.includes('bg-white/10') &&
-        btn.querySelector('svg')
+      const settingsButton = buttons.find(
+        (btn) => btn.className.includes('bg-white/10') && btn.querySelector('svg')
       );
 
       if (settingsButton) {
@@ -193,18 +208,14 @@ describe('ActivityTrackerView - Layout B', () => {
 
       // Open settings
       const buttons = screen.getAllByRole('button');
-      const settingsButton = buttons.find(btn =>
-        btn.className.includes('bg-white/10')
-      );
+      const settingsButton = buttons.find((btn) => btn.className.includes('bg-white/10'));
 
       if (settingsButton) {
         await user.click(settingsButton);
 
         // Toggle auto-resize
         const toggles = screen.getAllByRole('button');
-        const autoResizeToggle = toggles.find(btn =>
-          btn.className.includes('rounded-full')
-        );
+        const autoResizeToggle = toggles.find((btn) => btn.className.includes('rounded-full'));
 
         if (autoResizeToggle) {
           await user.click(autoResizeToggle);
@@ -230,10 +241,13 @@ describe('ActivityTrackerView - Layout B', () => {
     });
 
     it('loads settings from localStorage on mount', () => {
-      localStorage.setItem('activityTrackerSettings', JSON.stringify({
-        autoResize: false,
-        sidebarPosition: 'right',
-      }));
+      localStorage.setItem(
+        'activityTrackerSettings',
+        JSON.stringify({
+          autoResize: false,
+          sidebarPosition: 'right',
+        })
+      );
 
       render(<ActivityTrackerView />);
       // Settings should be applied
@@ -267,7 +281,7 @@ describe('ActivityTrackerView - Layout B', () => {
 
       // Get play button and click it
       const buttons = screen.getAllByRole('button');
-      const playButton = buttons.find(btn => btn.getAttribute('aria-label')?.includes('active'));
+      const playButton = buttons.find((btn) => btn.getAttribute('aria-label')?.includes('active'));
 
       if (playButton) {
         await user.click(playButton);
@@ -323,17 +337,15 @@ describe('ActivityTrackerView - Layout B', () => {
       render(<ActivityTrackerView />);
 
       const buttons = screen.getAllByRole('button');
-      const settingsButton = buttons.find(btn =>
-        btn.className.includes('bg-white/10')
-      );
+      const settingsButton = buttons.find((btn) => btn.className.includes('bg-white/10'));
 
       if (settingsButton) {
         await user.click(settingsButton);
 
         // Find and click sidebar position toggle
         const positionButtons = screen.getAllByRole('button');
-        const positionButton = positionButtons.find(btn =>
-          btn.textContent?.includes('Left') || btn.textContent?.includes('Right')
+        const positionButton = positionButtons.find(
+          (btn) => btn.textContent?.includes('Left') || btn.textContent?.includes('Right')
         );
 
         if (positionButton) {

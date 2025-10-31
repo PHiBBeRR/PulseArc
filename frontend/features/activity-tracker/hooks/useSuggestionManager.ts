@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { SuggestionState, ActivityContext } from '../types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ActivityContext, SuggestionState } from '../types';
 
 interface UseSuggestionManagerProps {
   activityContext: ActivityContext | null;
@@ -114,7 +114,8 @@ export function useSuggestionManager({
 
       // Check if this is an update to existing suggestion
       const isUpdate =
-        previousSuggestionTextRef.current !== null && previousSuggestionTextRef.current !== detectedActivity;
+        previousSuggestionTextRef.current !== null &&
+        previousSuggestionTextRef.current !== detectedActivity;
 
       if (isUpdate) {
         // Mark as updated suggestion

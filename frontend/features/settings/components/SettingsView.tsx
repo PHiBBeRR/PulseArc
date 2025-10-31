@@ -1,31 +1,47 @@
-import React from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { ArrowLeft, Settings, Activity, Plug, Check, GripHorizontal, HelpCircle, ChevronDown, RefreshCw, X, User, LogIn, Camera, Brain, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { settingsService } from '../services/settingsService';
-import { calendarService } from '../services/calendarService';
-import { adminService } from '../services/adminService';
-import { SapService } from '../services/sapService';
-import { WebApiService } from '../services/WebApiService';
-import { IdleDetectionSettings } from './IdleDetectionSettings';
-import { CalendarProviderCard } from './CalendarProviderCard';
-import type { SettingsViewProps } from '../types';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CalendarConnectionStatus } from '@/shared/types/generated/CalendarConnectionStatus';
 import type { UserProfile } from '@/shared/types/generated/UserProfile';
 import { formatTime, invalidateTimeFormatCache } from '@/shared/utils/timeFormat';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  Activity,
+  ArrowLeft,
+  Brain,
+  Camera,
+  Check,
+  ChevronDown,
+  Clock,
+  GripHorizontal,
+  HelpCircle,
+  LogIn,
+  Plug,
+  RefreshCw,
+  Settings,
+  User,
+  X,
+} from 'lucide-react';
+import React from 'react';
+import { adminService } from '../services/adminService';
+import { calendarService } from '../services/calendarService';
+import { SapService } from '../services/sapService';
+import { settingsService } from '../services/settingsService';
+import { WebApiService } from '../services/WebApiService';
+import type { SettingsViewProps } from '../types';
+import { CalendarProviderCard } from './CalendarProviderCard';
+import { IdleDetectionSettings } from './IdleDetectionSettings';
 
 export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
   // Load settings synchronously to avoid race condition with save effect
@@ -61,7 +77,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
           autoApply,
           expansions: {
             autoApply: autoApply ? autoApplyHeight : 0,
-          }
+          },
         });
 
         await currentWindow.setSize(new LogicalSize(targetWidth, targetHeight));
@@ -231,7 +247,9 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
           const providerStatus = statuses.find((s) => s.provider === provider);
           if (providerStatus?.connected) {
             clearInterval(pollStatus);
-            console.warn(`[SettingsView] ${provider} calendar connected successfully after ${pollCount} polls`);
+            console.warn(
+              `[SettingsView] ${provider} calendar connected successfully after ${pollCount} polls`
+            );
 
             // Update legacy state for backward compatibility
             if (provider === 'google') {
@@ -381,7 +399,7 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
     };
     console.warn('💾 [SettingsView] Saving settings to localStorage:', {
       timeFormat,
-      fullSettings: settings
+      fullSettings: settings,
     });
     settingsService.saveSettings(settings);
     // Invalidate the time format cache so it picks up the new setting
@@ -603,7 +621,6 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
             </Button>
             <h2 className="text-sm text-gray-900 dark:text-gray-100">Settings</h2>
           </div>
-
         </div>
       </div>
 
@@ -694,100 +711,111 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
                     <div className="flex items-start gap-4">
                       {/* Left: Avatar with camera button or dropdown */}
                       <div className="relative shrink-0">
-                      {/* Hidden file input */}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
+                        {/* Hidden file input */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
 
-                      {avatarImage ? (
-                        /* Avatar with photo - show dropdown on hover */
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="relative h-20 w-20 rounded-full cursor-pointer group ring-2 ring-white/30 dark:ring-white/20 hover:ring-white/50 dark:hover:ring-white/40 transition-all">
-                              <Avatar className="h-full w-full">
-                                <img src={avatarImage} alt="Profile" className="h-full w-full object-cover rounded-full" />
-                              </Avatar>
-                              {/* Hover overlay */}
-                              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <Camera className="w-5 h-5 text-white" />
-                              </div>
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-40">
-                            <DropdownMenuItem onClick={handlePhotoUpload}>
-                              <Camera className="w-4 h-4 mr-2" />
-                              Replace photo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleRemovePhoto} className="text-red-600 dark:text-red-400">
-                              <X className="w-4 h-4 mr-2" />
-                              Remove photo
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        /* Avatar without photo - show camera button */
-                        <div className="relative h-20 w-20">
-                          <Avatar className="h-full w-full ring-2 ring-white/30 dark:ring-white/20">
-                            <AvatarFallback className="bg-white/30 dark:bg-white/20 text-gray-700 dark:text-gray-300 text-2xl font-semibold">
-                              {getUserInitials()}
-                            </AvatarFallback>
-                          </Avatar>
-                          {/* Camera button overlay */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handlePhotoUpload}
-                            className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-white/30 dark:bg-white/20 hover:bg-white/40 dark:hover:bg-white/30 hover:scale-110 active:scale-95 border border-white/40 dark:border-white/30 shadow-sm transition-all duration-150 cursor-pointer"
-                          >
-                            <Camera className="w-3 h-3 text-gray-700 dark:text-gray-300" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right: User info - Business card style */}
-                    <div className="flex-1 min-w-0">
-                      {userProfile && (
-                        <>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
-                            {userProfile.first_name || ''} {userProfile.last_name || ''}
-                          </h3>
-                          {userProfile.title && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{userProfile.title}</p>
-                          )}
-                          {userProfile.department && (
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{userProfile.department}</p>
-                          )}
-
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                              <span className="font-medium">Email:</span>
-                              <span className="truncate">{userProfile.email}</span>
-                            </div>
-                            {userProfile.phone_number && (
-                              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                <span className="font-medium">Phone:</span>
-                                <span>{userProfile.phone_number}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                              <span className="font-medium">Timezone:</span>
-                              <span>{userProfile.timezone}</span>
-                            </div>
-                            {userProfile.location && (
-                              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                <span className="font-medium">Location:</span>
-                                <span>{userProfile.location}</span>
-                              </div>
-                            )}
+                        {avatarImage ? (
+                          /* Avatar with photo - show dropdown on hover */
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="relative h-20 w-20 rounded-full cursor-pointer group ring-2 ring-white/30 dark:ring-white/20 hover:ring-white/50 dark:hover:ring-white/40 transition-all">
+                                <Avatar className="h-full w-full">
+                                  <img
+                                    src={avatarImage}
+                                    alt="Profile"
+                                    className="h-full w-full object-cover rounded-full"
+                                  />
+                                </Avatar>
+                                {/* Hover overlay */}
+                                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Camera className="w-5 h-5 text-white" />
+                                </div>
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-40">
+                              <DropdownMenuItem onClick={handlePhotoUpload}>
+                                <Camera className="w-4 h-4 mr-2" />
+                                Replace photo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={handleRemovePhoto}
+                                className="text-red-600 dark:text-red-400"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Remove photo
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          /* Avatar without photo - show camera button */
+                          <div className="relative h-20 w-20">
+                            <Avatar className="h-full w-full ring-2 ring-white/30 dark:ring-white/20">
+                              <AvatarFallback className="bg-white/30 dark:bg-white/20 text-gray-700 dark:text-gray-300 text-2xl font-semibold">
+                                {getUserInitials()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {/* Camera button overlay */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={handlePhotoUpload}
+                              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-white/30 dark:bg-white/20 hover:bg-white/40 dark:hover:bg-white/30 hover:scale-110 active:scale-95 border border-white/40 dark:border-white/30 shadow-sm transition-all duration-150 cursor-pointer"
+                            >
+                              <Camera className="w-3 h-3 text-gray-700 dark:text-gray-300" />
+                            </Button>
                           </div>
-                        </>
-                      )}
-                    </div>
+                        )}
+                      </div>
+
+                      {/* Right: User info - Business card style */}
+                      <div className="flex-1 min-w-0">
+                        {userProfile && (
+                          <>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-0.5">
+                              {userProfile.first_name || ''} {userProfile.last_name || ''}
+                            </h3>
+                            {userProfile.title && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                {userProfile.title}
+                              </p>
+                            )}
+                            {userProfile.department && (
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                {userProfile.department}
+                              </p>
+                            )}
+
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                <span className="font-medium">Email:</span>
+                                <span className="truncate">{userProfile.email}</span>
+                              </div>
+                              {userProfile.phone_number && (
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                  <span className="font-medium">Phone:</span>
+                                  <span>{userProfile.phone_number}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                <span className="font-medium">Timezone:</span>
+                                <span>{userProfile.timezone}</span>
+                              </div>
+                              {userProfile.location && (
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                  <span className="font-medium">Location:</span>
+                                  <span>{userProfile.location}</span>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -869,14 +897,19 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
               <div className="bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-xl p-4 space-y-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-white/20 dark:border-white/10">
                   <Brain className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium">Suggestions</h3>
+                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                    Suggestions
+                  </h3>
                 </div>
 
                 {/* Auto-apply suggestions with confidence threshold */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <Label htmlFor="auto-apply" className="text-sm text-gray-700 dark:text-gray-300">
+                      <Label
+                        htmlFor="auto-apply"
+                        className="text-sm text-gray-700 dark:text-gray-300"
+                      >
                         Auto-apply suggestions
                       </Label>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -920,21 +953,30 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
                           />
                         </div>
                         <div className="flex items-center justify-between mt-2">
-                          <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">{confidence[0]}%</span>
+                          <span className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                            {confidence[0]}%
+                          </span>
                         </div>
                       </div>
 
                       {/* Enable notifications */}
                       <div className="flex items-center justify-between pt-3 border-t border-white/10 dark:border-white/5">
                         <div className="flex-1">
-                          <Label htmlFor="notifications" className="text-sm text-gray-700 dark:text-gray-300">
+                          <Label
+                            htmlFor="notifications"
+                            className="text-sm text-gray-700 dark:text-gray-300"
+                          >
                             Enable notifications
                           </Label>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             Get notified when suggestions are applied
                           </p>
                         </div>
-                        <Switch id="notifications" checked={notifications} onCheckedChange={setNotifications} />
+                        <Switch
+                          id="notifications"
+                          checked={notifications}
+                          onCheckedChange={setNotifications}
+                        />
                       </div>
                     </>
                   )}
@@ -945,13 +987,18 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
               <div className="bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-xl p-4">
                 <div className="flex items-center gap-2 pb-2 border-b border-white/20 dark:border-white/10">
                   <Clock className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium">Time Format</h3>
+                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium">
+                    Time Format
+                  </h3>
                 </div>
 
                 {/* Time Format Toggle - Single button showing actual time */}
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex-1">
-                    <Label htmlFor="time-format" className="text-sm text-gray-700 dark:text-gray-300">
+                    <Label
+                      htmlFor="time-format"
+                      className="text-sm text-gray-700 dark:text-gray-300"
+                    >
                       Display format
                     </Label>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -975,7 +1022,9 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
               <div className="space-y-3">
                 {/* FEATURE-017: Multi-provider calendar integration */}
                 <div className="mb-4">
-                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium mb-3">Calendar Integration</h3>
+                  <h3 className="text-sm text-gray-900 dark:text-gray-100 font-medium mb-3">
+                    Calendar Integration
+                  </h3>
                   <CalendarProviderCard
                     provider="google"
                     status={calendarStatuses.find((s) => s.provider === 'google')}
@@ -993,86 +1042,93 @@ export function SettingsView({ onBack, onRestartTutorial }: SettingsViewProps) {
                 </div>
 
                 {/* Legacy integrations (exclude google-calendar, handled by CalendarProviderCard above) */}
-                {integrations.filter((integration) => integration.id !== 'google-calendar').map((integration) => (
-                  <div
-                    key={integration.id}
-                    className="flex items-center justify-between bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-xl p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      {getIntegrationIcon(integration.icon)}
-                      <div>
-                        <div className="text-sm text-gray-900 dark:text-gray-100">{integration.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {connectedIntegrations[integration.id]
-                            ? integration.id === 'google-calendar' && calendarEmail
-                              ? calendarEmail
-                              : 'Connected'
-                            : 'Not connected'}
+                {integrations
+                  .filter((integration) => integration.id !== 'google-calendar')
+                  .map((integration) => (
+                    <div
+                      key={integration.id}
+                      className="flex items-center justify-between bg-white/10 dark:bg-white/5 border border-white/30 dark:border-white/20 rounded-xl p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {getIntegrationIcon(integration.icon)}
+                        <div>
+                          <div className="text-sm text-gray-900 dark:text-gray-100">
+                            {integration.name}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {connectedIntegrations[integration.id]
+                              ? integration.id === 'google-calendar' && calendarEmail
+                                ? calendarEmail
+                                : 'Connected'
+                              : 'Not connected'}
+                          </div>
                         </div>
                       </div>
+                      {integration.id === 'google-calendar' &&
+                      connectedIntegrations[integration.id] ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isLoadingGoogle || isSyncingCalendar}
+                              className="text-xs h-7 bg-green-500/20 hover:bg-green-500/30 dark:bg-green-400/20 dark:hover:bg-green-400/30 border border-green-500/30 dark:border-green-400/30 text-green-400 dark:text-green-400"
+                            >
+                              <Check className="w-3 h-3 mr-1" />
+                              Connected
+                              <ChevronDown className="w-3 h-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={() => void handleSyncCalendar()}
+                              disabled={isSyncingCalendar}
+                            >
+                              <RefreshCw
+                                className={`w-4 h-4 mr-2 ${isSyncingCalendar ? 'animate-spin' : ''}`}
+                              />
+                              {isSyncingCalendar ? 'Syncing...' : 'Sync Now'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => void handleDisconnectCalendar('google')}
+                              disabled={isLoadingGoogle}
+                              className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Disconnect
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant={connectedIntegrations[integration.id] ? 'outline' : 'default'}
+                          onClick={() => void toggleIntegration(integration.id)}
+                          disabled={
+                            (integration.id === 'google-calendar' && isLoadingGoogle) ||
+                            (integration.id === 'sap-s4hana' && isLoadingSap)
+                          }
+                          className={
+                            connectedIntegrations[integration.id]
+                              ? 'text-xs h-7 bg-green-500/20 hover:bg-green-500/30 dark:bg-green-400/20 dark:hover:bg-green-400/30 border border-green-500/30 dark:border-green-400/30 text-green-400 dark:text-green-400'
+                              : 'text-xs h-7 backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 text-gray-700 dark:text-gray-300'
+                          }
+                        >
+                          {(integration.id === 'google-calendar' && isLoadingGoogle) ||
+                          (integration.id === 'sap-s4hana' && isLoadingSap) ? (
+                            'Connecting...'
+                          ) : connectedIntegrations[integration.id] ? (
+                            <>
+                              <Check className="w-3 h-3 mr-1" />
+                              Connected
+                            </>
+                          ) : (
+                            'Connect'
+                          )}
+                        </Button>
+                      )}
                     </div>
-                    {integration.id === 'google-calendar' && connectedIntegrations[integration.id] ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isLoadingGoogle || isSyncingCalendar}
-                            className="text-xs h-7 bg-green-500/20 hover:bg-green-500/30 dark:bg-green-400/20 dark:hover:bg-green-400/30 border border-green-500/30 dark:border-green-400/30 text-green-400 dark:text-green-400"
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            Connected
-                            <ChevronDown className="w-3 h-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={() => void handleSyncCalendar()}
-                            disabled={isSyncingCalendar}
-                          >
-                            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
-                            {isSyncingCalendar ? 'Syncing...' : 'Sync Now'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => void handleDisconnectCalendar('google')}
-                            disabled={isLoadingGoogle}
-                            className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                          >
-                            <X className="w-4 h-4 mr-2" />
-                            Disconnect
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant={connectedIntegrations[integration.id] ? 'outline' : 'default'}
-                        onClick={() => void toggleIntegration(integration.id)}
-                        disabled={
-                          (integration.id === 'google-calendar' && isLoadingGoogle) ||
-                          (integration.id === 'sap-s4hana' && isLoadingSap)
-                        }
-                        className={
-                          connectedIntegrations[integration.id]
-                            ? 'text-xs h-7 bg-green-500/20 hover:bg-green-500/30 dark:bg-green-400/20 dark:hover:bg-green-400/30 border border-green-500/30 dark:border-green-400/30 text-green-400 dark:text-green-400'
-                            : 'text-xs h-7 backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 text-gray-700 dark:text-gray-300'
-                        }
-                      >
-                        {(integration.id === 'google-calendar' && isLoadingGoogle) ||
-                        (integration.id === 'sap-s4hana' && isLoadingSap) ? (
-                          'Connecting...'
-                        ) : connectedIntegrations[integration.id] ? (
-                          <>
-                            <Check className="w-3 h-3 mr-1" />
-                            Connected
-                          </>
-                        ) : (
-                          'Connect'
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  ))}
               </div>
             </TabsContent>
           </div>

@@ -1,12 +1,12 @@
 // Time Entry feature types
 export type {
-  TimeEntry,
-  SaveEntryModalProps,
-  CompactQuickEntryProps,
-  EntryData,
-  EntriesViewProps,
-  EntriesPanelProps,
-  CompactEntriesProps,
   AISuggestion,
+  CompactEntriesProps,
+  CompactQuickEntryProps,
+  EntriesPanelProps,
+  EntriesViewProps,
+  EntryData,
   EntryFormErrors,
+  SaveEntryModalProps,
+  TimeEntry,
 } from './entry.types';

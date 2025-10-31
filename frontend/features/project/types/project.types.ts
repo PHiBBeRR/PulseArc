@@ -18,7 +18,7 @@ export interface RecentProject {
 export interface QuickProjectSwitcherProps {
   isOpen: boolean;
   onClose: () => void;
-   
+
   onSelect: (project: RecentProject) => void;
 }
 

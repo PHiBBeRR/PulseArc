@@ -12,8 +12,8 @@
  * - Verify memory footprint reduced to ~15MB
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioService } from './audioService';
 
 describe('AudioService - Phase 7 Integration Tests', () => {

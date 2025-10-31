@@ -1,17 +1,23 @@
-// FEATURE-015: Calendar Service Frontend Tests
-// Tests for Tauri command invocation from frontend
-//
-// These tests validate frontend integration:
-// - [ ] OAuth command invocation works
-// - [ ] Sync command invocation works
-// - [ ] Settings commands work
-// - [ ] Command error handling (UiError deserialization)
-// - [ ] TypeScript types match generated types from ts-rs
-//
-// Run with: npm run test -- calendarService.test.ts
+/**
+ * FEATURE-015: Calendar Service Frontend Tests
+ * Tests for Tauri command invocation from frontend
+ *
+ * These tests validate frontend integration with Google Calendar backend:
+ * - OAuth command invocation and browser opening
+ * - Sync command invocation and data retrieval
+ * - Settings commands (enable/disable sync, intervals)
+ * - Command error handling (UiError deserialization)
+ * - TypeScript types match generated types from ts-rs
+ *
+ * Test Categories:
+ * 1. Connection Commands - OAuth flow, disconnect, status checks
+ * 2. Sync Commands - Manual sync, interval configuration
+ * 3. Settings Commands - User preferences management
+ * 4. Error Handling - UiError responses and network failures
+ */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -133,9 +139,7 @@ describe('Calendar Service', () => {
       };
       (invoke as ReturnType<typeof vi.fn>).mockRejectedValue(mockError);
 
-      await expect(
-        invoke('sync_calendar_events', { force: true })
-      ).rejects.toEqual(mockError);
+      await expect(invoke('sync_calendar_events', { force: true })).rejects.toEqual(mockError);
     });
 
     it('should get sync settings', async () => {
@@ -309,4 +313,3 @@ describe('Calendar Service', () => {
 //
 // All tests marked with .skip - remove when implementing feature
 // ============================================================================
-

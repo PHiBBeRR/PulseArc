@@ -14,9 +14,9 @@
  * Total: 4 frontend issues, 20+ acceptance criteria mapped to tests
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityTrackerView } from './ActivityTrackerView';
 
 // Mock Tauri APIs
@@ -160,9 +160,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       await user.click(pauseButton);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Tracker paused')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tracker paused'));
       });
 
       consoleSpy.mockRestore();
@@ -187,9 +185,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       await user.click(resumeButton);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Tracker resumed')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tracker resumed'));
       });
 
       consoleSpy.mockRestore();
@@ -209,10 +205,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
 
       // Wait for async effect to complete
       await waitFor(() => {
-        expect(mockListen).toHaveBeenCalledWith(
-          'pause-timer',
-          expect.any(Function)
-        );
+        expect(mockListen).toHaveBeenCalledWith('pause-timer', expect.any(Function));
       });
     });
 
@@ -223,10 +216,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       render(<ActivityTrackerView />);
 
       await waitFor(() => {
-        expect(mockListen).toHaveBeenCalledWith(
-          'start-timer',
-          expect.any(Function)
-        );
+        expect(mockListen).toHaveBeenCalledWith('start-timer', expect.any(Function));
       });
     });
 
@@ -328,10 +318,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       render(<ActivityTrackerView />);
 
       await waitFor(() => {
-        expect(mockListen).toHaveBeenCalledWith(
-          'tracker-paused',
-          expect.any(Function)
-        );
+        expect(mockListen).toHaveBeenCalledWith('tracker-paused', expect.any(Function));
       });
     });
 
@@ -342,10 +329,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       render(<ActivityTrackerView />);
 
       await waitFor(() => {
-        expect(mockListen).toHaveBeenCalledWith(
-          'tracker-resumed',
-          expect.any(Function)
-        );
+        expect(mockListen).toHaveBeenCalledWith('tracker-resumed', expect.any(Function));
       });
     });
 
@@ -440,9 +424,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       }
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Global pause detected')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Global pause detected'));
       });
 
       consoleSpy.mockRestore();
@@ -472,9 +454,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
       }
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Global resume detected')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Global resume detected'));
       });
 
       consoleSpy.mockRestore();
@@ -595,9 +575,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
 
       await waitFor(() => {
         expect(mockInvoke).toHaveBeenCalledWith('pause_tracker');
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Tracker paused')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tracker paused'));
       });
 
       mockInvoke.mockClear();
@@ -608,9 +586,7 @@ describe('ActivityTrackerView - Pause/Resume Integration (FIX-009)', () => {
 
       await waitFor(() => {
         expect(mockInvoke).toHaveBeenCalledWith('resume_tracker');
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Tracker resumed')
-        );
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tracker resumed'));
       });
 
       consoleSpy.mockRestore();

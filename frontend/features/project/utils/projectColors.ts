@@ -113,7 +113,7 @@ export function getProjectColor(projectName: string): ProjectColor {
   const color = PROJECT_COLORS[colorKey];
   // TypeScript can't infer that slate will always exist, so we use a type assertion
   // We know this is safe because slate is defined in PROJECT_COLORS
-  return (color ?? PROJECT_COLORS.slate);
+  return color ?? PROJECT_COLORS.slate;
 }
 
 // Assign a color to a project (for future settings)
@@ -138,7 +138,7 @@ export function getHashedProjectColor(projectName: string): ProjectColor {
   const color = PROJECT_COLORS[colorKey];
   // TypeScript can't infer that slate will always exist, so we use a type assertion
   // We know this is safe because slate is defined in PROJECT_COLORS
-  return (color ?? PROJECT_COLORS.slate);
+  return color ?? PROJECT_COLORS.slate;
 }
 
 // Get all available colors for settings UI

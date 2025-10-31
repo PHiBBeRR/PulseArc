@@ -1,26 +1,26 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, Square, List, Settings, Plus, BarChart3, Zap, Hammer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { motion } from 'framer-motion';
-import { useTheme } from '@/shared/components/layout';
-import { QuickProjectSwitcher } from '../../project';
-import { IdleDetectionModal } from '../../idle-detection';
-import { SaveEntryModal } from '../../time-entry';
 import { InWidgetNotification } from '@/shared/components/feedback';
+import { useTheme } from '@/shared/components/layout';
 import { useInWidgetNotification } from '@/shared/hooks';
-import { formatTime } from '@/shared/utils/timeFormat';
-import { haptic, celebrateWithConfetti, celebrateMilestone } from '@/shared/utils';
 import { audioService, idleSyncMetrics } from '@/shared/services';
+import { celebrateMilestone, celebrateWithConfetti, haptic } from '@/shared/utils';
+import { formatTime } from '@/shared/utils/timeFormat';
+import { motion } from 'framer-motion';
+import { BarChart3, Hammer, List, Pause, Play, Plus, Settings, Square, Zap } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { IdleDetectionModal } from '../../idle-detection';
+import { QuickProjectSwitcher } from '../../project';
+import { SaveEntryModal } from '../../time-entry';
 import { timerService } from '../services';
 // import { calendarService } from '../../settings/services/calendarService';
+import { TIMER_STATE_EVT, safeEmit, type TimerStateEventV1 } from '@/shared/events/timer-events';
+import type { ActivityContext } from '@/shared/types/generated';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import type { TimerProps, timerState } from '../types';
 import { SuggestedEntries } from './SuggestedEntries';
 import { WbsAutocomplete } from './WbsAutocomplete';
-import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
-import type { ActivityContext } from '@/shared/types/generated';
-import { TIMER_STATE_EVT, safeEmit, type TimerStateEventV1 } from '@/shared/events/timer-events';
 
 export function MainTimer({
   onEntriesClick,
@@ -42,7 +42,11 @@ export function MainTimer({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [idleMinutes, setIdleMinutes] = useState(0);
   const [savedElapsed, setSavedElapsed] = useState(0);
-  const [nextEvent, setNextEvent] = useState<{ title: string; minutesUntil: number | null; eventTime: Date | null } | null>(null);
+  const [nextEvent, setNextEvent] = useState<{
+    title: string;
+    minutesUntil: number | null;
+    eventTime: Date | null;
+  } | null>(null);
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [suggestionCount, setSuggestionCount] = useState(0); // Track number of visible suggestion cards
   const [isCollapsed, setIsCollapsed] = useState(false); // Track collapsed state of Recent Activity
@@ -61,32 +65,35 @@ export function MainTimer({
   const eventContainerRef = useRef<HTMLDivElement>(null);
 
   // Format upcoming event display based on time until event
-  const formatEventDisplay = useCallback((minutesUntil: number, eventTime: Date): { prefix: string; suffix: string } => {
-    // Negative value means event is ongoing (minutesUntil is actually minutesRemaining * -1)
-    if (minutesUntil < 0) {
-      const minutesRemaining = Math.abs(minutesUntil);
-      return {
-        prefix: 'IN PROGRESS:',
-        suffix: ` (${minutesRemaining} min left)`,
-      };
-    }
+  const formatEventDisplay = useCallback(
+    (minutesUntil: number, eventTime: Date): { prefix: string; suffix: string } => {
+      // Negative value means event is ongoing (minutesUntil is actually minutesRemaining * -1)
+      if (minutesUntil < 0) {
+        const minutesRemaining = Math.abs(minutesUntil);
+        return {
+          prefix: 'IN PROGRESS:',
+          suffix: ` (${minutesRemaining} min left)`,
+        };
+      }
 
-    // More than 1 hour away: show as "UPCOMING: [Title] at [Time]"
-    if (minutesUntil > 60) {
-      const timeStr = formatTime(eventTime);
+      // More than 1 hour away: show as "UPCOMING: [Title] at [Time]"
+      if (minutesUntil > 60) {
+        const timeStr = formatTime(eventTime);
+        return {
+          prefix: 'UPCOMING:',
+          suffix: ` at ${timeStr}`,
+        };
+      }
+
+      // Less than 1 hour: show countdown "in X min"
       return {
         prefix: 'UPCOMING:',
-        suffix: ` at ${timeStr}`,
+        suffix: ` in ${minutesUntil} min`,
       };
-    }
+    },
+    []
+  );
 
-    // Less than 1 hour: show countdown "in X min"
-    return {
-      prefix: 'UPCOMING:',
-      suffix: ` in ${minutesUntil} min`,
-    };
-  }, []);
-  
   // Refs to avoid stale closures in idle detection
   const elapsedRef = useRef(elapsed);
   useEffect(() => {
@@ -117,12 +124,9 @@ export function MainTimer({
     const setupRealtimeListener = async () => {
       try {
         // Listen to backend events (pure event-driven)
-        const unlistenFn = await listen<ActivityContext>(
-          'activity-context-updated',
-          (event) => {
-            setActivityContext(event.payload);
-          }
-        );
+        const unlistenFn = await listen<ActivityContext>('activity-context-updated', (event) => {
+          setActivityContext(event.payload);
+        });
 
         // Store in ref so cleanup can access it
         unlistenRef.current = unlistenFn;
@@ -173,7 +177,8 @@ export function MainTimer({
             const spacing = suggestionCount > 1 ? (suggestionCount - 1) * 10 : 0; // 10px gap between cards (space-y-2.5)
             const bottomPadding = 10; // Adjusted for 715px total with 3 suggestions
 
-            const contentHeight = headerHeight + tabsHeight + (suggestionCount * cardHeight) + spacing + bottomPadding;
+            const contentHeight =
+              headerHeight + tabsHeight + suggestionCount * cardHeight + spacing + bottomPadding;
             targetHeight = baseHeight + contentHeight;
           }
         } else if (timerState === 'active' || timerState === 'paused') {
@@ -223,7 +228,8 @@ export function MainTimer({
         const cardHeight = 95;
         const spacing = suggestionCount > 1 ? (suggestionCount - 1) * 10 : 0;
         const bottomPadding = 10;
-        const contentHeight = headerHeight + tabsHeight + (suggestionCount * cardHeight) + spacing + bottomPadding;
+        const contentHeight =
+          headerHeight + tabsHeight + suggestionCount * cardHeight + spacing + bottomPadding;
         targetHeight = baseHeight + contentHeight;
       }
     } else if (timerState === 'active' || timerState === 'paused') {
@@ -309,7 +315,12 @@ export function MainTimer({
       const containerWidth = eventContainerRef.current.clientWidth;
 
       const overflows = textWidth > containerWidth;
-      console.log('[MainTimer] Overflow check:', { textWidth, containerWidth, overflows, title: nextEvent?.title });
+      console.log('[MainTimer] Overflow check:', {
+        textWidth,
+        containerWidth,
+        overflows,
+        title: nextEvent?.title,
+      });
       setEventTextOverflows(overflows);
     };
 
@@ -353,16 +364,25 @@ export function MainTimer({
           const nextEvent = events[0];
           if (nextEvent) {
             // Check if event is ongoing (started but not ended)
-            const isOngoing = nextEvent.startTime.getTime() <= now && nextEvent.endTime.getTime() > now;
+            const isOngoing =
+              nextEvent.startTime.getTime() <= now && nextEvent.endTime.getTime() > now;
 
             if (isOngoing) {
               // Show "IN PROGRESS" for ongoing events
               const minutesRemaining = Math.floor((nextEvent.endTime.getTime() - now) / 60000);
-              setNextEvent({ title: nextEvent.title, minutesUntil: -minutesRemaining, eventTime: nextEvent.startTime });
+              setNextEvent({
+                title: nextEvent.title,
+                minutesUntil: -minutesRemaining,
+                eventTime: nextEvent.startTime,
+              });
             } else {
               // Show "UPCOMING" for future events
               const minutesUntil = Math.floor((nextEvent.startTime.getTime() - now) / 60000);
-              setNextEvent({ title: nextEvent.title, minutesUntil, eventTime: nextEvent.startTime });
+              setNextEvent({
+                title: nextEvent.title,
+                minutesUntil,
+                eventTime: nextEvent.startTime,
+              });
             }
           }
         } else {
@@ -408,8 +428,11 @@ export function MainTimer({
       const idleMinutesCalc = Math.floor(idleSeconds / 60);
 
       // FEATURE-012: Record idle detection with latency
-      const expectedIdleTime = now - (idleSeconds * 1000);
-      const detectionLatencyMs = Math.max(0, now - expectedIdleTime - (IDLE_THRESHOLD_SECONDS * 1000));
+      const expectedIdleTime = now - idleSeconds * 1000;
+      const detectionLatencyMs = Math.max(
+        0,
+        now - expectedIdleTime - IDLE_THRESHOLD_SECONDS * 1000
+      );
       void idleSyncMetrics.recordIdleDetection(detectionLatencyMs);
 
       setIdleMinutes(idleMinutesCalc);
@@ -426,13 +449,15 @@ export function MainTimer({
         source: 'timer',
         v: 1,
       };
-      void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-        // FEATURE-012: Record event emission latency (microseconds)
-        const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-        void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-      }).catch(() => {
-        void idleSyncMetrics.recordTimerEventEmission(0, false);
-      });
+      void safeEmit(TIMER_STATE_EVT, payload)
+        .then(() => {
+          // FEATURE-012: Record event emission latency (microseconds)
+          const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+          void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+        })
+        .catch(() => {
+          void idleSyncMetrics.recordTimerEventEmission(0, false);
+        });
     };
 
     const checkIdle = async () => {
@@ -483,13 +508,15 @@ export function MainTimer({
             source: 'timer',
             v: 1,
           };
-          void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-            // FEATURE-012: Record event emission latency
-            const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-            void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-          }).catch(() => {
-            void idleSyncMetrics.recordTimerEventEmission(0, false);
-          });
+          void safeEmit(TIMER_STATE_EVT, payload)
+            .then(() => {
+              // FEATURE-012: Record event emission latency
+              const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+              void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+            })
+            .catch(() => {
+              void idleSyncMetrics.recordTimerEventEmission(0, false);
+            });
 
           return 'active';
         }
@@ -560,48 +587,45 @@ export function MainTimer({
     const setupTrackerStateListener = async () => {
       try {
         const { listen: listenFn } = await import('@tauri-apps/api/event');
-        unlistenTrackerState = await listenFn<TimerStateEventV1>(
-          TIMER_STATE_EVT,
-          (event) => {
-            const p = event.payload;
+        unlistenTrackerState = await listenFn<TimerStateEventV1>(TIMER_STATE_EVT, (event) => {
+          const p = event.payload;
 
-            // Only process events from the activity tracker, ignore our own emissions
-            if (p.source !== 'tracker') {
-              return;
-            }
-
-            console.log(`🔄 Tracker state sync: tracker ${p.state} → timer`);
-
-            // Update timer state based on tracker state
-            // Note: Modal handling is done in the source window (where user clicked stop)
-            if (p.state === 'inactive') {
-              // Capture final elapsed before resetting
-              const finalElapsed = elapsedRef.current;
-
-              console.log(`[Timer] Tracker stopped - resetting timer from ${finalElapsed}s to 0`);
-              setTimerState('inactive');
-              setElapsed(0); // Reset elapsed time when tracker stops
-              onTimerStateChangeRef.current?.('inactive', 0);
-
-              // Send final elapsed back to tracker so it can show the modal
-              const response: TimerStateEventV1 = {
-                state: 'inactive',
-                elapsed: finalElapsed,
-                ts: Date.now(),
-                source: 'timer',
-                v: 1,
-              };
-              void safeEmit(TIMER_STATE_EVT, response);
-              console.log(`[Timer] ✅ Sent final elapsed ${finalElapsed}s back to tracker`);
-            } else if (p.state === 'active') {
-              setTimerState('active');
-              onTimerStateChangeRef.current?.('active', elapsedRef.current);
-            } else if (p.state === 'paused') {
-              setTimerState('paused');
-              onTimerStateChangeRef.current?.('paused', elapsedRef.current);
-            }
+          // Only process events from the activity tracker, ignore our own emissions
+          if (p.source !== 'tracker') {
+            return;
           }
-        );
+
+          console.log(`🔄 Tracker state sync: tracker ${p.state} → timer`);
+
+          // Update timer state based on tracker state
+          // Note: Modal handling is done in the source window (where user clicked stop)
+          if (p.state === 'inactive') {
+            // Capture final elapsed before resetting
+            const finalElapsed = elapsedRef.current;
+
+            console.log(`[Timer] Tracker stopped - resetting timer from ${finalElapsed}s to 0`);
+            setTimerState('inactive');
+            setElapsed(0); // Reset elapsed time when tracker stops
+            onTimerStateChangeRef.current?.('inactive', 0);
+
+            // Send final elapsed back to tracker so it can show the modal
+            const response: TimerStateEventV1 = {
+              state: 'inactive',
+              elapsed: finalElapsed,
+              ts: Date.now(),
+              source: 'timer',
+              v: 1,
+            };
+            void safeEmit(TIMER_STATE_EVT, response);
+            console.log(`[Timer] ✅ Sent final elapsed ${finalElapsed}s back to tracker`);
+          } else if (p.state === 'active') {
+            setTimerState('active');
+            onTimerStateChangeRef.current?.('active', elapsedRef.current);
+          } else if (p.state === 'paused') {
+            setTimerState('paused');
+            onTimerStateChangeRef.current?.('paused', elapsedRef.current);
+          }
+        });
         console.log('✅ Activity tracker state listener registered');
       } catch (error) {
         console.error('❌ Failed to setup tracker state listener:', error);
@@ -624,7 +648,12 @@ export function MainTimer({
 
     if (timerState === 'inactive' || timerState === 'paused') {
       // Check if there's an in-progress calendar event and set it as default
-      if (timerState === 'inactive' && nextEvent && nextEvent.minutesUntil !== null && nextEvent.minutesUntil < 0) {
+      if (
+        timerState === 'inactive' &&
+        nextEvent &&
+        nextEvent.minutesUntil !== null &&
+        nextEvent.minutesUntil < 0
+      ) {
         // There's an in-progress event (minutesUntil is negative for ongoing events)
         try {
           const { timelineService } = await import('../../timeline/services/timelineService');
@@ -632,9 +661,9 @@ export function MainTimer({
           const calendarEvents = await timelineService.getCalendarEvents(today);
 
           const now = Date.now();
-          const inProgressEvent = calendarEvents.find(event => {
+          const inProgressEvent = calendarEvents.find((event) => {
             const startTime = event.startEpoch * 1000;
-            const endTime = startTime + (event.duration * 60 * 1000);
+            const endTime = startTime + event.duration * 60 * 1000;
             return startTime <= now && endTime > now;
           });
 
@@ -688,12 +717,14 @@ export function MainTimer({
         source: 'timer',
         v: 1,
       };
-      void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-        const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-        void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-      }).catch(() => {
-        void idleSyncMetrics.recordTimerEventEmission(0, false);
-      });
+      void safeEmit(TIMER_STATE_EVT, payload)
+        .then(() => {
+          const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+          void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+        })
+        .catch(() => {
+          void idleSyncMetrics.recordTimerEventEmission(0, false);
+        });
 
       showNotification('success', timerState === 'paused' ? 'Timer resumed' : 'Timer started');
     } else {
@@ -709,13 +740,15 @@ export function MainTimer({
         source: 'timer',
         v: 1,
       };
-      void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-        const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-        void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-      }).catch(() => {
-        void idleSyncMetrics.recordTimerEventEmission(0, false);
-      });
-      
+      void safeEmit(TIMER_STATE_EVT, payload)
+        .then(() => {
+          const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+          void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+        })
+        .catch(() => {
+          void idleSyncMetrics.recordTimerEventEmission(0, false);
+        });
+
       showNotification('info', 'Timer paused');
     }
   }, [timerState, showNotification]);
@@ -778,7 +811,7 @@ export function MainTimer({
     void safeEmit(TIMER_STATE_EVT, payload).catch(() => {
       // Emission failure already logged inside safeEmit
     });
-    
+
     setSavedElapsed(elapsedRef.current);
     setShowSaveModal(true);
     haptic.light();
@@ -828,12 +861,14 @@ export function MainTimer({
       source: 'timer',
       v: 1,
     };
-    void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-      const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-      void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-    }).catch(() => {
-      void idleSyncMetrics.recordTimerEventEmission(0, false);
-    });
+    void safeEmit(TIMER_STATE_EVT, payload)
+      .then(() => {
+        const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+        void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+      })
+      .catch(() => {
+        void idleSyncMetrics.recordTimerEventEmission(0, false);
+      });
 
     showNotification('success', `Switched to ${project.project}`);
   };
@@ -853,12 +888,14 @@ export function MainTimer({
       source: 'timer',
       v: 1,
     };
-    void safeEmit(TIMER_STATE_EVT, payload).then(() => {
-      const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
-      void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
-    }).catch(() => {
-      void idleSyncMetrics.recordTimerEventEmission(0, false);
-    });
+    void safeEmit(TIMER_STATE_EVT, payload)
+      .then(() => {
+        const emitLatencyUs = Math.round((performance.now() - emitStart) * 1000);
+        void idleSyncMetrics.recordTimerEventEmission(emitLatencyUs, true);
+      })
+      .catch(() => {
+        void idleSyncMetrics.recordTimerEventEmission(0, false);
+      });
 
     showNotification('success', `Kept ${idleMinutes}m idle time`);
   };
@@ -928,7 +965,7 @@ export function MainTimer({
       recent_apps: [],
       work_type: null,
       activity_category: 'client_work',
-      billable_confidence: 0.90,
+      billable_confidence: 0.9,
       suggested_task_code: null,
       extracted_metadata: {
         document_name: null,
@@ -964,223 +1001,245 @@ export function MainTimer({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-        {timerState === 'active' && (
-          <motion.div
-            className="absolute inset-0 rounded-[2.5rem] bg-black/5 dark:bg-white/5 pointer-events-none"
-            animate={{
-              scale: [1, 1.02, 1],
-              opacity: [0.3, 0.6, 0.3],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
+      {timerState === 'active' && (
+        <motion.div
+          className="absolute inset-0 rounded-[2.5rem] bg-black/5 dark:bg-white/5 pointer-events-none"
+          animate={{
+            scale: [1, 1.02, 1],
+            opacity: [0.3, 0.6, 0.3],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+      )}
+
+      <div className="relative w-full h-full backdrop-blur-[24px] flex flex-col">
+        {/* In-widget notification - positioned inside timer */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-full px-4">
+          <InWidgetNotification notification={notification} onDismiss={dismiss} />
+        </div>
+
+        {/* Invisible drag region - always enabled on hover */}
+        {isHovering && (
+          <div
+            data-tauri-drag-region
+            className="absolute inset-0 z-0 cursor-move pointer-events-none"
           />
         )}
 
-        <div className="relative w-full h-full backdrop-blur-[24px] flex flex-col">
-          {/* In-widget notification - positioned inside timer */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-full px-4">
-            <InWidgetNotification notification={notification} onDismiss={dismiss} />
-          </div>
-
-          {/* Invisible drag region - always enabled on hover */}
-          {isHovering && <div data-tauri-drag-region className="absolute inset-0 z-0 cursor-move pointer-events-none" />}
-
-          {/* Top Controls */}
-          <div className="px-4 pt-4 pb-0 relative z-10">
-            <div className="flex items-center justify-between">
-              {/* Left: Quick Start, Manual Entry, Build My Day - only visible on hover */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovering ? 1 : 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center gap-1.5 w-[102px] shrink-0"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    playSound();
-                    setShowQuickSwitcher(!showQuickSwitcher);
-                  }}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    playSound();
-                    onQuickEntry?.();
-                  }}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBuildMyDayClick}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                  title="Build My Day"
-                >
-                  <Hammer className="w-3.5 h-3.5" />
-                </Button>
-              </motion.div>
-
-              {/* Center: "Upcoming:" / "IN PROGRESS:" label with drag handler - always visible */}
-              {nextEvent && nextEvent.minutesUntil !== null && nextEvent.eventTime !== null ? (
-                <div data-tauri-drag-region className="flex-1 text-center px-4 cursor-move">
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {formatEventDisplay(nextEvent.minutesUntil, nextEvent.eventTime).prefix.trim()}
-                  </span>
-                </div>
-              ) : (
-                <div data-tauri-drag-region className="flex-1 text-center px-4 cursor-move" />
-              )}
-
-              {/* Right: Entries, Analytics, Settings - only visible on hover */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovering ? 1 : 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center gap-1.5 w-[102px] justify-end shrink-0"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    playSound();
-                    onEntriesClick?.();
-                  }}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    playSound();
-                    onAnalyticsClick?.();
-                  }}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    playSound();
-                    onSettingsClick?.();
-                  }}
-                  onMouseEnter={() => haptic.light()}
-                  className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                </Button>
-              </motion.div>
-            </div>
-
-            {/* Event text - row below - always visible */}
-            {nextEvent && (
-              <button
+        {/* Top Controls */}
+        <div className="px-4 pt-4 pb-0 relative z-10">
+          <div className="flex items-center justify-between">
+            {/* Left: Quick Start, Manual Entry, Build My Day - only visible on hover */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovering ? 1 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-1.5 w-[102px] shrink-0"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   playSound();
-                  // Always open timeline
-                  onTimelineClick?.();
+                  setShowQuickSwitcher(!showQuickSwitcher);
                 }}
-                className="text-center px-4 mt-1 w-full hover:opacity-80 transition-opacity cursor-pointer"
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
               >
-                <div ref={eventContainerRef} className="text-sm text-gray-700 dark:text-gray-300 overflow-hidden relative">
-                  {nextEvent.minutesUntil !== null && nextEvent.eventTime !== null ? (
-                    <>
-                      {/* Hidden measurement element to detect truncation */}
-                      {(() => {
-                        const { suffix } = formatEventDisplay(nextEvent.minutesUntil, nextEvent.eventTime);
-                        return (
-                          <div
-                            ref={eventTextRef}
-                            className="absolute whitespace-nowrap opacity-0 pointer-events-none"
-                            aria-hidden="true"
-                          >
-                            <span>{nextEvent.title}</span>
-                            <span className="text-blue-600 dark:text-blue-500 animate-pulse">{suffix}</span>
-                          </div>
-                        );
-                      })()}
+                <Zap className="w-3.5 h-3.5" />
+              </Button>
 
-                      <motion.div
-                        key={nextEvent.title}
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: -20, opacity: 0 }}
-                        transition={{ duration: 0.4, ease: 'easeInOut' }}
-                        className={eventTextOverflows ? "activity-marquee-wrapper" : ""}
-                      >
-                        {(() => {
-                          const { suffix } = formatEventDisplay(nextEvent.minutesUntil, nextEvent.eventTime);
-                          return eventTextOverflows ? (
-                            <span className="activity-marquee whitespace-nowrap">
-                              <span>{nextEvent.title}</span>
-                              <span className="text-blue-600 dark:text-blue-500 animate-pulse">{suffix}</span>
-                              <span className="mx-4"></span>
-                              <span>{nextEvent.title}</span>
-                              <span className="text-blue-600 dark:text-blue-500 animate-pulse">{suffix}</span>
-                            </span>
-                          ) : (
-                            <span className="whitespace-nowrap">
-                              <span>{nextEvent.title}</span>
-                              <span className="text-blue-600 dark:text-blue-500 animate-pulse">{suffix}</span>
-                            </span>
-                          );
-                        })()}
-                      </motion.div>
-                    </>
-                  ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  playSound();
+                  onQuickEntry?.();
+                }}
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBuildMyDayClick}
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
+                title="Build My Day"
+              >
+                <Hammer className="w-3.5 h-3.5" />
+              </Button>
+            </motion.div>
+
+            {/* Center: "Upcoming:" / "IN PROGRESS:" label with drag handler - always visible */}
+            {nextEvent && nextEvent.minutesUntil !== null && nextEvent.eventTime !== null ? (
+              <div data-tauri-drag-region className="flex-1 text-center px-4 cursor-move">
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  {formatEventDisplay(nextEvent.minutesUntil, nextEvent.eventTime).prefix.trim()}
+                </span>
+              </div>
+            ) : (
+              <div data-tauri-drag-region className="flex-1 text-center px-4 cursor-move" />
+            )}
+
+            {/* Right: Entries, Analytics, Settings - only visible on hover */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isHovering ? 1 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-1.5 w-[102px] justify-end shrink-0"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  playSound();
+                  onEntriesClick?.();
+                }}
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
+              >
+                <List className="w-3.5 h-3.5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  playSound();
+                  onAnalyticsClick?.();
+                }}
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  playSound();
+                  onSettingsClick?.();
+                }}
+                onMouseEnter={() => haptic.light()}
+                className="h-7 w-7 min-w-7 min-h-7 text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transform-none"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </Button>
+            </motion.div>
+          </div>
+
+          {/* Event text - row below - always visible */}
+          {nextEvent && (
+            <button
+              onClick={() => {
+                playSound();
+                // Always open timeline
+                onTimelineClick?.();
+              }}
+              className="text-center px-4 mt-1 w-full hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <div
+                ref={eventContainerRef}
+                className="text-sm text-gray-700 dark:text-gray-300 overflow-hidden relative"
+              >
+                {nextEvent.minutesUntil !== null && nextEvent.eventTime !== null ? (
+                  <>
+                    {/* Hidden measurement element to detect truncation */}
+                    {(() => {
+                      const { suffix } = formatEventDisplay(
+                        nextEvent.minutesUntil,
+                        nextEvent.eventTime
+                      );
+                      return (
+                        <div
+                          ref={eventTextRef}
+                          className="absolute whitespace-nowrap opacity-0 pointer-events-none"
+                          aria-hidden="true"
+                        >
+                          <span>{nextEvent.title}</span>
+                          <span className="text-blue-600 dark:text-blue-500 animate-pulse">
+                            {suffix}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
                     <motion.div
-                      key={`no-event-${phraseIndex}`}
+                      key={nextEvent.title}
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       exit={{ y: -20, opacity: 0 }}
                       transition={{ duration: 0.4, ease: 'easeInOut' }}
+                      className={eventTextOverflows ? 'activity-marquee-wrapper' : ''}
                     >
-                      <span className="text-gray-500 dark:text-gray-400">{nextEvent.title}</span>
+                      {(() => {
+                        const { suffix } = formatEventDisplay(
+                          nextEvent.minutesUntil,
+                          nextEvent.eventTime
+                        );
+                        return eventTextOverflows ? (
+                          <span className="activity-marquee whitespace-nowrap">
+                            <span>{nextEvent.title}</span>
+                            <span className="text-blue-600 dark:text-blue-500 animate-pulse">
+                              {suffix}
+                            </span>
+                            <span className="mx-4"></span>
+                            <span>{nextEvent.title}</span>
+                            <span className="text-blue-600 dark:text-blue-500 animate-pulse">
+                              {suffix}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="whitespace-nowrap">
+                            <span>{nextEvent.title}</span>
+                            <span className="text-blue-600 dark:text-blue-500 animate-pulse">
+                              {suffix}
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </motion.div>
-                  )}
-                </div>
-              </button>
-            )}
-          </div>
+                  </>
+                ) : (
+                  <motion.div
+                    key={`no-event-${phraseIndex}`}
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    transition={{ duration: 0.4, ease: 'easeInOut' }}
+                  >
+                    <span className="text-gray-500 dark:text-gray-400">{nextEvent.title}</span>
+                  </motion.div>
+                )}
+              </div>
+            </button>
+          )}
+        </div>
 
-          {/* Divider */}
-          <div className="px-8 pt-4">
-            <div className="h-px bg-gray-300/80 dark:bg-gray-600/60" />
-          </div>
+        {/* Divider */}
+        <div className="px-8 pt-4">
+          <div className="h-px bg-gray-300/80 dark:bg-gray-600/60" />
+        </div>
 
-          {/* Timer Display - with drag region overlay */}
-          <div className="text-center px-8 pt-8 pb-1 relative">
-            {/* Invisible drag region - covers timer display for easy dragging */}
-            <div
-              data-tauri-drag-region
-              className="absolute inset-0 cursor-move z-10"
-              aria-label="Drag to move window"
-            />
+        {/* Timer Display - with drag region overlay */}
+        <div className="text-center px-8 pt-8 pb-1 relative">
+          {/* Invisible drag region - covers timer display for easy dragging */}
+          <div
+            data-tauri-drag-region
+            className="absolute inset-0 cursor-move z-10"
+            aria-label="Drag to move window"
+          />
 
-            <style>{`
+          <style>{`
               @keyframes constant-marquee {
                 0% { transform: translateX(0); }
                 100% { transform: translateX(-50%); }
@@ -1197,218 +1256,217 @@ export function MainTimer({
                 will-change: transform;
               }
             `}</style>
-            <div className="text-5xl mb-3 tracking-tight text-gray-900 dark:text-gray-50 tabular-nums relative z-0">
-              {timerState === 'active' || timerState === 'paused' ? timerService.formatTime(elapsed) : timerService.formatCurrentTime(currentTime)}
-            </div>
-            {timerState === 'inactive' && (
-              <div className="text-base text-gray-700 dark:text-gray-300">
-                {timerService.getGreeting(currentTime)}, Lewis
-              </div>
-            )}
+          <div className="text-5xl mb-3 tracking-tight text-gray-900 dark:text-gray-50 tabular-nums relative z-0">
+            {timerState === 'active' || timerState === 'paused'
+              ? timerService.formatTime(elapsed)
+              : timerService.formatCurrentTime(currentTime)}
           </div>
-
-          {/* Control Buttons */}
-          <div className={`px-4 pb-4 ${timerState !== 'inactive' ? 'pt-8' : ''}`}>
-            {timerState === 'inactive' ? (
-              // No start button when inactive - timer starts from Quick Start or Activity Tracker
-              null
-            ) : timerState === 'paused' ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={() => void handleToggleTimer()}
-                    variant="outline"
-                    className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Resume
-                  </Button>
-                  <Button
-                    onClick={handleStop}
-                    variant="outline"
-                    className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    Stop
-                  </Button>
-                </div>
-
-                {/* Switch Activity Collapsible */}
-                <div className="mt-2">
-                  <Button
-                    onClick={() => setShowSwitchActivity(!showSwitchActivity)}
-                    variant="outline"
-                    className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    {showSwitchActivity ? 'Hide' : 'Switch Activity'}
-                  </Button>
-
-                  {showSwitchActivity && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-3 space-y-2"
-                    >
-                      {/* Project/WBS Search */}
-                      <div>
-                        <WbsAutocomplete
-                          value={switchProject}
-                          onChange={setSwitchProject}
-                          placeholder="Search projects..."
-                        />
-                      </div>
-
-                      {/* Activity Description */}
-                      <div>
-                        <Input
-                          value={switchActivity}
-                          onChange={(e) => setSwitchActivity(e.target.value)}
-                          placeholder="Activity description..."
-                          className="text-sm"
-                        />
-                      </div>
-
-                      {/* Switch Button */}
-                      <Button
-                        onClick={handleActivitySwitch}
-                        disabled={!switchProject || !switchActivity.trim()}
-                        variant="outline"
-                        className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        size="sm"
-                      >
-                        Switch
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={() => void handleToggleTimer()}
-                    variant="outline"
-                    className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    <Pause className="w-4 h-4 mr-2" />
-                    Pause
-                  </Button>
-                  <Button
-                    onClick={handleStop}
-                    variant="outline"
-                    className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    Stop
-                  </Button>
-                </div>
-
-                {/* Switch Activity Collapsible */}
-                <div className="mt-2">
-                  <Button
-                    onClick={() => setShowSwitchActivity(!showSwitchActivity)}
-                    variant="outline"
-                    className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
-                  >
-                    {showSwitchActivity ? 'Hide' : 'Switch Activity'}
-                  </Button>
-
-                  {showSwitchActivity && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-3 space-y-2"
-                    >
-                      {/* Project/WBS Search */}
-                      <div>
-                        <WbsAutocomplete
-                          value={switchProject}
-                          onChange={setSwitchProject}
-                          placeholder="Search projects..."
-                        />
-                      </div>
-
-                      {/* Activity Description */}
-                      <div>
-                        <Input
-                          value={switchActivity}
-                          onChange={(e) => setSwitchActivity(e.target.value)}
-                          placeholder="Activity description..."
-                          className="text-sm"
-                        />
-                      </div>
-
-                      {/* Switch Button */}
-                      <Button
-                        onClick={handleActivitySwitch}
-                        disabled={!switchProject || !switchActivity.trim()}
-                        variant="outline"
-                        className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        size="sm"
-                      >
-                        Switch
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* FEATURE-019: Suggested Entries - only show when timer is inactive */}
           {timerState === 'inactive' && (
-            <SuggestedEntries
-              onBuildMyDay={handleBuildMyDayClick}
-              onCountChange={(count) => {
-                setSuggestionCount(count);
-              }}
-              onCollapseChange={(collapsed) => {
-                setIsCollapsed(collapsed);
-              }}
-              onAcceptEntry={(entry, remainingCount) => {
-                playSound();
-                showNotification('success', `Added: ${entry.task} (${entry.duration})`);
-                haptic.success();
-                setSuggestionCount(Math.min(remainingCount, 3));
-              }}
-              onDismissEntry={(_entryId, remainingCount) => {
-                playSound();
-                haptic.light();
-                setSuggestionCount(Math.min(remainingCount, 3));
-              }}
-            />
+            <div className="text-base text-gray-700 dark:text-gray-300">
+              {timerService.getGreeting(currentTime)}, Lewis
+            </div>
           )}
         </div>
 
-        {/* Quick Project Switcher */}
-        <QuickProjectSwitcher
-          isOpen={showQuickSwitcher}
-          onClose={() => setShowQuickSwitcher(false)}
-          onSelect={handleQuickProjectSelect}
-        />
+        {/* Control Buttons */}
+        <div className={`px-4 pb-4 ${timerState !== 'inactive' ? 'pt-8' : ''}`}>
+          {timerState === 'inactive' ? null : timerState === 'paused' ? ( // No start button when inactive - timer starts from Quick Start or Activity Tracker
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => void handleToggleTimer()}
+                  variant="outline"
+                  className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Resume
+                </Button>
+                <Button
+                  onClick={handleStop}
+                  variant="outline"
+                  className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+              </div>
 
-        {/* Idle Detection Modal */}
-        <IdleDetectionModal
-          isOpen={showIdleModal}
-          onKeepTime={handleKeepIdleTime}
-          onDiscardTime={handleDiscardIdleTime}
-          idleMinutes={idleMinutes}
-        />
+              {/* Switch Activity Collapsible */}
+              <div className="mt-2">
+                <Button
+                  onClick={() => setShowSwitchActivity(!showSwitchActivity)}
+                  variant="outline"
+                  className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  {showSwitchActivity ? 'Hide' : 'Switch Activity'}
+                </Button>
 
-        {/* Save Entry Modal with AI Suggestion */}
-        <SaveEntryModal
-          isOpen={showSaveModal}
-          onClose={() => setShowSaveModal(false)}
-          onAccept={handleAcceptSuggestion}
-          onReject={handleRejectSuggestion}
-          duration={formatDuration(savedElapsed)}
-          elapsedSeconds={savedElapsed}
-          activityContext={activityContext}
-        />
+                {showSwitchActivity && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-3 space-y-2"
+                  >
+                    {/* Project/WBS Search */}
+                    <div>
+                      <WbsAutocomplete
+                        value={switchProject}
+                        onChange={setSwitchProject}
+                        placeholder="Search projects..."
+                      />
+                    </div>
+
+                    {/* Activity Description */}
+                    <div>
+                      <Input
+                        value={switchActivity}
+                        onChange={(e) => setSwitchActivity(e.target.value)}
+                        placeholder="Activity description..."
+                        className="text-sm"
+                      />
+                    </div>
+
+                    {/* Switch Button */}
+                    <Button
+                      onClick={handleActivitySwitch}
+                      disabled={!switchProject || !switchActivity.trim()}
+                      variant="outline"
+                      className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      size="sm"
+                    >
+                      Switch
+                    </Button>
+                  </motion.div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => void handleToggleTimer()}
+                  variant="outline"
+                  className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  <Pause className="w-4 h-4 mr-2" />
+                  Pause
+                </Button>
+                <Button
+                  onClick={handleStop}
+                  variant="outline"
+                  className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+              </div>
+
+              {/* Switch Activity Collapsible */}
+              <div className="mt-2">
+                <Button
+                  onClick={() => setShowSwitchActivity(!showSwitchActivity)}
+                  variant="outline"
+                  className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100"
+                >
+                  {showSwitchActivity ? 'Hide' : 'Switch Activity'}
+                </Button>
+
+                {showSwitchActivity && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-3 space-y-2"
+                  >
+                    {/* Project/WBS Search */}
+                    <div>
+                      <WbsAutocomplete
+                        value={switchProject}
+                        onChange={setSwitchProject}
+                        placeholder="Search projects..."
+                      />
+                    </div>
+
+                    {/* Activity Description */}
+                    <div>
+                      <Input
+                        value={switchActivity}
+                        onChange={(e) => setSwitchActivity(e.target.value)}
+                        placeholder="Activity description..."
+                        className="text-sm"
+                      />
+                    </div>
+
+                    {/* Switch Button */}
+                    <Button
+                      onClick={handleActivitySwitch}
+                      disabled={!switchProject || !switchActivity.trim()}
+                      variant="outline"
+                      className="w-full backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 hover:bg-white/30 dark:hover:bg-white/15 shadow-[0_4px_16px_0_rgba(0,0,0,0.1),0_0_0_1px_rgba(255,255,255,0.5)_inset] dark:shadow-[0_4px_16px_0_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)_inset] text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      size="sm"
+                    >
+                      Switch
+                    </Button>
+                  </motion.div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* FEATURE-019: Suggested Entries - only show when timer is inactive */}
+        {timerState === 'inactive' && (
+          <SuggestedEntries
+            onBuildMyDay={handleBuildMyDayClick}
+            onCountChange={(count) => {
+              setSuggestionCount(count);
+            }}
+            onCollapseChange={(collapsed) => {
+              setIsCollapsed(collapsed);
+            }}
+            onAcceptEntry={(entry, remainingCount) => {
+              playSound();
+              showNotification('success', `Added: ${entry.task} (${entry.duration})`);
+              haptic.success();
+              setSuggestionCount(Math.min(remainingCount, 3));
+            }}
+            onDismissEntry={(_entryId, remainingCount) => {
+              playSound();
+              haptic.light();
+              setSuggestionCount(Math.min(remainingCount, 3));
+            }}
+          />
+        )}
+      </div>
+
+      {/* Quick Project Switcher */}
+      <QuickProjectSwitcher
+        isOpen={showQuickSwitcher}
+        onClose={() => setShowQuickSwitcher(false)}
+        onSelect={handleQuickProjectSelect}
+      />
+
+      {/* Idle Detection Modal */}
+      <IdleDetectionModal
+        isOpen={showIdleModal}
+        onKeepTime={handleKeepIdleTime}
+        onDiscardTime={handleDiscardIdleTime}
+        idleMinutes={idleMinutes}
+      />
+
+      {/* Save Entry Modal with AI Suggestion */}
+      <SaveEntryModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onAccept={handleAcceptSuggestion}
+        onReject={handleRejectSuggestion}
+        duration={formatDuration(savedElapsed)}
+        elapsedSeconds={savedElapsed}
+        activityContext={activityContext}
+      />
     </div>
   );
 }

@@ -1,13 +1,9 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import { Filter, SortAsc, Check, Calendar, Brain, User, Users } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Brain, Calendar, Check, Filter, SortAsc, User, Users } from 'lucide-react';
+import { useCallback, useState, type ReactNode } from 'react';
 
 export type SortOption = 'most-recent' | 'oldest-first' | 'longest-duration' | 'shortest-duration';
 export type SourceFilter = 'calendar' | 'ai';
@@ -34,12 +30,9 @@ export function FilterSortPopover({
 }: FilterSortPopoverProps) {
   const [activeTab, setActiveTab] = useState<'sort' | 'filter'>('sort');
 
-  const handleTabChange = useCallback(
-    (value: string) => {
-      setActiveTab(value as 'sort' | 'filter');
-    },
-    []
-  );
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value as 'sort' | 'filter');
+  }, []);
 
   const handleSortChange = useCallback(
     (value: SortOption) => {
@@ -121,7 +114,10 @@ export function FilterSortPopover({
                   <Filter className="size-3.5" />
                   {activeFilterCount > 0 ? 'Clear' : 'Filter'}
                   {activeFilterCount > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1.5 text-[10px] bg-blue-500 text-white rounded-full">
+                    <Badge
+                      variant="secondary"
+                      className="ml-1 h-4 min-w-4 px-1.5 text-[10px] bg-blue-500 text-white rounded-full"
+                    >
                       {activeFilterCount}
                     </Badge>
                   )}

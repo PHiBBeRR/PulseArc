@@ -1,8 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+/**
+ * Unit tests for DismissFeedbackModal component
+ *
+ * Tests the modal that collects user feedback when dismissing suggested time entries.
+ * Helps improve the AI suggestion system by learning from user feedback.
+ *
+ * Test Coverage:
+ * - Rendering: Modal visibility based on isOpen prop
+ * - Feedback Options: Display of dismissal reasons (not relevant, duplicate, etc.)
+ * - User Interaction: Selecting reasons and submitting feedback
+ * - Form Validation: Required fields and error handling
+ * - Haptic Feedback: Touch feedback on user actions
+ * - Async Operations: Loading states during submission
+ * - Entry Display: Showing entry details in the modal
+ * - Accessibility: Keyboard navigation and screen reader support
+ */
+
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DismissFeedbackModal } from './DismissFeedbackModal';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TimeEntry } from '../types';
+import { DismissFeedbackModal } from './DismissFeedbackModal';
 
 // Mock haptic utility
 vi.mock('@/shared/utils', () => ({
@@ -423,10 +440,7 @@ describe('DismissFeedbackModal', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Failed to dismiss entry:',
-          expect.any(Error)
-        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to dismiss entry:', expect.any(Error));
       });
 
       consoleErrorSpy.mockRestore();
@@ -475,10 +489,7 @@ describe('DismissFeedbackModal', () => {
       await user.click(skipButton);
 
       await waitFor(() => {
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Failed to dismiss entry:',
-          expect.any(Error)
-        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to dismiss entry:', expect.any(Error));
       });
 
       consoleErrorSpy.mockRestore();

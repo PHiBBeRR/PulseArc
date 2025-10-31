@@ -4,13 +4,13 @@
  * Manage connection to Main Pulsarc API for time entry sync.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, Loader2, LogIn, LogOut, Clock } from 'lucide-react';
-import { cn } from '@/components/ui/utils';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/components/ui/utils';
+import { CheckCircle, Clock, Loader2, LogIn, LogOut, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { WebApiService, type OutboxStatus } from '../services/WebApiService';
 
@@ -207,11 +207,7 @@ export function MainApiSettings({ className }: MainApiSettingsProps) {
                   )}
                 </Button>
               ) : (
-                <Button
-                  onClick={() => void handleLogin()}
-                  disabled={isLoggingIn}
-                  className="gap-2"
-                >
+                <Button onClick={() => void handleLogin()} disabled={isLoggingIn} className="gap-2">
                   {isLoggingIn ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,17 +1,22 @@
-// FEATURE-015: Timeline Service Calendar Integration Tests
-// Tests for calendar event fetching and merging with timeline entries
-//
-// These tests validate:
-// - [ ] Calendar event fetching for date range
-// - [ ] Snake_case parameters (start_date, end_date)
-// - [ ] Merging calendar events with regular entries
-// - [ ] Numeric sorting by startEpoch
-// - [ ] Type safety and generated types
-//
-// Run with: npm run test -- timelineService.calendar.test.ts
+/**
+ * FEATURE-015: Timeline Service Calendar Integration Tests
+ * Tests for calendar event fetching and merging with timeline entries
+ *
+ * Validates integration between the timeline service and Google Calendar,
+ * including event fetching, merging, and proper sorting.
+ *
+ * Test Coverage:
+ * - Calendar Event Fetching: Retrieving events for date ranges
+ * - Parameter Handling: Snake_case parameters (start_date, end_date)
+ * - Event Merging: Combining calendar events with regular time entries
+ * - Sorting: Numeric sorting by startEpoch timestamp
+ * - Type Safety: Generated types from ts-rs match expected structure
+ * - All-Day Events: Proper handling of all-day calendar events
+ * - Multiple Calendars: Handling events from multiple calendar sources
+ */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -128,7 +133,7 @@ describe('Timeline Calendar Integration', () => {
         end_date: 1705402800,
       });
 
-      const event = (result as typeof mockEvent[])[0];
+      const event = (result as (typeof mockEvent)[])[0];
       expect(event).toBeDefined();
       if (event) {
         expect(event).toHaveProperty('id');
@@ -146,9 +151,7 @@ describe('Timeline Calendar Integration', () => {
   describe('Merging Logic', () => {
     it('should merge calendar events with regular entries', () => {
       // AC: Combine both types of entries
-      const regularEntries = [
-        { id: 'entry-1', startEpoch: 1705320000, startTime: '11:00' },
-      ];
+      const regularEntries = [{ id: 'entry-1', startEpoch: 1705320000, startTime: '11:00' }];
       const calendarEvents = [
         { id: 'cal-1', startEpoch: 1705316400, startTime: '10:00', isCalendarEvent: true },
       ];
@@ -209,9 +212,7 @@ describe('Timeline Calendar Integration', () => {
       const event1 = { id: 'cal-1', startEpoch: 1705316400 };
       const event2 = { id: 'cal-1', startEpoch: 1705316400 }; // Duplicate
 
-      const uniqueEvents = Array.from(
-        new Map([event1, event2].map((e) => [e.id, e])).values()
-      );
+      const uniqueEvents = Array.from(new Map([event1, event2].map((e) => [e.id, e])).values());
 
       expect(uniqueEvents).toHaveLength(1);
     });
@@ -339,4 +340,3 @@ describe('Timeline Calendar Integration', () => {
 //
 // All tests marked with .skip - remove when implementing feature
 // ============================================================================
-

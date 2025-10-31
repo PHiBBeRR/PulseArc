@@ -1,5 +1,20 @@
+/**
+ * Unit tests for AudioService
+ *
+ * Tests the audio feedback system that provides click sounds and other
+ * audio cues for user interactions throughout the application.
+ *
+ * Test Coverage:
+ * - Click Sounds: Generating UI feedback clicks using Web Audio API
+ * - Audio Context: Initialization, cleanup, and state management
+ * - Oscillator Management: Creating and controlling sound oscillators
+ * - Gain Control: Volume management and fade effects
+ * - Error Handling: Graceful degradation when audio is unavailable
+ * - Resource Cleanup: Proper disposal of audio resources
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioService } from './audioService';
 
 describe('AudioService', () => {
@@ -327,10 +342,7 @@ describe('AudioService', () => {
       // Should not throw
       expect(() => audioService.playClick()).not.toThrow();
 
-      expect(consoleDebugSpy).toHaveBeenCalledWith(
-        'Audio playback failed:',
-        expect.any(Error)
-      );
+      expect(consoleDebugSpy).toHaveBeenCalledWith('Audio playback failed:', expect.any(Error));
 
       consoleDebugSpy.mockRestore();
     });
@@ -366,12 +378,12 @@ describe('AudioService', () => {
       audioService.playClick(); // Initialize
 
       // Wait to ensure initialization completes
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       (audioService as any).constructor.reset();
 
       // Wait for reset to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(global.AudioContext).toHaveBeenCalledTimes(1);
 
@@ -470,22 +482,22 @@ describe('AudioService', () => {
       expect(gainNodes.length).toBe(10);
 
       // All oscillators should have onended handlers
-      oscillators.forEach(osc => {
+      oscillators.forEach((osc) => {
         expect(osc.onended).toBeDefined();
       });
 
       // Simulate all sounds ending
-      oscillators.forEach(osc => {
+      oscillators.forEach((osc) => {
         if (osc.onended) {
           osc.onended(new Event('ended'));
         }
       });
 
       // All nodes should be disconnected (1 per oscillator)
-      gainNodes.forEach(gain => {
+      gainNodes.forEach((gain) => {
         expect(gain.disconnect).toHaveBeenCalledTimes(1);
       });
-      oscillators.forEach(osc => {
+      oscillators.forEach((osc) => {
         expect(osc.disconnect).toHaveBeenCalledTimes(1);
       });
     });

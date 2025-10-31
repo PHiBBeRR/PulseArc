@@ -1,23 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Check, X, Activity, Loader2, RefreshCw, Calendar, Pencil, Undo2, Trash2, ChevronUp, User, Users, Brain, Filter } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import type { TimeEntry } from '../../time-entry/types';
-import type { TimeEntryOutbox, PrismaTimeEntryDto, AcceptPatch, ProposedBlock } from '@/shared/types/generated';
-import { entryService } from '../../time-entry/services';
-import { projectCache } from '@/shared/services';
-import { haptic } from '@/shared/utils';
-import { formatTime } from '@/shared/utils/timeFormat';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/components/ui/utils';
-import { EditEntryModal } from '../../time-entry/components/EditEntryModal';
-import { ClassifyEntryModal } from '../../time-entry/components/ClassifyEntryModal';
-import { DismissFeedbackModal } from '../../time-entry/components/DismissFeedbackModal';
 import {
   Dialog,
   DialogContent,
@@ -25,8 +6,47 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FilterSortPopover, type FilterSortState } from './FilterSortPopover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/components/ui/utils';
+import { projectCache } from '@/shared/services';
+import type {
+  AcceptPatch,
+  PrismaTimeEntryDto,
+  ProposedBlock,
+  TimeEntryOutbox,
+} from '@/shared/types/generated';
+import { haptic } from '@/shared/utils';
+import { formatTime } from '@/shared/utils/timeFormat';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Activity,
+  Brain,
+  Calendar,
+  Check,
+  ChevronUp,
+  Filter,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Trash2,
+  Undo2,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ClassifyEntryModal } from '../../time-entry/components/ClassifyEntryModal';
+import { DismissFeedbackModal } from '../../time-entry/components/DismissFeedbackModal';
+import { EditEntryModal } from '../../time-entry/components/EditEntryModal';
+import { entryService } from '../../time-entry/services';
+import type { TimeEntry } from '../../time-entry/types';
 import { ActivityBreakdownTooltip } from './ActivityBreakdownTooltip';
+import { FilterSortPopover, type FilterSortState } from './FilterSortPopover';
 
 // Custom TooltipContent without arrow
 function TooltipContentNoArrow({
@@ -62,7 +82,14 @@ interface SuggestedEntriesProps {
 
 type TabType = 'suggestions' | 'dismissed';
 
-export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange, onCollapseChange, isBuilding = false, onBuildMyDay }: SuggestedEntriesProps) {
+export function SuggestedEntries({
+  onAcceptEntry,
+  onDismissEntry,
+  onCountChange,
+  onCollapseChange,
+  isBuilding = false,
+  onBuildMyDay,
+}: SuggestedEntriesProps) {
   const [suggestedEntries, setSuggestedEntries] = useState<TimeEntry[]>([]);
   const [dismissedEntries, setDismissedEntries] = useState<TimeEntry[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('suggestions');
@@ -127,126 +154,141 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
   }, [filterSortState]);
 
   // Categorize calendar events based on keywords
-  const categorizeCalendarEvent = useCallback((projectName: string, taskName: string): 'personal' | 'general' | 'project' => {
-    // If backend defaulted to "General", only check the task name
-    const textToCheck = projectName === 'General'
-      ? taskName.toLowerCase()
-      : `${projectName} ${taskName}`.toLowerCase();
+  const categorizeCalendarEvent = useCallback(
+    (projectName: string, taskName: string): 'personal' | 'general' | 'project' => {
+      // If backend defaulted to "General", only check the task name
+      const textToCheck =
+        projectName === 'General'
+          ? taskName.toLowerCase()
+          : `${projectName} ${taskName}`.toLowerCase();
 
-    // Project: contains "project" keyword
-    if (textToCheck.match(/\bproject\b/i)) {
-      return 'project';
-    }
+      // Project: contains "project" keyword
+      if (textToCheck.match(/\bproject\b/i)) {
+        return 'project';
+      }
 
-    // General/Admin keywords
-    if (textToCheck.match(/\b(team|admin|meeting|standup|sync|review|deployment|all-hands|townhall|status)\b/i)) {
-      return 'general';
-    }
+      // General/Admin keywords
+      if (
+        textToCheck.match(
+          /\b(team|admin|meeting|standup|sync|review|deployment|all-hands|townhall|status)\b/i
+        )
+      ) {
+        return 'general';
+      }
 
-    // Default to Personal
-    return 'personal';
-  }, []);
+      // Default to Personal
+      return 'personal';
+    },
+    []
+  );
 
   // FEATURE-021: Map ProposedBlock to TimeEntry format
-  const mapBlockToTimeEntry = useCallback((block: ProposedBlock): TimeEntry => {
-    // Backend timestamps are in SECONDS, multiply by 1000 for JS Date
-    const startMs = block.start_ts * 1000;
-    const endMs = block.end_ts * 1000;
+  const mapBlockToTimeEntry = useCallback(
+    (block: ProposedBlock): TimeEntry => {
+      // Backend timestamps are in SECONDS, multiply by 1000 for JS Date
+      const startMs = block.start_ts * 1000;
+      const endMs = block.end_ts * 1000;
 
-    // Categorize AI blocks based on project/workstream (similar to calendar events)
-    const projectName = block.inferred_deal_name ?? 'Unknown Project';
-    const taskName = block.inferred_workstream ?? 'General work';
-    const category = categorizeCalendarEvent(projectName, taskName);
+      // Categorize AI blocks based on project/workstream (similar to calendar events)
+      const projectName = block.inferred_deal_name ?? 'Unknown Project';
+      const taskName = block.inferred_workstream ?? 'General work';
+      const category = categorizeCalendarEvent(projectName, taskName);
 
-    return {
-      id: block.id,
-      time: formatTime(new Date(startMs)),
-      project: projectName,
-      task: taskName,
-      duration: formatDuration(block.duration_secs),
-      status: 'suggested' as const,
-      confidence: Math.round(block.confidence * 100),
-      durationSeconds: block.duration_secs,
-      source: 'ai' as const,
-      shortDate: new Date(startMs).toLocaleDateString('en-US', {
+      return {
+        id: block.id,
+        time: formatTime(new Date(startMs)),
+        project: projectName,
+        task: taskName,
+        duration: formatDuration(block.duration_secs),
+        status: 'suggested' as const,
+        confidence: Math.round(block.confidence * 100),
+        durationSeconds: block.duration_secs,
+        source: 'ai' as const,
+        shortDate: new Date(startMs).toLocaleDateString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+        }),
+        category, // Use categorized value (general/personal/project)
+        wbsCode: block.inferred_wbs_code ?? undefined,
+        startTime: new Date(startMs),
+        endTime: new Date(endMs), // Time range end
+        activities: block.activities, // FEATURE-021: Real activity breakdown from backend
+        idleSeconds: block.total_idle_secs, // FEATURE-028: Idle time within block
+      };
+    },
+    [categorizeCalendarEvent]
+  );
+
+  // Helper to map outbox entry to TimeEntry format (legacy)
+  const mapOutboxToTimeEntry = useCallback(
+    (entry: TimeEntryOutbox & { dto: PrismaTimeEntryDto | null }) => {
+      // Backend timestamps: check if in seconds or milliseconds
+      // If < 10 billion, it's in seconds (before year 2286), otherwise already in milliseconds
+      const createdAtMs =
+        entry.created_at < 10_000_000_000 ? entry.created_at * 1000 : entry.created_at;
+      const entryDate = new Date(createdAtMs);
+      const dto = entry.dto; // May be null if JSON parsing failed
+
+      // FEATURE-015: Both calendar and AI entries use projectId for consistent project lookup
+      const isCalendarEvent = dto?.source === 'calendar';
+
+      // Calendar events: Use _displayProject (parsed from event title, no DB lookup needed)
+      // AI entries: Use project cache lookup with projectId (UUIDv7 maps to WBS code)
+      let projectDisplay = isCalendarEvent
+        ? (dto?._displayProject ?? 'General')
+        : projectCache.getProjectName(dto?.projectId ?? 'unassigned');
+
+      // Clean up project name: remove "PROJECT_" prefix and replace underscores with spaces
+      projectDisplay = projectDisplay
+        .replace(/^PROJECT_/i, '') // Remove PROJECT_ prefix (case-insensitive)
+        .replace(/_/g, ' '); // Replace all underscores with spaces
+
+      // Task display: Both calendar and AI entries use _displayTask field
+      const taskDisplay = dto?._displayTask ?? 'Activity detected';
+
+      // Categorize calendar events (personal/general/project) using display fields for pattern matching
+      // Display fields are hints for categorization, but projectId is the source of truth for display
+      const category: 'personal' | 'general' | 'project' | 'ai' = isCalendarEvent
+        ? categorizeCalendarEvent(dto?._displayProject ?? projectDisplay, taskDisplay)
+        : 'ai';
+
+      // FEATURE-019: Remove hardcoded fallback - trust backend to provide confidence
+      const confidence = dto?._confidence ? Math.round(dto._confidence * 100) : 0;
+
+      // Description: Don't show for either calendar or AI entries (redundant with task field)
+      const description = undefined;
+
+      // Format short date (MM/DD/YYYY)
+      const shortDate = entryDate.toLocaleDateString('en-US', {
         month: '2-digit',
         day: '2-digit',
         year: 'numeric',
-      }),
-      category, // Use categorized value (general/personal/project)
-      wbsCode: block.inferred_wbs_code ?? undefined,
-      startTime: new Date(startMs),
-      endTime: new Date(endMs), // Time range end
-      activities: block.activities, // FEATURE-021: Real activity breakdown from backend
-      idleSeconds: block.total_idle_secs, // FEATURE-028: Idle time within block
-    };
-  }, [categorizeCalendarEvent]);
+      });
 
-  // Helper to map outbox entry to TimeEntry format (legacy)
-  const mapOutboxToTimeEntry = useCallback((entry: TimeEntryOutbox & { dto: PrismaTimeEntryDto | null }) => {
-    // Backend timestamps: check if in seconds or milliseconds
-    // If < 10 billion, it's in seconds (before year 2286), otherwise already in milliseconds
-    const createdAtMs = entry.created_at < 10_000_000_000 ? entry.created_at * 1000 : entry.created_at;
-    const entryDate = new Date(createdAtMs);
-    const dto = entry.dto; // May be null if JSON parsing failed
+      // Override project display for personal events
+      const finalProjectDisplay = category === 'personal' ? 'Personal' : projectDisplay;
 
-    // FEATURE-015: Both calendar and AI entries use projectId for consistent project lookup
-    const isCalendarEvent = dto?.source === 'calendar';
-
-    // Calendar events: Use _displayProject (parsed from event title, no DB lookup needed)
-    // AI entries: Use project cache lookup with projectId (UUIDv7 maps to WBS code)
-    let projectDisplay = isCalendarEvent
-      ? dto?._displayProject ?? 'General'
-      : projectCache.getProjectName(dto?.projectId ?? 'unassigned');
-
-    // Clean up project name: remove "PROJECT_" prefix and replace underscores with spaces
-    projectDisplay = projectDisplay
-      .replace(/^PROJECT_/i, '') // Remove PROJECT_ prefix (case-insensitive)
-      .replace(/_/g, ' '); // Replace all underscores with spaces
-
-    // Task display: Both calendar and AI entries use _displayTask field
-    const taskDisplay = dto?._displayTask ?? 'Activity detected';
-
-    // Categorize calendar events (personal/general/project) using display fields for pattern matching
-    // Display fields are hints for categorization, but projectId is the source of truth for display
-    const category: 'personal' | 'general' | 'project' | 'ai' = isCalendarEvent
-      ? categorizeCalendarEvent(dto?._displayProject ?? projectDisplay, taskDisplay)
-      : 'ai';
-
-    // FEATURE-019: Remove hardcoded fallback - trust backend to provide confidence
-    const confidence = dto?._confidence ? Math.round(dto._confidence * 100) : 0;
-
-    // Description: Don't show for either calendar or AI entries (redundant with task field)
-    const description = undefined;
-
-    // Format short date (MM/DD/YYYY)
-    const shortDate = entryDate.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
-
-    // Override project display for personal events
-    const finalProjectDisplay = category === 'personal' ? 'Personal' : projectDisplay;
-
-    return {
-      id: entry.id,
-      time: formatTime(new Date(createdAtMs)),
-      project: finalProjectDisplay,
-      task: taskDisplay,
-      duration: formatDuration(dto?.durationSec ?? 0),
-      status: 'suggested' as const,
-      confidence,
-      description,
-      durationSeconds: dto?.durationSec ?? 0,
-      source: isCalendarEvent ? ('calendar' as const) : ('ai' as const),
-      shortDate,
-      category,
-      wbsCode: dto?._wbsCode ?? undefined,
-      startTime: new Date(createdAtMs), // Add for sorting
-      // Note: Legacy outbox entries don't have activities - only ProposedBlocks do
-    };
-  }, [categorizeCalendarEvent]);
+      return {
+        id: entry.id,
+        time: formatTime(new Date(createdAtMs)),
+        project: finalProjectDisplay,
+        task: taskDisplay,
+        duration: formatDuration(dto?.durationSec ?? 0),
+        status: 'suggested' as const,
+        confidence,
+        description,
+        durationSeconds: dto?.durationSec ?? 0,
+        source: isCalendarEvent ? ('calendar' as const) : ('ai' as const),
+        shortDate,
+        category,
+        wbsCode: dto?._wbsCode ?? undefined,
+        startTime: new Date(createdAtMs), // Add for sorting
+        // Note: Legacy outbox entries don't have activities - only ProposedBlocks do
+      };
+    },
+    [categorizeCalendarEvent]
+  );
 
   // FEATURE-021: Fetch pending suggestions from ProposedBlocks
   const fetchSuggestions = useCallback(async () => {
@@ -410,7 +452,8 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
   };
 
   // Calculate active filter count
-  const activeFilterCount = filterSortState.sourceFilters.size + filterSortState.categoryFilters.size;
+  const activeFilterCount =
+    filterSortState.sourceFilters.size + filterSortState.categoryFilters.size;
 
   // Refs for virtual scrolling containers
   const suggestionsParentRef = useRef<HTMLDivElement>(null);
@@ -422,12 +465,16 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
 
     // Apply source filters
     if (filterSortState.sourceFilters.size > 0) {
-      filtered = filtered.filter((entry) => entry.source && filterSortState.sourceFilters.has(entry.source));
+      filtered = filtered.filter(
+        (entry) => entry.source && filterSortState.sourceFilters.has(entry.source)
+      );
     }
 
     // Apply category filters
     if (filterSortState.categoryFilters.size > 0) {
-      filtered = filtered.filter((entry) => entry.category && filterSortState.categoryFilters.has(entry.category));
+      filtered = filtered.filter(
+        (entry) => entry.category && filterSortState.categoryFilters.has(entry.category)
+      );
     }
 
     // Apply sorting
@@ -463,12 +510,16 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
 
     // Apply source filters
     if (filterSortState.sourceFilters.size > 0) {
-      filtered = filtered.filter((entry) => entry.source && filterSortState.sourceFilters.has(entry.source));
+      filtered = filtered.filter(
+        (entry) => entry.source && filterSortState.sourceFilters.has(entry.source)
+      );
     }
 
     // Apply category filters
     if (filterSortState.categoryFilters.size > 0) {
-      filtered = filtered.filter((entry) => entry.category && filterSortState.categoryFilters.has(entry.category));
+      filtered = filtered.filter(
+        (entry) => entry.category && filterSortState.categoryFilters.has(entry.category)
+      );
     }
 
     // Apply sorting
@@ -737,12 +788,22 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
                   className="group h-7 w-7 -ml-1 rounded-md flex items-center justify-center bg-white/30 dark:bg-white/20 hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 relative"
                 >
                   {/* Activity icon - default state */}
-                  <Activity className={`w-4 h-4 text-white absolute transition-opacity ${isBuilding ? 'opacity-0' : 'group-hover:opacity-0'}`} />
+                  <Activity
+                    className={`w-4 h-4 text-white absolute transition-opacity ${isBuilding ? 'opacity-0' : 'group-hover:opacity-0'}`}
+                  />
                   {/* RefreshCw icon - hover/building state */}
-                  <RefreshCw className={`w-4 h-4 text-white absolute transition-opacity ${isBuilding ? 'opacity-100 animate-spin' : 'opacity-0 group-hover:opacity-100'}`} />
+                  <RefreshCw
+                    className={`w-4 h-4 text-white absolute transition-opacity ${isBuilding ? 'opacity-100 animate-spin' : 'opacity-0 group-hover:opacity-100'}`}
+                  />
                 </button>
               </TooltipTrigger>
-              <TooltipContentNoArrow side="top" sideOffset={6} align="start" alignOffset={2} className="backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 text-gray-900 dark:text-gray-100">
+              <TooltipContentNoArrow
+                side="top"
+                sideOffset={6}
+                align="start"
+                alignOffset={2}
+                className="backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 text-gray-900 dark:text-gray-100"
+              >
                 Build my day
               </TooltipContentNoArrow>
             </Tooltip>
@@ -760,7 +821,9 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
             className="flex-1 flex items-center gap-2 hover:opacity-80 transition-opacity text-left"
           >
             <div className="flex flex-col items-start">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50">Recent Activity</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-50">
+                Recent Activity
+              </h3>
               <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                 {suggestedEntries.length > 0
                   ? `${suggestedEntries.length} ${suggestedEntries.length === 1 ? 'suggestion' : 'suggestions'} pending approval`
@@ -780,18 +843,18 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
               animate={{
                 opacity: isCollapsed ? 1 : 0,
                 scale: isCollapsed ? 1 : 0.8,
-                rotate: isCollapsed ? 0 : 90
+                rotate: isCollapsed ? 0 : 90,
               }}
               transition={{
                 opacity: { duration: 0.15, ease: 'easeInOut' },
                 scale: { duration: 0.2, ease: 'easeInOut' },
-                rotate: { duration: 0.2, ease: 'easeInOut' }
+                rotate: { duration: 0.2, ease: 'easeInOut' },
               }}
               className="absolute inset-0 flex items-center justify-center h-7 w-7 rounded-md hover:bg-white/10 transition-all flex-shrink-0"
               style={{
                 pointerEvents: isCollapsed ? 'auto' : 'none',
                 willChange: 'opacity, transform',
-                visibility: isCollapsed ? 'visible' : 'hidden'
+                visibility: isCollapsed ? 'visible' : 'hidden',
               }}
             >
               <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400 rotate-180" />
@@ -802,18 +865,18 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
               animate={{
                 opacity: !isCollapsed ? 1 : 0,
                 scale: !isCollapsed ? 1 : 0.8,
-                rotate: !isCollapsed ? 0 : -90
+                rotate: !isCollapsed ? 0 : -90,
               }}
               transition={{
                 opacity: { duration: 0.15, ease: 'easeInOut' },
                 scale: { duration: 0.2, ease: 'easeInOut' },
-                rotate: { duration: 0.2, ease: 'easeInOut' }
+                rotate: { duration: 0.2, ease: 'easeInOut' },
               }}
               className="absolute inset-0 flex items-center justify-center"
               style={{
                 pointerEvents: !isCollapsed ? 'auto' : 'none',
                 willChange: 'opacity, transform',
-                visibility: !isCollapsed ? 'visible' : 'hidden'
+                visibility: !isCollapsed ? 'visible' : 'hidden',
               }}
             >
               <FilterSortPopover
@@ -874,9 +937,7 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
                   className="flex-1 text-sm font-medium gap-1.5 data-[state=active]:bg-white/30 data-[state=active]:dark:bg-white/15 h-[calc(100%-0px)] text-gray-900 dark:text-gray-50"
                 >
                   Dismissed
-                  <span className="text-xs">
-                    {filteredAndSortedDismissed.length}
-                  </span>
+                  <span className="text-xs">{filteredAndSortedDismissed.length}</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -931,288 +992,300 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
                           >
                             <div className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 rounded-2xl p-3 hover:bg-white/30 dark:hover:bg-white/15 transition-colors">
                               <div className="flex items-start gap-3">
-                        {/* Category icons */}
-                        {entry.category === 'personal' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
-                            <User className="w-4 h-4" />
-                          </span>
-                        ) : entry.category === 'general' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 flex-shrink-0">
-                            <Users className="w-4 h-4" />
-                          </span>
-                        ) : entry.category === 'project' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md text-orange-600 dark:text-orange-400 flex-shrink-0">
-                            <Calendar className="w-4 h-4" />
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-purple-500/20 text-purple-600 dark:text-purple-400 flex-shrink-0">
-                            <Brain className="w-4 h-4" />
-                          </span>
-                        )}
-
-                        {/* Entry Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">{entry.project}</span>
-                            {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
-                            {entry.source === 'ai' && entry.confidence && entry.confidence > 0 && (
-                              <>
-                                {entry.activities && entry.activities.length > 0 ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span
-                                        className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium cursor-help hover:opacity-80 transition-opacity ${entryService.getConfidenceColor(
-                                          entry.confidence ?? 0
-                                        )}`}
-                                      >
-                                        {entry.confidence}%
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContentNoArrow
-                                      side="bottom"
-                                      align="center"
-                                      sideOffset={4}
-                                      className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl p-2"
-                                    >
-                                      <ActivityBreakdownTooltip
-                                        activities={entry.activities}
-                                        idleSeconds={entry.idleSeconds}
-                                        totalSeconds={entry.durationSeconds}
-                                        category={entry.category}
-                                      />
-                                    </TooltipContentNoArrow>
-                                  </Tooltip>
+                                {/* Category icons */}
+                                {entry.category === 'personal' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
+                                    <User className="w-4 h-4" />
+                                  </span>
+                                ) : entry.category === 'general' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                                    <Users className="w-4 h-4" />
+                                  </span>
+                                ) : entry.category === 'project' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md text-orange-600 dark:text-orange-400 flex-shrink-0">
+                                    <Calendar className="w-4 h-4" />
+                                  </span>
                                 ) : (
-                                  <span
-                                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${entryService.getConfidenceColor(
-                                      entry.confidence ?? 0
-                                    )}`}
-                                  >
-                                    {entry.confidence}%
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-purple-500/20 text-purple-600 dark:text-purple-400 flex-shrink-0">
+                                    <Brain className="w-4 h-4" />
                                   </span>
                                 )}
-                              </>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-700 dark:text-gray-300 truncate mb-1">{entry.task}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                            <span>{entry.shortDate}</span>
-                            <span>•</span>
-                            <span>{entry.duration}</span>
-                            {entry.wbsCode && (
-                              <>
-                                <span>•</span>
-                                <span>{entry.wbsCode}</span>
-                              </>
-                            )}
-                          </div>
-                          {entry.description && (
-                            <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 italic">
-                              {entry.description}
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Action Buttons - Suggestions */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {/* Accept */}
-                          <button
-                            onClick={() => void handleAccept(entry)}
-                            aria-label="Accept suggestion"
-                            className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-green-500/30 hover:text-green-700 dark:hover:text-green-400 hover:border-green-500/50 transition-all hover:scale-110 active:scale-90"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          {/* Edit */}
-                          <button
-                            onClick={() => handleEdit(entry)}
-                            aria-label="Edit suggestion"
-                            className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-blue-500/30 hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-500/50 transition-all hover:scale-110 active:scale-90"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          {/* Dismiss */}
-                          <button
-                            onClick={() => void handleDismiss(entry.id)}
-                            aria-label="Dismiss suggestion"
-                            className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-red-500/30 hover:text-red-700 dark:hover:text-red-400 hover:border-red-500/50 transition-all hover:scale-110 active:scale-90"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                                {/* Entry Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                                      {entry.project}
+                                    </span>
+                                    {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
+                                    {entry.source === 'ai' &&
+                                      entry.confidence &&
+                                      entry.confidence > 0 && (
+                                        <>
+                                          {entry.activities && entry.activities.length > 0 ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span
+                                                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium cursor-help hover:opacity-80 transition-opacity ${entryService.getConfidenceColor(
+                                                    entry.confidence ?? 0
+                                                  )}`}
+                                                >
+                                                  {entry.confidence}%
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContentNoArrow
+                                                side="bottom"
+                                                align="center"
+                                                sideOffset={4}
+                                                className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl p-2"
+                                              >
+                                                <ActivityBreakdownTooltip
+                                                  activities={entry.activities}
+                                                  idleSeconds={entry.idleSeconds}
+                                                  totalSeconds={entry.durationSeconds}
+                                                  category={entry.category}
+                                                />
+                                              </TooltipContentNoArrow>
+                                            </Tooltip>
+                                          ) : (
+                                            <span
+                                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${entryService.getConfidenceColor(
+                                                entry.confidence ?? 0
+                                              )}`}
+                                            >
+                                              {entry.confidence}%
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                  </div>
+                                  <div className="text-xs text-gray-700 dark:text-gray-300 truncate mb-1">
+                                    {entry.task}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                    <span>{entry.shortDate}</span>
+                                    <span>•</span>
+                                    <span>{entry.duration}</span>
+                                    {entry.wbsCode && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{entry.wbsCode}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {entry.description && (
+                                    <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 italic">
+                                      {entry.description}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Action Buttons - Suggestions */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {/* Accept */}
+                                  <button
+                                    onClick={() => void handleAccept(entry)}
+                                    aria-label="Accept suggestion"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-green-500/30 hover:text-green-700 dark:hover:text-green-400 hover:border-green-500/50 transition-all hover:scale-110 active:scale-90"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  {/* Edit */}
+                                  <button
+                                    onClick={() => handleEdit(entry)}
+                                    aria-label="Edit suggestion"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-blue-500/30 hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-500/50 transition-all hover:scale-110 active:scale-90"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  {/* Dismiss */}
+                                  <button
+                                    onClick={() => void handleDismiss(entry.id)}
+                                    aria-label="Dismiss suggestion"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-red-500/30 hover:text-red-700 dark:hover:text-red-400 hover:border-red-500/50 transition-all hover:scale-110 active:scale-90"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
               </TabsContent>
 
               {/* Dismissed Tab Content */}
-          <TabsContent value="dismissed" className="mt-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-              </div>
-            ) : filteredAndSortedDismissed.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <X className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
-                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                  No dismissed entries
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 text-center mt-1">
-                  Dismissed suggestions will appear here
-                </p>
-              </div>
-            ) : (
-              <div
-                ref={dismissedParentRef}
-                className="overflow-auto scrollbar-hide rounded-2xl"
-                style={{
-                  height: `${Math.min(dismissedVirtualizer.getTotalSize(), 297)}px`,
-                  maxHeight: '297px', // 3 cards max (approx)
-                }}
-              >
-                <div
-                  style={{
-                    height: `${dismissedVirtualizer.getTotalSize()}px`,
-                    width: '100%',
-                    position: 'relative',
-                  }}
-                >
-                  {dismissedVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const entry = filteredAndSortedDismissed[virtualRow.index];
-                    if (!entry) return null;
-                    return (
-                      <div
-                        key={entry.id}
-                        data-index={virtualRow.index}
-                        ref={dismissedVirtualizer.measureElement}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          transform: `translateY(${virtualRow.start}px)`,
-                          paddingBottom: '8px', // Equal gap between cards
-                        }}
-                      >
-                        <div className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 rounded-2xl p-3 hover:bg-white/30 dark:hover:bg-white/15 transition-colors">
-                          <div className="flex items-start gap-3">
-                        {/* Category icons */}
-                        {entry.category === 'personal' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
-                            <User className="w-4 h-4" />
-                          </span>
-                        ) : entry.category === 'general' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 flex-shrink-0">
-                            <Users className="w-4 h-4" />
-                          </span>
-                        ) : entry.category === 'project' ? (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md text-orange-600 dark:text-orange-400 flex-shrink-0">
-                            <Calendar className="w-4 h-4" />
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-purple-500/20 text-purple-600 dark:text-purple-400 flex-shrink-0">
-                            <Brain className="w-4 h-4" />
-                          </span>
-                        )}
-
-                        {/* Entry Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">{entry.project}</span>
-                            {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
-                            {entry.source === 'ai' && entry.confidence && entry.confidence > 0 && (
-                              <>
-                                {entry.activities && entry.activities.length > 0 ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span
-                                        className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium cursor-help hover:opacity-80 transition-opacity ${entryService.getConfidenceColor(
-                                          entry.confidence ?? 0
-                                        )}`}
-                                      >
-                                        {entry.confidence}%
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContentNoArrow
-                                      side="bottom"
-                                      align="center"
-                                      sideOffset={4}
-                                      className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl p-2"
-                                    >
-                                      <ActivityBreakdownTooltip
-                                        activities={entry.activities}
-                                        idleSeconds={entry.idleSeconds}
-                                        totalSeconds={entry.durationSeconds}
-                                        category={entry.category}
-                                      />
-                                    </TooltipContentNoArrow>
-                                  </Tooltip>
+              <TabsContent value="dismissed" className="mt-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  </div>
+                ) : filteredAndSortedDismissed.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 px-4">
+                    <X className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                      No dismissed entries
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 text-center mt-1">
+                      Dismissed suggestions will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    ref={dismissedParentRef}
+                    className="overflow-auto scrollbar-hide rounded-2xl"
+                    style={{
+                      height: `${Math.min(dismissedVirtualizer.getTotalSize(), 297)}px`,
+                      maxHeight: '297px', // 3 cards max (approx)
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: `${dismissedVirtualizer.getTotalSize()}px`,
+                        width: '100%',
+                        position: 'relative',
+                      }}
+                    >
+                      {dismissedVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const entry = filteredAndSortedDismissed[virtualRow.index];
+                        if (!entry) return null;
+                        return (
+                          <div
+                            key={entry.id}
+                            data-index={virtualRow.index}
+                            ref={dismissedVirtualizer.measureElement}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              transform: `translateY(${virtualRow.start}px)`,
+                              paddingBottom: '8px', // Equal gap between cards
+                            }}
+                          >
+                            <div className="backdrop-blur-xl bg-white/20 dark:bg-white/10 border border-white/30 dark:border-white/20 rounded-2xl p-3 hover:bg-white/30 dark:hover:bg-white/15 transition-colors">
+                              <div className="flex items-start gap-3">
+                                {/* Category icons */}
+                                {entry.category === 'personal' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
+                                    <User className="w-4 h-4" />
+                                  </span>
+                                ) : entry.category === 'general' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                                    <Users className="w-4 h-4" />
+                                  </span>
+                                ) : entry.category === 'project' ? (
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md text-orange-600 dark:text-orange-400 flex-shrink-0">
+                                    <Calendar className="w-4 h-4" />
+                                  </span>
                                 ) : (
-                                  <span
-                                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${entryService.getConfidenceColor(
-                                      entry.confidence ?? 0
-                                    )}`}
-                                  >
-                                    {entry.confidence}%
+                                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-purple-500/20 text-purple-600 dark:text-purple-400 flex-shrink-0">
+                                    <Brain className="w-4 h-4" />
                                   </span>
                                 )}
-                              </>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-700 dark:text-gray-300 truncate mb-1">{entry.task}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                            <span>{entry.shortDate}</span>
-                            <span>•</span>
-                            <span>{entry.duration}</span>
-                            {entry.wbsCode && (
-                              <>
-                                <span>•</span>
-                                <span>{entry.wbsCode}</span>
-                              </>
-                            )}
-                          </div>
-                          {entry.description && (
-                            <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 italic">
-                              {entry.description}
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Action Buttons - Dismissed */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {/* Restore */}
-                          <button
-                            onClick={() => void handleRestore(entry.id)}
-                            aria-label="Restore"
-                            className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-blue-500/30 hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-500/50 transition-all hover:scale-110 active:scale-90"
-                          >
-                            <Undo2 className="w-3.5 h-3.5" />
-                          </button>
-                          {/* Delete */}
-                          <button
-                            onClick={() => void handleDelete(entry.id)}
-                            aria-label="Delete permanently"
-                            className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-red-500/30 hover:text-red-700 dark:hover:text-red-400 hover:border-red-500/50 transition-all hover:scale-110 active:scale-90"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                                {/* Entry Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-50 truncate">
+                                      {entry.project}
+                                    </span>
+                                    {/* Confidence badge - AI entries only - FEATURE-021: Added activity breakdown tooltip */}
+                                    {entry.source === 'ai' &&
+                                      entry.confidence &&
+                                      entry.confidence > 0 && (
+                                        <>
+                                          {entry.activities && entry.activities.length > 0 ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span
+                                                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium cursor-help hover:opacity-80 transition-opacity ${entryService.getConfidenceColor(
+                                                    entry.confidence ?? 0
+                                                  )}`}
+                                                >
+                                                  {entry.confidence}%
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContentNoArrow
+                                                side="bottom"
+                                                align="center"
+                                                sideOffset={4}
+                                                className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl p-2"
+                                              >
+                                                <ActivityBreakdownTooltip
+                                                  activities={entry.activities}
+                                                  idleSeconds={entry.idleSeconds}
+                                                  totalSeconds={entry.durationSeconds}
+                                                  category={entry.category}
+                                                />
+                                              </TooltipContentNoArrow>
+                                            </Tooltip>
+                                          ) : (
+                                            <span
+                                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${entryService.getConfidenceColor(
+                                                entry.confidence ?? 0
+                                              )}`}
+                                            >
+                                              {entry.confidence}%
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                  </div>
+                                  <div className="text-xs text-gray-700 dark:text-gray-300 truncate mb-1">
+                                    {entry.task}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                    <span>{entry.shortDate}</span>
+                                    <span>•</span>
+                                    <span>{entry.duration}</span>
+                                    {entry.wbsCode && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{entry.wbsCode}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {entry.description && (
+                                    <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 italic">
+                                      {entry.description}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Action Buttons - Dismissed */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {/* Restore */}
+                                  <button
+                                    onClick={() => void handleRestore(entry.id)}
+                                    aria-label="Restore"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-blue-500/30 hover:text-blue-700 dark:hover:text-blue-400 hover:border-blue-500/50 transition-all hover:scale-110 active:scale-90"
+                                  >
+                                    <Undo2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  {/* Delete */}
+                                  <button
+                                    onClick={() => void handleDelete(entry.id)}
+                                    aria-label="Delete permanently"
+                                    className="h-7 w-7 rounded-full flex items-center justify-center bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-white/30 dark:border-white/20 hover:bg-red-500/30 hover:text-red-700 dark:hover:text-red-400 hover:border-red-500/50 transition-all hover:scale-110 active:scale-90"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </motion.section>
+                )}
+              </TabsContent>
+            </Tabs>
+          </motion.section>
         )}
       </AnimatePresence>
 
@@ -1246,15 +1319,18 @@ export function SuggestedEntries({ onAcceptEntry, onDismissEntry, onCountChange,
               Authentication Required
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-300 dark:text-gray-300 space-y-3 pt-2">
+              <p>You need to sign in to your account before approving time entries.</p>
               <p>
-                You need to sign in to your account before approving time entries.
-              </p>
-              <p>
-                Time entries are synced to the Pulsarc API using GraphQL, which requires authentication.
+                Time entries are synced to the Pulsarc API using GraphQL, which requires
+                authentication.
               </p>
               <div className="pt-2">
                 <p className="text-xs text-gray-400 dark:text-gray-400">
-                  Go to <span className="font-semibold text-gray-300 dark:text-gray-300">Settings → Account</span> to sign in.
+                  Go to{' '}
+                  <span className="font-semibold text-gray-300 dark:text-gray-300">
+                    Settings → Account
+                  </span>{' '}
+                  to sign in.
                 </p>
               </div>
             </DialogDescription>

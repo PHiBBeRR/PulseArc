@@ -1,6 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+/**
+ * Unit tests for IdleDetectionModal component
+ *
+ * Tests the modal UI that prompts users when idle time is detected.
+ * Covers rendering, user interactions, and different idle duration displays.
+ *
+ * Related: FEATURE-028 (Idle Time Tracking - Phase 4 Frontend Integration)
+ */
+
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { IdleDetectionModal } from './IdleDetectionModal';
 
 describe('IdleDetectionModal', () => {
@@ -71,7 +80,14 @@ describe('IdleDetectionModal', () => {
   it('should not call handlers when modal is closed', () => {
     const onKeepTime = vi.fn();
     const onDiscardTime = vi.fn();
-    render(<IdleDetectionModal {...defaultProps} isOpen={false} onKeepTime={onKeepTime} onDiscardTime={onDiscardTime} />);
+    render(
+      <IdleDetectionModal
+        {...defaultProps}
+        isOpen={false}
+        onKeepTime={onKeepTime}
+        onDiscardTime={onDiscardTime}
+      />
+    );
 
     // Modal should not be in the document
     expect(screen.queryByText('Keep Time')).not.toBeInTheDocument();

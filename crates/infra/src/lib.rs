@@ -10,7 +10,7 @@
 //!
 //! ## Architecture
 //! - Implements traits defined in `pulsearc-core`
-//! - Depends on `pulsearc-shared` and `pulsearc-core`
+//! - Depends on `pulsearc-common` and `pulsearc-core`
 //! - Contains all "impure" code (I/O, platform APIs)
 
 pub mod database;

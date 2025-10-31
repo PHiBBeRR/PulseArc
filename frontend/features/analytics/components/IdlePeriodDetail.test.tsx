@@ -1,11 +1,24 @@
+/**
+ * FEATURE-028: Idle Period Detail Component Tests (Phase 5)
+ * Unit tests for IdlePeriodDetail component
+ *
+ * Tests the component that displays detailed information about a single
+ * idle period, including duration, trigger type, user action, and notes.
+ *
+ * Test Coverage:
+ * - Duration Display: Showing idle period duration in readable format
+ * - Trigger Type Badge: Visual indicator for trigger (threshold, lock, sleep)
+ * - User Action Display: Showing kept/discarded/pending status with icons
+ * - Timestamp Display: Start and end times of idle period
+ * - Notes Display: User-added notes for idle period context
+ * - Editing Capability: Allowing users to update action and add notes
+ * - Save Functionality: Persisting changes via update_idle_period_action
+ * - Visual Design: Color coding and icons for different statuses
+ */
+
 import { describe, it } from 'vitest';
 // import { render, screen } from '@testing-library/react';
 // import userEvent from '@testing-library/user-event';
-
-// FEATURE-028: Idle Period Detail Component Tests (Phase 5)
-//
-// This component displays detailed information about a single idle period,
-// including duration, trigger type, user action, and notes.
 
 describe('IdlePeriodDetail', () => {
   it.skip('should display idle period duration', () => {
@@ -85,4 +98,3 @@ describe('IdlePeriodDetail', () => {
     // Test: Verify form remains open for retry
   });
 });
-

@@ -1,6 +1,6 @@
 //! Calendar integration commands
 
-use pulsearc_shared::Result;
+use pulsearc_domain::Result;
 use serde::{Deserialize, Serialize};
 
 /// Calendar event for timeline display

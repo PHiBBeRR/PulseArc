@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Check, X, Edit2, Plus, Minus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { haptic, celebrateWithConfetti } from '@/shared/utils';
+import { celebrateWithConfetti, haptic } from '@/shared/utils';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Edit2, Minus, Plus, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { getProjectColor } from '../../project/utils/projectColors';
 import { entryService } from '../services';
 import type { SaveEntryModalProps } from '../types';
@@ -28,7 +28,15 @@ const formatDuration = (minutes: number): string => {
   return `${hours}h ${mins}m`;
 };
 
-export function SaveEntryModal({ isOpen, onClose, onAccept, onReject, duration, elapsedSeconds, activityContext }: SaveEntryModalProps) {
+export function SaveEntryModal({
+  isOpen,
+  onClose,
+  onAccept,
+  onReject,
+  duration,
+  elapsedSeconds,
+  activityContext,
+}: SaveEntryModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(entryService.getAISuggestion(elapsedSeconds));
   const [editedProject, setEditedProject] = useState('');
@@ -44,8 +52,14 @@ export function SaveEntryModal({ isOpen, onClose, onAccept, onReject, duration, 
       // Use activity context if available, otherwise fall back to time-based AI suggestion
       if (activityContext) {
         suggestion = {
-          project: activityContext.suggested_client ?? activityContext.active_app.app_name ?? 'Unknown Project',
-          task: activityContext.detected_activity ?? activityContext.active_app.window_title ?? 'Work session',
+          project:
+            activityContext.suggested_client ??
+            activityContext.active_app.app_name ??
+            'Unknown Project',
+          task:
+            activityContext.detected_activity ??
+            activityContext.active_app.window_title ??
+            'Work session',
           confidence: Math.round(activityContext.billable_confidence * 100),
           reason: 'Based on your recent activity',
         };
@@ -124,18 +138,26 @@ export function SaveEntryModal({ isOpen, onClose, onAccept, onReject, duration, 
                 <div className="space-y-3">
                   {/* Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-200 dark:border-neutral-700">
-                    <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">Save Time Entry</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">
+                      Save Time Entry
+                    </span>
                   </div>
 
                   {/* Project */}
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${projectColor.dot}`} />
-                    <span className={`text-sm font-medium ${projectColor.text}`}>{aiSuggestion.project}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">{duration}</span>
+                    <span className={`text-sm font-medium ${projectColor.text}`}>
+                      {aiSuggestion.project}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                      {duration}
+                    </span>
                   </div>
 
                   {/* Task */}
-                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{aiSuggestion.task}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {aiSuggestion.task}
+                  </p>
 
                   {/* Actions */}
                   <div className="flex gap-1.5 pt-1">
@@ -169,7 +191,9 @@ export function SaveEntryModal({ isOpen, onClose, onAccept, onReject, duration, 
                 <>
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-200 dark:border-neutral-700">
                     <Edit2 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                    <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">Edit Entry</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100 font-semibold">
+                      Edit Entry
+                    </span>
                   </div>
 
                   <div className="space-y-2.5">

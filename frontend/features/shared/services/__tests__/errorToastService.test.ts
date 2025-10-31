@@ -1,8 +1,8 @@
 // FEATURE-020 Phase 4.4: Error Toast Service Tests
 // Test coverage for SAP error display and user feedback
 
-import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
 import type { SapError } from '@/shared/types/SapError';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock toast system
 vi.mock('sonner', () => ({
@@ -12,8 +12,8 @@ vi.mock('sonner', () => ({
 }));
 
 // Import after mock
-import { errorToastService } from '../errorToastService';
 import { toast } from 'sonner';
+import { errorToastService } from '../errorToastService';
 
 // Get reference to mocked function
 const mockToastError = vi.mocked(toast.error);
@@ -186,8 +186,12 @@ describe('Error Toast Service', () => {
     expect(mockToastError).toHaveBeenCalledTimes(2);
 
     // Verify second call is for latest error
-    expect(mockToastError).toHaveBeenNthCalledWith(2, 'Server Unavailable', expect.objectContaining({
-      description: 'Server unavailable error',
-    }));
+    expect(mockToastError).toHaveBeenNthCalledWith(
+      2,
+      'Server Unavailable',
+      expect.objectContaining({
+        description: 'Server unavailable error',
+      })
+    );
   });
 });

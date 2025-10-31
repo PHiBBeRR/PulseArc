@@ -1,12 +1,27 @@
-// FEATURE-020 Phase 2: WBS Autocomplete Component Tests
-// Test coverage for WBS autocomplete UI with FTS5 search
+/**
+ * FEATURE-020 Phase 2: WBS Autocomplete Component Tests
+ * Unit tests for WBS autocomplete UI with FTS5 search
+ *
+ * Tests the autocomplete component for searching and selecting SAP WBS elements.
+ * Uses SQLite FTS5 full-text search for fast, fuzzy matching.
+ *
+ * Test Coverage:
+ * - Search Functionality: FTS5 search with query highlighting
+ * - Display Formatting: WBS code, project name, and description
+ * - User Interaction: Typing, selecting, keyboard navigation
+ * - Favorites: Pinned WBS elements for quick access
+ * - Recent Usage: Recently used WBS elements
+ * - Enriched Metadata: Display of opportunity/deal information (FEATURE-029)
+ * - Loading States: Search debouncing and loading indicators
+ * - Error Handling: Network failures, empty results
+ */
 
-import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { WbsAutocomplete } from './WbsAutocomplete';
 import { SapService } from '@/features/settings/services/sapService';
 import type { WbsElement } from '@/shared/types/generated';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WbsAutocomplete } from './WbsAutocomplete';
 
 // Mock SapService
 vi.mock('@/features/settings/services/sapService', () => ({

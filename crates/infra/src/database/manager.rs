@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use pulsearc_shared::{PulseArcError, Result};
+use pulsearc_domain::{PulseArcError, Result};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 

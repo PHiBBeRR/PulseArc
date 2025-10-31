@@ -4,15 +4,15 @@
  * FEATURE-019 Phase 3
  */
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Pencil, Clock, Send } from 'lucide-react';
 import { WbsAutocomplete } from '@/features/timer/components/WbsAutocomplete';
-import type { TimeEntry } from '../types';
 import type { AcceptPatch, WbsElement } from '@/shared/types/generated';
 import { haptic } from '@/shared/utils';
+import { Clock, Pencil, Send } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type { TimeEntry } from '../types';
 
 interface EditEntryModalProps {
   entry: TimeEntry | null;
@@ -23,7 +23,8 @@ interface EditEntryModalProps {
 
 // Helper function to get card colors based on entry source/category
 const getEntryCardColors = (entry: TimeEntry | null) => {
-  if (!entry) return 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700';
+  if (!entry)
+    return 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700';
 
   // Calendar = orange
   if (entry.source === 'calendar') {
@@ -112,7 +113,11 @@ export function EditEntryModal({ entry, isOpen, onClose, onSave }: EditEntryModa
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent hideClose hideOverlay className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl sm:max-w-[360px] p-5 gap-4">
+      <DialogContent
+        hideClose
+        hideOverlay
+        className="bg-neutral-100 dark:bg-neutral-900 border-2 border-neutral-200 dark:border-neutral-700 shadow-xl sm:max-w-[360px] p-5 gap-4"
+      >
         <DialogHeader>
           <DialogTitle className="text-gray-900 dark:text-gray-100 text-sm flex items-center gap-2">
             <Pencil className="w-4 h-4" />
@@ -126,14 +131,11 @@ export function EditEntryModal({ entry, isOpen, onClose, onSave }: EditEntryModa
             <div className="text-sm text-gray-900 dark:text-gray-50 mb-1">
               {entry.project ?? entry.category ?? 'Unallocated'}
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-              {entry.task}
-            </div>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">{entry.task}</div>
             <div className="text-xs text-gray-600 dark:text-gray-400">
               {entry.shortDate ?? entry.time}
               {(entry.shortDate ?? entry.time) && ' • '}
-              <Clock className="w-3 h-3 inline" />
-              {' '}{formatDuration(duration)}
+              <Clock className="w-3 h-3 inline" /> {formatDuration(duration)}
             </div>
           </div>
 

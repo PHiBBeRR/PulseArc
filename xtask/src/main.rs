@@ -16,6 +16,7 @@ fn main() -> ExitCode {
     let result = match task.as_deref() {
         Some("ci") => run_ci(),
         Some("fmt") => run_fmt(),
+        Some("prettier") => run_prettier(),
         Some("clippy") => run_clippy(),
         Some("test") => run_test(),
         Some("deny") => run_deny(),
@@ -48,8 +49,9 @@ fn print_help() {
     println!("    cargo xtask <TASK>");
     println!();
     println!("TASKS:");
-    println!("    ci        Run all CI checks (fmt, clippy, test, deny, audit)");
-    println!("    fmt       Check code formatting");
+    println!("    ci        Run all CI checks (fmt, prettier, clippy, test, deny, audit)");
+    println!("    fmt       Check Rust code formatting");
+    println!("    prettier  Check frontend code formatting");
     println!("    clippy    Run Clippy lints");
     println!("    test      Run all tests");
     println!("    deny      Check dependencies with cargo-deny");
@@ -61,31 +63,54 @@ fn print_help() {
 fn run_ci() -> anyhow::Result<()> {
     println!("==> Running CI checks...\n");
 
-    println!("==> Step 1/5: Checking format...");
+    println!("==> Step 1/6: Checking Rust format...");
     run_fmt()?;
 
-    println!("\n==> Step 2/5: Running Clippy...");
+    println!("\n==> Step 2/6: Checking frontend format...");
+    run_prettier()?;
+
+    println!("\n==> Step 3/6: Running Clippy...");
     run_clippy()?;
 
-    println!("\n==> Step 3/5: Running tests...");
+    println!("\n==> Step 4/6: Running tests...");
     run_test()?;
 
-    println!("\n==> Step 4/5: Checking dependencies...");
+    println!("\n==> Step 5/6: Checking dependencies...");
     run_deny()?;
 
-    println!("\n==> Step 5/5: Auditing dependencies...");
+    println!("\n==> Step 6/6: Auditing dependencies...");
     run_audit()?;
 
     println!("\n✓ All CI checks passed!");
     Ok(())
 }
 
-/// Check code formatting
+/// Check Rust code formatting
 fn run_fmt() -> anyhow::Result<()> {
     let status = Command::new("cargo").args(["fmt", "--all", "--", "--check"]).status()?;
 
     if !status.success() {
         anyhow::bail!("Format check failed. Run 'cargo fmt --all' to fix.");
+    }
+
+    Ok(())
+}
+
+/// Check frontend code formatting with Prettier
+fn run_prettier() -> anyhow::Result<()> {
+    // Check if pnpm is installed
+    let check_pnpm = Command::new("pnpm").arg("--version").output();
+
+    if check_pnpm.is_err() || !check_pnpm.as_ref().is_ok_and(|o| o.status.success()) {
+        eprintln!("pnpm is not installed.");
+        eprintln!("Install it from: https://pnpm.io/installation");
+        anyhow::bail!("pnpm not found");
+    }
+
+    let status = Command::new("pnpm").args(["run", "format:check"]).status()?;
+
+    if !status.success() {
+        anyhow::bail!("Prettier found formatting issues. Run 'pnpm run format' to fix.");
     }
 
     Ok(())
@@ -106,7 +131,7 @@ fn run_clippy() -> anyhow::Result<()> {
 
 /// Run all workspace tests
 fn run_test() -> anyhow::Result<()> {
-    let status = Command::new("cargo").args(["test", "--workspace"]).status()?;
+    let status = Command::new("cargo").args(["test", "--workspace", "--all-features"]).status()?;
 
     if !status.success() {
         anyhow::bail!("Tests failed");

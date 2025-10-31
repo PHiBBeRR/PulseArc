@@ -1,6 +1,6 @@
 // Settings feature services
-export { settingsService } from './settingsService';
-export { calendarService } from './calendarService';
 export { adminService } from './adminService';
+export { calendarService } from './calendarService';
 export { SapService, sapService } from './sapService';
-export type { SapAuthStatus, OutboxStatus } from './sapService';
+export type { OutboxStatus, SapAuthStatus } from './sapService';
+export { settingsService } from './settingsService';

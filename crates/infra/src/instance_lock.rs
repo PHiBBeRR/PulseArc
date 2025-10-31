@@ -6,7 +6,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pulsearc_shared::{PulseArcError, Result};
+use pulsearc_domain::{PulseArcError, Result};
 
 /// Single-instance lock manager
 pub struct InstanceLock {
@@ -87,6 +87,13 @@ mod tests {
 
     use super::*;
 
+    /// Validates `InstanceLock::acquire` behavior for the single instance
+    /// scenario.
+    ///
+    /// Assertions:
+    /// - Ensures `lock1.is_ok()` evaluates to true.
+    /// - Ensures `lock2.is_err()` evaluates to true.
+    /// - Ensures `lock3.is_ok()` evaluates to true.
     #[test]
     fn test_single_instance() {
         let temp_dir = env::temp_dir().join("pulsearc_test");

@@ -5,7 +5,7 @@
  * Tests Issue #6: TypeScript Types and Timestamp Normalization
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke (must be hoisted before imports)
 const { mockInvoke } = vi.hoisted(() => ({
@@ -17,25 +17,25 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import {
-  getRecentSnapshots,
-  getRecentActivities,
-  getOutboxStatus,
-  getRecentSegments,
+  createMockActivitySegment,
+  createMockActivitySnapshot,
+  createMockBatchQueue,
+  createMockTimeEntryOutbox,
+} from '@/shared/test/fixtures/backend-types';
+import {
   getBatchStatus,
-  getSyncStats,
   getCostSummary,
-  type ActivitySnapshot,
-  type TimeEntryOutbox,
+  getOutboxStatus,
+  getRecentActivities,
+  getRecentSegments,
+  getRecentSnapshots,
+  getSyncStats,
   type ActivitySegment,
+  type ActivitySnapshot,
   type BatchQueue,
   type SyncStats,
+  type TimeEntryOutbox,
 } from './tauri-backend.types';
-import {
-  createMockActivitySnapshot,
-  createMockTimeEntryOutbox,
-  createMockActivitySegment,
-  createMockBatchQueue,
-} from '@/shared/test/fixtures/backend-types';
 
 describe('Tauri Backend Types - Issue #6: Timestamp Normalization', () => {
   beforeEach(() => {

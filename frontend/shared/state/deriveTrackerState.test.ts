@@ -1,4 +1,18 @@
-import { describe, it, expect } from 'vitest';
+/**
+ * Unit tests for deriveTrackerState function
+ *
+ * Tests the state derivation logic that maps timer states to tracker display states.
+ * This function ensures the activity tracker UI correctly reflects the timer's current state.
+ *
+ * Test Coverage:
+ * - State Mirroring: Tracker always mirrors timer state (inactive, active, paused, idle)
+ * - Comprehensive Coverage: All possible timer states are tested
+ * - Edge Cases: Boundary conditions and state transitions
+ *
+ * Current behavior: Simple 1:1 mapping from timer state to tracker state
+ */
+
+import { describe, expect, it } from 'vitest';
 import { deriveTrackerState } from './deriveTrackerState';
 
 describe('deriveTrackerState', () => {
@@ -39,4 +53,3 @@ describe('deriveTrackerState', () => {
     });
   });
 });
-

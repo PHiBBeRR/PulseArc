@@ -1,9 +1,24 @@
-// FEATURE-020 Phase 4: Recent/Favorite WBS Tests
-// Test coverage for recent and favorite WBS code tracking
+/**
+ * FEATURE-020 Phase 4: Recent/Favorite WBS Tests
+ * Unit tests for recent and favorite WBS code tracking
+ *
+ * Tests the service that manages user's recently used and favorited WBS codes,
+ * providing quick access to frequently used work breakdown structures.
+ *
+ * Test Coverage:
+ * - Recent Tracking: Adding and retrieving recently used WBS codes
+ * - Favorites Management: Add, remove, and list favorite WBS codes
+ * - LRU Behavior: Most recently used codes appear first
+ * - Duplicate Handling: Updating timestamps when same code is reused
+ * - Max Limits: Limiting recent list to prevent unbounded growth
+ * - Persistence: LocalStorage persistence across sessions
+ * - Toggle Operations: Toggling favorite status on/off
+ * - Clearing: Clearing recent and favorite lists
+ */
 
-import { describe, it, beforeEach, afterEach, expect } from 'vitest';
 import { WbsUsageService } from '@/features/timer/services/wbsUsageService';
 import type { WbsElement } from '@/shared/types/generated';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Mock WBS elements for testing
 const createMockWbsElement = (code: string): WbsElement => ({
@@ -184,7 +199,7 @@ describe('Recent and Favorite WBS Codes', () => {
     const favorites = WbsUsageService.getFavorites();
 
     // Filter favorites by search query "12345"
-    const matching = favorites.filter(code => code.includes('12345'));
+    const matching = favorites.filter((code) => code.includes('12345'));
 
     // Verify only matching favorites shown
     expect(matching).toHaveLength(1);

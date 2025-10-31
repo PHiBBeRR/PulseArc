@@ -1,6 +1,6 @@
 /**
  * Idle Sync Metrics Service (FEATURE-012)
- * 
+ *
  * Provides functions to record idle state synchronization metrics
  * for activity monitor tracking and validation.
  */
@@ -36,10 +36,7 @@ export async function recordActivityWake(eventType: string): Promise<void> {
  * @param latencyUs - Emission latency in microseconds
  * @param success - Whether the emission was successful
  */
-export async function recordTimerEventEmission(
-  latencyUs: number,
-  success: boolean
-): Promise<void> {
+export async function recordTimerEventEmission(latencyUs: number, success: boolean): Promise<void> {
   try {
     await invoke('record_timer_event_emission', { latencyUs, success });
   } catch (error) {
@@ -125,4 +122,3 @@ export const idleSyncMetrics = {
   recordStateTransition,
   recordAutoStartTrackerRule,
 };
-

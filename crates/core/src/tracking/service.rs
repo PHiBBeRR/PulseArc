@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use pulsearc_shared::{ActivitySnapshot, Result};
+use pulsearc_domain::{ActivitySnapshot, Result};
 use uuid::Uuid;
 
 use super::ports::{ActivityEnricher, ActivityProvider, ActivityRepository};

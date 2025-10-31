@@ -8,8 +8,8 @@
  * The service module does not exist yet. Uncomment the import below when implementing.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Project } from '@/shared/types/generated';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke (must be hoisted before imports)
 const { mockInvoke } = vi.hoisted(() => ({
@@ -27,10 +27,10 @@ describe('ProjectCache - Issue #5: CUID to Name Lookup', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Reset cache state between tests
     projectCache.clear();
-    
+
     mockProjects = [
       { id: 'cmglxfa357c03ceb9e3cf9d98', name: 'Project Alpha' },
       { id: 'proj-beta-cuid-abc123', name: 'Client Website' },
@@ -124,7 +124,7 @@ describe('ProjectCache - Issue #5: CUID to Name Lookup', () => {
   describe('Preventing Duplicate Fetches (Race Condition)', () => {
     it('should reuse in-flight request if fetch is already pending', async () => {
       // Function to manually resolve the Promise (assigned in Promise callback)
-       
+
       let resolveFirst: ((_: Project[]) => void) | undefined;
 
       mockInvoke.mockReturnValue(
@@ -178,9 +178,7 @@ describe('ProjectCache - Issue #5: CUID to Name Lookup', () => {
       const unknownCuid = 'missing-project-id';
       projectCache.getProjectName(unknownCuid);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        `Project not found in cache: ${unknownCuid}`
-      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(`Project not found in cache: ${unknownCuid}`);
 
       consoleWarnSpy.mockRestore();
     });
@@ -204,10 +202,7 @@ describe('ProjectCache - Issue #5: CUID to Name Lookup', () => {
 
       await projectCache.fetchProjects();
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to fetch projects:',
-        expect.any(Error)
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to fetch projects:', expect.any(Error));
 
       consoleErrorSpy.mockRestore();
     });
@@ -308,7 +303,9 @@ describe('ProjectCache - Issue #5: CUID to Name Lookup', () => {
       await projectCache.refresh();
 
       // Old project should no longer be in cache
-      expect(projectCache.getProjectName('cmglxfa357c03ceb9e3cf9d98')).toBe('cmglxfa357c03ceb9e3cf9d98'); // Falls back to CUID
+      expect(projectCache.getProjectName('cmglxfa357c03ceb9e3cf9d98')).toBe(
+        'cmglxfa357c03ceb9e3cf9d98'
+      ); // Falls back to CUID
 
       // New projects should be cached
       expect(projectCache.getProjectName('new-proj-1')).toBe('New Project 1');

@@ -1,6 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Unit tests for IdleDetectionSettings component
+ *
+ * Tests the settings UI for configuring idle detection behavior,
+ * including idle threshold selection and pause-on-idle toggle.
+ *
+ * Test Coverage:
+ * - Settings Loading: Fetching current settings from backend on mount
+ * - Threshold Dropdown: Displaying and selecting idle threshold values
+ * - Disable Option: "No Idle" option to disable idle detection
+ * - Pause on Idle Toggle: Enable/disable automatic pause on idle
+ * - Settings Persistence: Saving changes via update_idle_settings command
+ * - Validation: Ensuring valid threshold values
+ * - Loading States: Displaying loading indicators during fetch/save
+ * - Error Handling: Displaying errors on save failure
+ */
+
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdleDetectionSettings } from './IdleDetectionSettings';
 
 // Mock Tauri invoke
@@ -82,7 +99,7 @@ describe('IdleDetectionSettings', () => {
       // Check the options are available in the select
       const options = screen.getAllByRole('option');
       expect(options).toHaveLength(5);
-      expect(options.map(o => o.textContent)).toEqual([
+      expect(options.map((o) => o.textContent)).toEqual([
         'No Idle',
         '5 minutes',
         '10 minutes (recommended)',
@@ -133,7 +150,9 @@ describe('IdleDetectionSettings', () => {
     render(<IdleDetectionSettings />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Automatically pause tracking after a period of inactivity/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Automatically pause tracking after a period of inactivity/i)
+      ).toBeInTheDocument();
     });
   });
 

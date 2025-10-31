@@ -1,16 +1,22 @@
-// FEATURE-015: Settings View Calendar Integration UI Tests
-// Tests for Calendar integration UI components
-//
-// These tests validate:
-// - [ ] Connection UI (buttons, status)
-// - [ ] OAuth flow trigger
-// - [ ] Sync actions
-// - [ ] Google API Services disclosure
-//
-// Run with: npm run test -- SettingsView.calendar.test.tsx
+/**
+ * FEATURE-015: Settings View Calendar Integration UI Tests
+ * Tests for Calendar integration UI components
+ *
+ * Validates the calendar integration UI within the settings panel,
+ * including connection management, OAuth flow, and sync actions.
+ *
+ * Test Coverage:
+ * - Connection UI: Connect/disconnect buttons and status display
+ * - OAuth Flow: Triggering OAuth authentication in system browser
+ * - Sync Actions: Manual sync trigger and sync interval configuration
+ * - Status Display: Connected status with email and last sync time
+ * - Google API Disclosure: Privacy disclosure for Google API usage
+ * - Error Handling: Network failures and auth errors
+ * - Loading States: During connection and sync operations
+ */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -129,8 +135,7 @@ describe('Settings Calendar Integration UI', () => {
   describe('Disclosure', () => {
     it('should display Google API Services disclosure', () => {
       // AC: Disclosure text visible before connecting
-      const disclosureText =
-        'By connecting, you agree to our Google API Services disclosure';
+      const disclosureText = 'By connecting, you agree to our Google API Services disclosure';
 
       // TODO: Render component and find disclosure
       expect(disclosureText).toContain('Google API Services');
@@ -179,4 +184,3 @@ describe('Settings Calendar Integration UI', () => {
 //
 // All tests marked with .skip - remove when implementing feature
 // ============================================================================
-

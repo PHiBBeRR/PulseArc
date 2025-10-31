@@ -54,9 +54,7 @@ export function MarqueeText({ text, children, className = '' }: MarqueeTextProps
 
       {!isHovered || !isTruncated ? (
         // Static truncated text when not hovered
-        <div className="truncate whitespace-nowrap">
-          {content}
-        </div>
+        <div className="truncate whitespace-nowrap">{content}</div>
       ) : (
         // Animated marquee when hovered
         <div className="flex whitespace-nowrap">

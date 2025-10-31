@@ -1,8 +1,20 @@
-import { describe, it, beforeEach, vi } from 'vitest';
+/**
+ * FEATURE-028: Idle Analytics Service Tests (Phase 5)
+ * Unit tests for idleAnalyticsService
+ *
+ * Tests the service that handles idle time analytics, including data fetching,
+ * caching, calculations, and export functionality.
+ *
+ * Test Coverage:
+ * - Data Fetching: Retrieving idle summaries and periods via Tauri commands
+ * - Calculations: Idle vs active percentages, duration totals
+ * - Grouping: Organizing idle periods by trigger type (threshold, lock, sleep)
+ * - Filtering: Date ranges, severity levels, trigger types
+ * - Export: Generating reports in various formats
+ * - Caching: Performance optimization for repeated queries
+ */
 
-// FEATURE-028: Idle Analytics Service Tests (Phase 5)
-//
-// This service handles idle time analytics data fetching, caching, and export.
+import { beforeEach, describe, it, vi } from 'vitest';
 
 describe('idleAnalyticsService', () => {
   beforeEach(() => {
@@ -114,4 +126,3 @@ describe('idleAnalyticsService', () => {
     // Test: Verify overall operation doesn't fail
   });
 });
-

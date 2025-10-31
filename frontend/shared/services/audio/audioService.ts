@@ -75,10 +75,7 @@ class AudioService {
       oscillator.type = 'sine';
 
       gainNode.gain.setValueAtTime(gain, this.audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(
-        0.01,
-        this.audioContext.currentTime + duration
-      );
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
 
       oscillator.start(this.audioContext.currentTime);
       oscillator.stop(this.audioContext.currentTime + duration);

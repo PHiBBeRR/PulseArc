@@ -1,8 +1,8 @@
 // FEATURE-020 Phase 2: SAP Service Layer
 // Service wrapper for SAP Tauri commands
 
+import type { OutboxStatusSummary, SapSyncSettings, WbsElement } from '@/shared/types/generated';
 import { invoke } from '@tauri-apps/api/core';
-import type { WbsElement, OutboxStatusSummary, SapSyncSettings } from '@/shared/types/generated';
 
 export type SapAuthStatus = {
   isAuthenticated: boolean;
@@ -36,7 +36,7 @@ export type ValidationResponse = {
 
 /**
  * SAP Service Layer
- * 
+ *
  * Provides a clean TypeScript interface to SAP integration features:
  * - Auth: Login/logout with Auth0 OAuth
  * - WBS Search: FTS5 full-text search in local cache
@@ -45,7 +45,7 @@ export type ValidationResponse = {
 export class SapService {
   /**
    * Start SAP OAuth login flow
-   * 
+   *
    * Opens browser for Auth0 authentication
    * @returns Authorization URL
    */
@@ -55,7 +55,7 @@ export class SapService {
 
   /**
    * Complete SAP OAuth login
-   * 
+   *
    * Validates and stores tokens after callback
    * @param code - Authorization code from callback
    * @param state - State parameter from callback
@@ -66,7 +66,7 @@ export class SapService {
 
   /**
    * Check if user is authenticated with SAP
-   * 
+   *
    * @returns Authentication status
    */
   static async isAuthenticated(): Promise<boolean> {
@@ -75,7 +75,7 @@ export class SapService {
 
   /**
    * Logout from SAP
-   * 
+   *
    * Clears tokens from keychain
    */
   static async logout(): Promise<void> {
@@ -84,7 +84,7 @@ export class SapService {
 
   /**
    * Get authentication status with timestamp
-   * 
+   *
    * Useful for UI status indicators
    */
   static async getAuthStatus(): Promise<SapAuthStatus> {
@@ -97,7 +97,7 @@ export class SapService {
 
   /**
    * Search WBS codes in local cache
-   * 
+   *
    * Uses FTS5 full-text search with BM25 ranking
    * @param query - Search term (matches code, project name, description)
    * @returns Matching WBS elements (max 20)
@@ -111,7 +111,7 @@ export class SapService {
 
   /**
    * Get outbox status summary
-   * 
+   *
    * Returns counts of pending/sent/failed time entries
    * @returns Outbox status with counts
    */
@@ -126,7 +126,7 @@ export class SapService {
 
   /**
    * Retry all failed outbox entries
-   * 
+   *
    * Resets status from 'failed' to 'pending' for forwarder to retry
    * @returns Number of entries reset
    */
@@ -136,7 +136,7 @@ export class SapService {
 
   /**
    * Start the outbox forwarder
-   * 
+   *
    * Begins background sync to server
    */
   static async startForwarder(): Promise<void> {
@@ -145,7 +145,7 @@ export class SapService {
 
   /**
    * Stop the outbox forwarder
-   * 
+   *
    * Stops background sync (useful for debugging)
    */
   static async stopForwarder(): Promise<void> {
@@ -154,7 +154,7 @@ export class SapService {
 
   /**
    * Format WBS element for display
-   * 
+   *
    * @param element - WBS element from search
    * @returns Formatted display string
    */
@@ -221,7 +221,11 @@ export class SapService {
    * @returns Validation response with status and optional message
    */
   static async validateWbs(code: string): Promise<ValidationResponse> {
-    const response = await invoke<{ Valid?: null; Warning?: { message: string }; Error?: { message: string } }>('sap_validate_wbs', { code });
+    const response = await invoke<{
+      Valid?: null;
+      Warning?: { message: string };
+      Error?: { message: string };
+    }>('sap_validate_wbs', { code });
 
     // Convert Rust enum to TypeScript-friendly format
     if ('Valid' in response) {
@@ -255,10 +259,7 @@ export class SapService {
    * @param enabled - Enable/disable background sync
    * @param syncIntervalHours - Hours between syncs (1-24)
    */
-  static async updateSyncSettings(
-    enabled: boolean,
-    syncIntervalHours: number
-  ): Promise<void> {
+  static async updateSyncSettings(enabled: boolean, syncIntervalHours: number): Promise<void> {
     return invoke<void>('sap_update_sync_settings', {
       enabled,
       syncIntervalHours,
@@ -312,4 +313,3 @@ export class SapService {
 }
 
 export const sapService = new SapService();
-

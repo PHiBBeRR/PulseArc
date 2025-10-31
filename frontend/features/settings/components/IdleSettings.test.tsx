@@ -1,11 +1,21 @@
-import { describe, it, beforeEach, vi } from 'vitest';
+/**
+ * FEATURE-028: Idle Settings Component Tests (Phase 4)
+ * Unit tests for IdleSettings configuration component
+ *
+ * Tests the settings UI that allows users to configure idle detection behavior
+ * using presets (Minimal, Balanced, Battery Saver) or custom thresholds.
+ *
+ * Covers:
+ * - Preset selection and application
+ * - Custom threshold configuration
+ * - Validation of threshold and poll interval values
+ * - Battery vs accuracy tradeoff explanations
+ * - Settings persistence via Tauri commands
+ */
+
+import { beforeEach, describe, it, vi } from 'vitest';
 // import { render, screen, waitFor } from '@testing-library/react';
 // import userEvent from '@testing-library/user-event';
-
-// FEATURE-028: Idle Settings Component Tests (Phase 4)
-//
-// This component allows users to configure idle detection behavior using presets
-// (Minimal, Balanced, Battery Saver) or custom thresholds.
 
 describe('IdleSettings', () => {
   beforeEach(() => {
@@ -186,4 +196,3 @@ describe('IdleSettings', () => {
     // Test: Verify example: "Detects 10min+ lunch breaks"
   });
 });
-

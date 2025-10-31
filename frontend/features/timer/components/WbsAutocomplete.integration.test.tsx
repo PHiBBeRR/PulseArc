@@ -1,24 +1,26 @@
-// FEATURE-020 Phase 4: WBS Autocomplete Integration Tests
-// Integration tests for WBS autocomplete with real Tauri backend
-//
-// STATUS: DEFERRED - Full Tauri integration tests require complex infrastructure setup
-//
-// RATIONALE FOR DEFERRAL:
-// - WbsAutocomplete.test.tsx (12 tests) covers all UI behavior with mocked backend
-// - Rust backend tests (51 tests) cover FTS5, TTL, caching, performance
-// - Integration tests would duplicate existing coverage
-// - Tauri test harness setup requires 4-6 hours of infrastructure work
-//
-// FUTURE IMPLEMENTATION STRATEGY:
-// 1. Use @tauri-apps/api/mocks for Tauri command mocking
-// 2. Create shared test utilities in shared/test/tauriTestUtils.ts:
-//    - setupTauriTest() - Initialize Tauri mock environment
-//    - seedWbsCache(elements) - Mock sap_cache_insert command
-//    - clearWbsCache() - Mock cache cleanup
-// 3. Mock invoke() to return predefined WbsElement[] arrays
-// 4. Validate UI behavior with realistic backend responses
-//
-// ALTERNATIVE: Use Playwright for full E2E tests (see feature_020_phase4_e2e_tests.rs)
+/**
+ * FEATURE-020 Phase 4: WBS Autocomplete Integration Tests
+ * Integration tests for WBS autocomplete with real Tauri backend
+ *
+ * STATUS: DEFERRED - Full Tauri integration tests require complex infrastructure setup
+ *
+ * RATIONALE FOR DEFERRAL:
+ * - WbsAutocomplete.test.tsx (12 tests) covers all UI behavior with mocked backend
+ * - Rust backend tests (51 tests) cover FTS5, TTL, caching, performance
+ * - Integration tests would duplicate existing coverage
+ * - Tauri test harness setup requires 4-6 hours of infrastructure work
+ *
+ * FUTURE IMPLEMENTATION STRATEGY:
+ * 1. Use @tauri-apps/api/mocks for Tauri command mocking
+ * 2. Create shared test utilities in shared/test/tauriTestUtils.ts:
+ *    - setupTauriTest() - Initialize Tauri mock environment
+ *    - seedWbsCache(elements) - Mock sap_cache_insert command
+ *    - clearWbsCache() - Mock cache cleanup
+ * 3. Mock invoke() to return predefined WbsElement[] arrays
+ * 4. Validate UI behavior with realistic backend responses
+ *
+ * ALTERNATIVE: Use Playwright for full E2E tests (see feature_020_phase4_e2e_tests.rs)
+ */
 
 import { describe, it } from 'vitest';
 

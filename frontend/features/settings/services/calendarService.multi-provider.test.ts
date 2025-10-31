@@ -1,17 +1,23 @@
-// FEATURE-017: Calendar Service Multi-Provider Tests
-// Tests for updated calendar service with provider parameter support
-//
-// These tests validate frontend integration:
-// - [ ] Connection commands accept provider parameter
-// - [ ] Status returns array of CalendarConnectionStatus
-// - [ ] Sync accepts optional provider parameter
-// - [ ] Disconnect specifies provider
-// - [ ] Type safety with CalendarProvider type
-//
-// Run with: npm run test -- calendarService.multi-provider.test.ts
+/**
+ * FEATURE-017: Calendar Service Multi-Provider Tests
+ * Tests for updated calendar service with provider parameter support
+ *
+ * Validates the enhanced calendar service that supports multiple calendar
+ * providers (Google Calendar, Microsoft Outlook, etc.) with provider-specific
+ * commands and status tracking.
+ *
+ * Test Coverage:
+ * - Connection Commands: Provider-specific auth initiation (google, microsoft)
+ * - Status Array: Multiple connection statuses for different providers
+ * - Sync Operations: Optional provider parameter for targeted sync
+ * - Disconnect: Specifying which provider to disconnect
+ * - Type Safety: CalendarProvider type enforcement
+ * - Multi-Provider State: Managing connections to multiple calendars simultaneously
+ * - Provider Switching: Switching active provider for sync operations
+ */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
@@ -81,9 +87,9 @@ describe('Calendar Service - Multi-Provider Support', () => {
       const mockError = new Error('Unknown calendar provider: apple');
       (invoke as ReturnType<typeof vi.fn>).mockRejectedValue(mockError);
 
-      await expect(
-        invoke('initiate_calendar_auth', { provider: 'apple' })
-      ).rejects.toThrow('Unknown calendar provider');
+      await expect(invoke('initiate_calendar_auth', { provider: 'apple' })).rejects.toThrow(
+        'Unknown calendar provider'
+      );
     });
   });
 
@@ -157,14 +163,14 @@ describe('Calendar Service - Multi-Provider Support', () => {
       const mockCount = 15;
       (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(mockCount);
 
-      const result = await invoke<number>('sync_calendar_events', { 
-        provider: undefined, 
-        force: true 
+      const result = await invoke<number>('sync_calendar_events', {
+        provider: undefined,
+        force: true,
       });
 
-      expect(invoke).toHaveBeenCalledWith('sync_calendar_events', { 
-        provider: undefined, 
-        force: true 
+      expect(invoke).toHaveBeenCalledWith('sync_calendar_events', {
+        provider: undefined,
+        force: true,
       });
       expect(result).toBe(mockCount);
     });
@@ -175,14 +181,14 @@ describe('Calendar Service - Multi-Provider Support', () => {
       const mockCount = 8;
       (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(mockCount);
 
-      const result = await invoke<number>('sync_calendar_events', { 
-        provider: 'microsoft', 
-        force: true 
+      const result = await invoke<number>('sync_calendar_events', {
+        provider: 'microsoft',
+        force: true,
       });
 
-      expect(invoke).toHaveBeenCalledWith('sync_calendar_events', { 
-        provider: 'microsoft', 
-        force: true 
+      expect(invoke).toHaveBeenCalledWith('sync_calendar_events', {
+        provider: 'microsoft',
+        force: true,
       });
       expect(result).toBe(mockCount);
     });
@@ -214,4 +220,3 @@ describe('Calendar Service - Multi-Provider Support', () => {
     });
   });
 });
-

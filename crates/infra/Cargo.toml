@@ -8,7 +8,8 @@ publish.workspace = true
 
 [dependencies]
 # Internal dependencies
-pulsearc-shared = { workspace = true }
+pulsearc-common = { workspace = true, features = ["platform", "observability"] }
+pulsearc-domain = { workspace = true }
 pulsearc-core = { workspace = true }
 
 # Workspace dependencies

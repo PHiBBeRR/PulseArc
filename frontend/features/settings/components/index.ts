@@ -1,5 +1,5 @@
 // Settings feature components
-export { SettingsView } from './SettingsView';
-export { SettingsPanel } from './SettingsPanel';
-export { SapSettings } from './SapSettings';
 export { MainApiSettings } from './MainApiSettings';
+export { SapSettings } from './SapSettings';
+export { SettingsPanel } from './SettingsPanel';
+export { SettingsView } from './SettingsView';

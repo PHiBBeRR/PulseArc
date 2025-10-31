@@ -1,10 +1,25 @@
-// FEATURE-020 Phase 4.4: WBS Validation UI Tests
-// Test coverage for WBS validation feedback in autocomplete
+/**
+ * FEATURE-020 Phase 4.4: WBS Validation UI Tests
+ * Unit tests for WBS validation feedback in autocomplete component
+ *
+ * Tests the real-time validation of WBS codes as users type in the autocomplete,
+ * providing immediate feedback on code validity, status, and any issues.
+ *
+ * Test Coverage:
+ * - Real-time Validation: Validation as user types WBS codes
+ * - Valid Codes: Green checkmark for valid, released WBS codes
+ * - Invalid Codes: Error messages for non-existent codes
+ * - Status Indicators: Visual feedback for locked/closed WBS codes
+ * - Validation Messages: Clear explanations of validation errors
+ * - Debouncing: Avoiding excessive validation calls
+ * - Loading States: Spinner during validation
+ * - Error Recovery: Handling validation service failures
+ */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { WbsAutocomplete } from '../WbsAutocomplete';
 import * as SapService from '@/features/settings/services/sapService';
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WbsAutocomplete } from '../WbsAutocomplete';
 
 // Mock SAP service
 vi.mock('@/features/settings/services/sapService', () => ({
@@ -65,11 +80,7 @@ describe('WBS Validation UI', () => {
 
     // Render with value already set (simulating parent component state)
     render(
-      <WbsAutocomplete
-        value="USC0063201.1.1"
-        onChange={mockOnChange}
-        placeholder="Search WBS..."
-      />
+      <WbsAutocomplete value="USC0063201.1.1" onChange={mockOnChange} placeholder="Search WBS..." />
     );
 
     // Verify warning badge appears (TECO status)
@@ -89,11 +100,7 @@ describe('WBS Validation UI', () => {
 
     // Render with value already set (simulating parent component state)
     render(
-      <WbsAutocomplete
-        value="USC0063202.1.1"
-        onChange={mockOnChange}
-        placeholder="Search WBS..."
-      />
+      <WbsAutocomplete value="USC0063202.1.1" onChange={mockOnChange} placeholder="Search WBS..." />
     );
 
     // Verify error badge appears (CLSD status)
@@ -113,11 +120,7 @@ describe('WBS Validation UI', () => {
 
     // Render with value already set (simulating parent component state)
     render(
-      <WbsAutocomplete
-        value="USC0063203.1.1"
-        onChange={mockOnChange}
-        placeholder="Search WBS..."
-      />
+      <WbsAutocomplete value="USC0063203.1.1" onChange={mockOnChange} placeholder="Search WBS..." />
     );
 
     // Verify valid status (green checkmark appears)
@@ -139,13 +142,7 @@ describe('WBS Validation UI', () => {
     });
 
     // Render with invalid value already set
-    render(
-      <WbsAutocomplete
-        value="INVALID"
-        onChange={mockOnChange}
-        placeholder="Search WBS..."
-      />
-    );
+    render(<WbsAutocomplete value="INVALID" onChange={mockOnChange} placeholder="Search WBS..." />);
 
     // Verify validation was called with invalid code
     await waitFor(() => {
@@ -170,11 +167,7 @@ describe('WBS Validation UI', () => {
     vi.mocked(SapService.SapService.searchWbs).mockResolvedValue([]);
 
     render(
-      <WbsAutocomplete
-        value="USC0063204.1.1"
-        onChange={mockOnChange}
-        placeholder="Search WBS..."
-      />
+      <WbsAutocomplete value="USC0063204.1.1" onChange={mockOnChange} placeholder="Search WBS..." />
     );
 
     // Since value is set, validation should run

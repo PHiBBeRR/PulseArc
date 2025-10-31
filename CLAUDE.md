@@ -145,3 +145,49 @@ If any rule requires an exception, add a short "Deviation" section in the PR wit
 - Linux deps in `Cargo.lock` are **not compiled** for macOS targets
 - Security audits ignore Linux-only advisories (`.cargo/audit.toml`)
 - `xtask` crate excluded from clippy (`make lint` skips it)
+
+### Common Module Organization (`pulsearc-common`)
+
+The `pulsearc-common` crate provides shared utilities organized in tiers:
+
+**Foundation Tier** (feature = `foundation`):
+- `error` — `CommonError` type with classification and context
+- `validation` — Field validators, rule builders, validation framework
+- `utils` — Macros, serde helpers
+- `collections` — Specialized data structures (bloom filter, bounded queue, LRU, trie, ring buffer)
+- `privacy` — Data hashing and pattern detection
+
+**Runtime Tier** (feature = `runtime`):
+- `cache` — Thread-safe caching with TTL and eviction
+- `crypto` — AES-256-GCM encryption primitives
+- `time` — Duration formatting, intervals, timers, cron support
+- `resilience` — **Generic** circuit breaker and retry implementations
+- `sync` — Domain-specific sync queue with integrated resilience
+- `lifecycle` — Component lifecycle management
+- `observability` — Metrics, tracing, error reporting
+
+**Platform Tier** (feature = `platform`):
+- `auth` — OAuth client, token management, PKCE
+- `security` — Key management, keychain provider, RBAC
+- `storage` — SQLCipher integration, encrypted storage
+- `compliance` — Audit logging, feature flags
+
+#### Key Module Relationships
+
+**Resilience Patterns:**
+- `resilience::circuit_breaker` — Generic circuit breaker (library-quality)
+- `resilience::retry` — Generic retry with backoff strategies (library-quality)
+- `sync::retry` — Domain-specific retry for queue operations (integrated metrics, tracing)
+- Use `resilience` for new modules; use `sync::retry` within sync/queue domain
+
+**Encryption:**
+- `crypto::encryption` — Low-level AES-256-GCM primitives
+- `security::encryption` — High-level key management (caching, rotation, keychain)
+
+**Keychain:**
+- `security::encryption::keychain` — Generic platform keychain provider
+- `auth::keychain` — OAuth token-specific storage helpers
+- `security::keychain` — Convenience re-export
+
+#### Testing Utilities (feature = `test-utils`)
+- `testing` — Mock clocks, builders, matchers, temp files, fixtures

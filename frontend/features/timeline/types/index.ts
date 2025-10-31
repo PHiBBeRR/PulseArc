@@ -1,9 +1,9 @@
 // Timeline feature types
 export type {
-  TimelineEntry,
-  TimelineViewProps,
-  TimelineDayViewProps,
   DayData,
   MonthSummary,
+  TimelineDayViewProps,
+  TimelineEntry,
   TimelineFilter,
+  TimelineViewProps,
 } from './timeline.types';

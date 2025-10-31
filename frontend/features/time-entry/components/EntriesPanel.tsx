@@ -1,18 +1,24 @@
-import { useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, MoreHorizontal, Calendar, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ErrorMessage, LoadingSpinner } from '@/shared/components';
+import { Calendar, Filter, MoreHorizontal, Sparkles } from 'lucide-react';
+import { useEffect } from 'react';
 import { useEntryStore } from '../stores';
-import { LoadingSpinner, ErrorMessage } from '@/shared/components';
 import type { EntriesPanelProps, TimeEntry } from '../types';
 
 export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPanelProps) {
@@ -27,7 +33,10 @@ export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPane
   const getStatusBadge = (entry: TimeEntry) => {
     if (entry.status === 'suggested') {
       return (
-        <Badge variant="outline" className="border-blue-500/50 text-blue-600 dark:text-blue-400 bg-blue-500/10 text-xs">
+        <Badge
+          variant="outline"
+          className="border-blue-500/50 text-blue-600 dark:text-blue-400 bg-blue-500/10 text-xs"
+        >
           <Sparkles className="w-2.5 h-2.5 mr-1" />
           {entry.confidence}%
         </Badge>
@@ -75,7 +84,11 @@ export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPane
                   <SelectItem value="month">This Month</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-700 dark:text-gray-300">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-gray-700 dark:text-gray-300"
+              >
                 <Filter className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -115,8 +128,12 @@ export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPane
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-gray-900 dark:text-gray-100 truncate mb-0.5">{entry.task}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{entry.project}</div>
+                        <div className="text-sm text-gray-900 dark:text-gray-100 truncate mb-0.5">
+                          {entry.task}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {entry.project}
+                        </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -128,7 +145,10 @@ export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPane
                             <MoreHorizontal className="w-3.5 h-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95">
+                        <DropdownMenuContent
+                          align="end"
+                          className="backdrop-blur-xl bg-white/95 dark:bg-gray-900/95"
+                        >
                           {entry.status === 'suggested' && (
                             <DropdownMenuItem>
                               <Sparkles className="w-3.5 h-3.5 mr-2" />
@@ -136,7 +156,9 @@ export function EntriesPanel({ isOpen, onClose, showEmpty = false }: EntriesPane
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 dark:text-red-400">Delete</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600 dark:text-red-400">
+                            Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

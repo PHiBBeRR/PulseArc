@@ -1,9 +1,9 @@
 // Timeline business logic service
 
-import { invoke } from '@tauri-apps/api/core';
-import type { TimelineEntry, DayData, MonthSummary } from '../types';
 import type { TimelineCalendarEvent } from '@/shared/types/generated/TimelineCalendarEvent';
 import { formatTimeString } from '@/shared/utils/timeFormat';
+import { invoke } from '@tauri-apps/api/core';
+import type { DayData, MonthSummary, TimelineEntry } from '../types';
 
 // Mock data removed - using real calendar data only
 
@@ -124,7 +124,9 @@ export const timelineService = {
    * Get all events for the week in calendar format
    * Returns a map of day index (0-6) to events for that day
    */
-  getWeekCalendarEvents: async (referenceDate: Date = new Date()): Promise<Map<number, TimelineEntry[]>> => {
+  getWeekCalendarEvents: async (
+    referenceDate: Date = new Date()
+  ): Promise<Map<number, TimelineEntry[]>> => {
     // Get the start of the week (Sunday)
     const startOfWeek = new Date(referenceDate);
     startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay());
@@ -237,7 +239,7 @@ export const timelineService = {
       {
         startDate: startEpoch,
         endDate: endEpoch,
-      },
+      }
     );
 
     return calendarEvents;

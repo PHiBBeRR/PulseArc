@@ -3,8 +3,8 @@
  * Automatically wraps components with ThemeProvider for testing
  */
 
-import { render, type RenderOptions } from '@testing-library/react';
 import { ThemeProvider } from '@/shared/components/layout/ThemeProvider';
+import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement } from 'react';
 
 /**
@@ -16,16 +16,9 @@ import type { ReactElement } from 'react';
  *
  * render(<MyComponent />);
  */
-export function renderWithProviders(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) {
+export function renderWithProviders(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) {
   return render(ui, {
-    wrapper: ({ children }) => (
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
-    ),
+    wrapper: ({ children }) => <ThemeProvider>{children}</ThemeProvider>,
     ...options,
   });
 }

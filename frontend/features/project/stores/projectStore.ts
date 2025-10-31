@@ -1,10 +1,9 @@
 // Project feature Zustand store
-import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
 import type { ActivitySnapshot } from '@/shared/types/generated';
+import { invoke } from '@tauri-apps/api/core';
+import { create } from 'zustand';
 import type { Project, RecentProject } from '../types';
 
- 
 interface ProjectState {
   // State
   projects: Project[];
@@ -26,7 +25,6 @@ interface ProjectState {
   getProjectById: (id: string) => Project | undefined;
   getRecentProjectById: (id: string) => RecentProject | undefined;
 }
- 
 
 /**
  * Project store - manages project state with Tauri backend integration
@@ -85,7 +83,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       const recentProjects = Array.from(projectMap.values());
       set({ recentProjects, loading: false });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch recent projects';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to fetch recent projects';
       set({ error: errorMessage, loading: false });
     }
   },

@@ -1,15 +1,29 @@
-// FEATURE-020 Phase 2: SAP Service Tests
+/**
+ * FEATURE-020 Phase 2: SAP Service Tests
+ * Unit tests for SAP integration service
+ *
+ * Tests the frontend service layer that communicates with the SAP backend
+ * for authentication, WBS search, and time entry submission.
+ *
+ * Test Coverage:
+ * - Authentication: OAuth flow, login/logout, status checks
+ * - WBS Search: Querying work breakdown structures with enriched metadata
+ * - Favorites: Managing user's favorite WBS codes
+ * - Time Entries: Submission to outbox and status tracking
+ * - Outbox: Monitoring submission status and retry logic
+ * - Error Handling: Network failures, auth errors, validation errors
+ */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { WbsElement, OutboxStatusSummary } from '@/shared/types/generated';
+import type { OutboxStatusSummary, WbsElement } from '@/shared/types/generated';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Tauri invoke (must be declared before imports that use it)
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
-import { SapService } from '../sapService';
 import { invoke } from '@tauri-apps/api/core';
+import { SapService } from '../sapService';
 
 const mockInvoke = invoke as ReturnType<typeof vi.fn>;
 
@@ -228,7 +242,9 @@ describe('SapService', () => {
 
       const result = SapService.formatWbsDisplay(element);
 
-      expect(result).toBe('USC0063201.1.1 - Project Astro - Tech Acquisition - (Project Astro - Deals - M&A Tax)');
+      expect(result).toBe(
+        'USC0063201.1.1 - Project Astro - Tech Acquisition - (Project Astro - Deals - M&A Tax)'
+      );
     });
 
     it('should format WBS display without project name', () => {

@@ -37,8 +37,12 @@ export function TimelineView({ entries }: TimelineViewProps) {
                 }}
               >
                 <div className="px-2 py-1.5 h-full flex flex-col justify-center">
-                  <div className="text-xs text-gray-900 dark:text-gray-100 truncate">{entry.task}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 truncate">{entry.duration}m</div>
+                  <div className="text-xs text-gray-900 dark:text-gray-100 truncate">
+                    {entry.task}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                    {entry.duration}m
+                  </div>
                 </div>
               </div>
             );

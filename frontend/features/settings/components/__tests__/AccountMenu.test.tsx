@@ -6,7 +6,7 @@
  * TODO(FEATURE-016): Complete implementation during Phase 3 Step 5
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 // TODO(FEATURE-016): Uncomment during Phase 3 Step 5 implementation
 // import { render } from '@testing-library/react';
 // import { AccountMenu } from '../AccountMenu';

@@ -1,9 +1,9 @@
 // Settings feature types
 export type {
-  SettingsViewProps,
-  SettingsPanelProps,
   Integration,
-  SettingsState,
-  NotificationSettings,
   MLSettings,
+  NotificationSettings,
+  SettingsPanelProps,
+  SettingsState,
+  SettingsViewProps,
 } from './settings.types';

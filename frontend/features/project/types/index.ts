@@ -1,8 +1,8 @@
 // Project feature types
 export type {
-  ProjectColor,
-  RecentProject,
-  QuickProjectSwitcherProps,
-  ProjectColorMapping,
   Project,
+  ProjectColor,
+  ProjectColorMapping,
+  QuickProjectSwitcherProps,
+  RecentProject,
 } from './project.types';

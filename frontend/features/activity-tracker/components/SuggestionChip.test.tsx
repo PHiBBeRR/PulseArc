@@ -1,9 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Unit tests for SuggestionChip component
+ *
+ * Tests the UI component that displays activity-based suggestions to users
+ * for logging time entries. Suggestions are derived from detected activities
+ * and can be accepted or dismissed with haptic feedback.
+ *
+ * Test Coverage:
+ * - Rendering: Display of suggestion text, labels, and metadata
+ * - User Interactions: Accept/dismiss buttons with callbacks
+ * - Haptic Feedback: Touch feedback on user actions
+ * - Visual States: Different states based on suggestion source
+ * - Accessibility: Button labels and keyboard navigation
+ */
+
+import { haptic } from '@/shared/utils';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SuggestionChip } from './SuggestionChip';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type SuggestionState } from '../types';
-import { haptic } from '@/shared/utils';
+import { SuggestionChip } from './SuggestionChip';
 
 describe('SuggestionChip', () => {
   let mockSuggestion: SuggestionState;
@@ -27,25 +42,49 @@ describe('SuggestionChip', () => {
 
   describe('Rendering', () => {
     it('renders suggestion text correctly', () => {
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Working on AI entry improvements')).toBeInTheDocument();
     });
 
     it('renders the "SUGGESTION" label', () => {
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Suggestion')).toBeInTheDocument();
     });
 
     it('renders "Use" button', () => {
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByRole('button', { name: /use/i })).toBeInTheDocument();
     });
 
     it('renders dismiss button with X icon', () => {
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       // Check for dismiss button with aria-label
       const dismissButton = screen.getByRole('button', { name: /dismiss/i });
@@ -58,7 +97,13 @@ describe('SuggestionChip', () => {
         text: 'This is a very long suggestion text that should be truncated when it exceeds the available space in the suggestion chip container',
       };
 
-      render(<SuggestionChip suggestion={longSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={longSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const textElement = screen.getByText(longSuggestion.text);
       expect(textElement).toHaveClass('truncate');
@@ -69,7 +114,13 @@ describe('SuggestionChip', () => {
     it('calls onAccept when "Use" button is clicked', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const useButton = screen.getByRole('button', { name: /use/i });
       await user.click(useButton);
@@ -80,7 +131,13 @@ describe('SuggestionChip', () => {
     it('calls onDismiss when dismiss button is clicked', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       // Use aria-label to find dismiss button
       const dismissButton = screen.getByRole('button', { name: /dismiss/i });
@@ -92,7 +149,13 @@ describe('SuggestionChip', () => {
     it('triggers haptic feedback on accept', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const useButton = screen.getByRole('button', { name: /use/i });
       await user.click(useButton);
@@ -103,7 +166,13 @@ describe('SuggestionChip', () => {
     it('triggers haptic feedback on dismiss', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const dismissButton = screen.getByRole('button', { name: /dismiss/i });
       await user.click(dismissButton);
@@ -114,7 +183,13 @@ describe('SuggestionChip', () => {
     it('does not call onDismiss when accept is clicked', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const useButton = screen.getByRole('button', { name: /use/i });
       await user.click(useButton);
@@ -125,7 +200,13 @@ describe('SuggestionChip', () => {
     it('does not call onAccept when dismiss is clicked', async () => {
       const user = userEvent.setup();
 
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const dismissButton = screen.getByRole('button', { name: /dismiss/i });
       await user.click(dismissButton);
@@ -137,7 +218,11 @@ describe('SuggestionChip', () => {
   describe('Styling and Visual Feedback', () => {
     it('has proper gradient background', () => {
       const { container } = render(
-        <SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const chipElement = container.querySelector('.bg-gradient-to-br');
@@ -146,7 +231,11 @@ describe('SuggestionChip', () => {
 
     it('displays sparkles icon', () => {
       const { container } = render(
-        <SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Check for svg element (lucide-react icons render as svg)
@@ -156,7 +245,11 @@ describe('SuggestionChip', () => {
 
     it('has animation classes', () => {
       const { container } = render(
-        <SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const chipElement = container.querySelector('.animate-in');
@@ -166,7 +259,13 @@ describe('SuggestionChip', () => {
 
   describe('Different Suggestion Sources', () => {
     it('renders suggestion from activity source', () => {
-      render(<SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Working on AI entry improvements')).toBeInTheDocument();
     });
@@ -181,7 +280,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={projectSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={projectSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Pulsarc: Bug fixes')).toBeInTheDocument();
     });
@@ -196,7 +301,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={meetingSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={meetingSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Meeting: Engineering Standup')).toBeInTheDocument();
     });
@@ -213,7 +324,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const chipElement = container.querySelector('.border-dashed');
@@ -231,7 +346,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('2m ago')).toBeInTheDocument();
     });
@@ -246,7 +367,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Clock icon is an SVG with specific size
@@ -264,7 +389,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const chipElement = container.querySelector('.opacity-70');
@@ -282,7 +411,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={updatedSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={updatedSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('Updated')).toBeInTheDocument();
     });
@@ -297,7 +432,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={updatedSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={updatedSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const chipElement = container.querySelector('.border-amber-400');
@@ -314,7 +453,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={updatedSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={updatedSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // RefreshCw icon is an SVG with animate-spin class
@@ -332,7 +475,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={updatedSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={updatedSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.queryByText('1m ago')).not.toBeInTheDocument();
     });
@@ -349,7 +498,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={recentSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={recentSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('just now')).toBeInTheDocument();
     });
@@ -365,7 +520,9 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={suggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip suggestion={suggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+      );
 
       expect(screen.getByText('1m ago')).toBeInTheDocument();
     });
@@ -381,7 +538,9 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={suggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip suggestion={suggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+      );
 
       expect(screen.getByText('5m ago')).toBeInTheDocument();
     });
@@ -399,7 +558,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const useButton = screen.getByRole('button', { name: /use/i });
       await user.click(useButton);
@@ -416,7 +581,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      render(<SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       const useButton = screen.getByRole('button', { name: /use/i });
       expect(useButton).toHaveClass('bg-gray-500');
@@ -424,7 +595,11 @@ describe('SuggestionChip', () => {
 
     it('transitions from fresh to stale appearance', () => {
       const { container, rerender } = render(
-        <SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Initially fresh - should have sparkles icon
@@ -441,7 +616,13 @@ describe('SuggestionChip', () => {
         },
       };
 
-      rerender(<SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      rerender(
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       // Should now have dashed border
       const chipElement = container.querySelector('.border-dashed');
@@ -453,7 +634,11 @@ describe('SuggestionChip', () => {
 
     it('shows different visual states for fresh vs stale', () => {
       const { container: freshContainer } = render(
-        <SuggestionChip suggestion={mockSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={mockSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       const staleSuggestion: SuggestionState = {
@@ -466,7 +651,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container: staleContainer } = render(
-        <SuggestionChip suggestion={staleSuggestion} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={staleSuggestion}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Fresh should have red gradient
@@ -491,7 +680,11 @@ describe('SuggestionChip', () => {
       };
 
       render(
-        <SuggestionChip suggestion={suggestionWithConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={suggestionWithConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       expect(screen.getByText('95%')).toBeInTheDocument();
@@ -504,7 +697,11 @@ describe('SuggestionChip', () => {
       };
 
       const { rerender } = render(
-        <SuggestionChip suggestion={lowConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={lowConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       expect(screen.getByText('60%')).toBeInTheDocument();
@@ -514,7 +711,13 @@ describe('SuggestionChip', () => {
         confidence: 0.99,
       };
 
-      rerender(<SuggestionChip suggestion={highConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      rerender(
+        <SuggestionChip
+          suggestion={highConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('99%')).toBeInTheDocument();
     });
@@ -525,7 +728,13 @@ describe('SuggestionChip', () => {
         confidence: 0.847, // Should round to 85%
       };
 
-      render(<SuggestionChip suggestion={suggestionWithDecimal} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />);
+      render(
+        <SuggestionChip
+          suggestion={suggestionWithDecimal}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
+      );
 
       expect(screen.getByText('85%')).toBeInTheDocument();
     });
@@ -541,7 +750,11 @@ describe('SuggestionChip', () => {
       };
 
       render(
-        <SuggestionChip suggestion={staleSuggestionWithConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={staleSuggestionWithConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       expect(screen.queryByText('85%')).not.toBeInTheDocument();
@@ -554,7 +767,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={suggestionWithoutConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={suggestionWithoutConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Should not have green confidence badge
@@ -569,7 +786,11 @@ describe('SuggestionChip', () => {
       };
 
       render(
-        <SuggestionChip suggestion={suggestionWithZeroConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={suggestionWithZeroConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       expect(screen.queryByText('0%')).not.toBeInTheDocument();
@@ -582,7 +803,11 @@ describe('SuggestionChip', () => {
       };
 
       const { container } = render(
-        <SuggestionChip suggestion={suggestionWithConfidence} onAccept={mockOnAccept} onDismiss={mockOnDismiss} />
+        <SuggestionChip
+          suggestion={suggestionWithConfidence}
+          onAccept={mockOnAccept}
+          onDismiss={mockOnDismiss}
+        />
       );
 
       // Check for green badge styling

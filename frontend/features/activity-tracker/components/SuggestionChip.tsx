@@ -1,5 +1,5 @@
-import { X, Sparkles, Clock, RefreshCw } from 'lucide-react';
 import { haptic } from '@/shared/utils';
+import { Clock, RefreshCw, Sparkles, X } from 'lucide-react';
 import type { SuggestionState } from '../types';
 
 interface SuggestionChipProps {
@@ -22,7 +22,8 @@ export function SuggestionChip({ suggestion, onAccept, onDismiss }: SuggestionCh
   const isStale = suggestion.metadata?.isStale === true;
   const isUpdated = suggestion.metadata?.isUpdated === true;
   const showTimestamp = isStale;
-  const showConfidence = !isStale && suggestion.confidence !== undefined && suggestion.confidence > 0;
+  const showConfidence =
+    !isStale && suggestion.confidence !== undefined && suggestion.confidence > 0;
 
   return (
     <div className="mt-3">
@@ -83,7 +84,9 @@ export function SuggestionChip({ suggestion, onAccept, onDismiss }: SuggestionCh
               onAccept();
             }}
             className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
-              isStale ? 'bg-gray-500 hover:bg-gray-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'
+              isStale
+                ? 'bg-gray-500 hover:bg-gray-600 text-white'
+                : 'bg-red-500 hover:bg-red-600 text-white'
             }`}
           >
             Use

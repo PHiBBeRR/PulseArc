@@ -23,7 +23,9 @@ export function isTimerStateEventV1(payload: unknown): payload is TimerStateEven
     payload.v === 1 &&
     'state' in payload &&
     typeof (payload as Record<string, unknown>).state === 'string' &&
-    ['inactive', 'active', 'paused', 'idle'].includes((payload as Record<string, unknown>).state as string) &&
+    ['inactive', 'active', 'paused', 'idle'].includes(
+      (payload as Record<string, unknown>).state as string
+    ) &&
     'elapsed' in payload &&
     typeof (payload as Record<string, unknown>).elapsed === 'number' &&
     'ts' in payload &&

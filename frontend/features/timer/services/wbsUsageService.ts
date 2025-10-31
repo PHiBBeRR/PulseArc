@@ -33,7 +33,7 @@ export const WbsUsageService = {
     const recent = this.getRecentWbs();
 
     // Remove existing entry if present
-    const filtered = recent.filter(entry => entry.code !== code);
+    const filtered = recent.filter((entry) => entry.code !== code);
 
     // Add to front
     const newEntry: RecentWbsEntry = {
@@ -67,7 +67,7 @@ export const WbsUsageService = {
    * Get recent WBS elements (for autocomplete display)
    */
   getRecentElements(): WbsElement[] {
-    return this.getRecentWbs().map(entry => entry.element);
+    return this.getRecentWbs().map((entry) => entry.element);
   },
 
   /**
@@ -86,7 +86,7 @@ export const WbsUsageService = {
    */
   removeFavorite(code: string): void {
     const favorites = this.getFavorites();
-    const updated = favorites.filter(fav => fav !== code);
+    const updated = favorites.filter((fav) => fav !== code);
     localStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify(updated));
   },
 

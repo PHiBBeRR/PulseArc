@@ -16,7 +16,12 @@ interface ActivityBreakdownTooltipProps {
  * Shows activity name, duration, and percentage with visual progress bars.
  * Includes idle periods as a separate item when present (only for General entries).
  */
-export function ActivityBreakdownTooltip({ activities, idleSeconds, totalSeconds, category }: ActivityBreakdownTooltipProps) {
+export function ActivityBreakdownTooltip({
+  activities,
+  idleSeconds,
+  totalSeconds,
+  category,
+}: ActivityBreakdownTooltipProps) {
   // Calculate idle percentage if we have both idle and total
   const idlePercentage =
     idleSeconds && totalSeconds && totalSeconds > 0

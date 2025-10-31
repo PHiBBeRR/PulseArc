@@ -255,11 +255,11 @@ body,
 
   /* Hide scrollbar utility */
   .scrollbar-hide {
-    -ms-overflow-style: none !important;  /* IE and Edge */
-    scrollbar-width: none !important;  /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+    scrollbar-width: none !important; /* Firefox */
   }
   .scrollbar-hide::-webkit-scrollbar {
-    display: none !important;  /* Chrome, Safari, and Opera */
+    display: none !important; /* Chrome, Safari, and Opera */
   }
 
   /* Marquee animation for continuous scrolling text */
