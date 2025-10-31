@@ -54,6 +54,9 @@ moka = { workspace = true }
 # Scheduling (Phase 3D: cron-based schedulers)
 tokio-cron-scheduler = { workspace = true }
 
+# Process management (Phase 3B: AppleScript timeout handling)
+wait-timeout = { workspace = true }
+
 # TypeScript bindings (ts-gen feature)
 ts-rs = { workspace = true, optional = true }
 
