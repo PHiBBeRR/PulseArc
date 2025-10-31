@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
-use pulsearc_domain::{ActivitySnapshot, Result};
-use uuid::Uuid;
+use pulsearc_domain::{ActivityContext, Result};
 
 use super::ports::{ActivityEnricher, ActivityProvider, ActivityRepository};
 
@@ -31,7 +29,10 @@ impl TrackingService {
     }
 
     /// Capture and save the current activity
-    pub async fn capture_activity(&self) -> Result<ActivitySnapshot> {
+    ///
+    /// PHASE-0: Returns ActivityContext instead of ActivitySnapshot
+    /// Snapshot creation happens in infra layer for proper type compatibility
+    pub async fn capture_activity(&self) -> Result<ActivityContext> {
         // Get activity from provider
         let mut context = self.provider.get_activity().await?;
 
@@ -40,13 +41,8 @@ impl TrackingService {
             enricher.enrich(&mut context).await?;
         }
 
-        // Create snapshot
-        let snapshot = ActivitySnapshot { id: Uuid::new_v4(), timestamp: Utc::now(), context };
-
-        // Save to repository
-        self.repository.save_snapshot(snapshot.clone()).await?;
-
-        Ok(snapshot)
+        // Return enriched context - snapshot creation happens in infra layer
+        Ok(context)
     }
 
     /// Check if tracking is paused
@@ -55,11 +51,13 @@ impl TrackingService {
     }
 
     /// Get snapshots within a time range
+    ///
+    /// PHASE-0: Uses database::ActivitySnapshot
     pub async fn get_snapshots(
         &self,
         start: chrono::DateTime<chrono::Utc>,
         end: chrono::DateTime<chrono::Utc>,
-    ) -> Result<Vec<ActivitySnapshot>> {
+    ) -> Result<Vec<pulsearc_domain::ActivitySnapshot>> {
         self.repository.get_snapshots(start, end).await
     }
 }

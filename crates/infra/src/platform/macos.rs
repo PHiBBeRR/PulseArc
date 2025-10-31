@@ -1,9 +1,11 @@
 //! macOS-specific platform implementations
 
 use async_trait::async_trait;
-use chrono::Utc;
 use pulsearc_core::ActivityProvider;
-use pulsearc_domain::{ActivityContext, Result};
+use pulsearc_domain::{
+    types::{ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext},
+    ActivityContext, Result,
+};
 
 /// macOS activity provider using Accessibility API
 pub struct MacOsActivityProvider {
@@ -28,11 +30,29 @@ impl ActivityProvider for MacOsActivityProvider {
         // Placeholder implementation
         // TODO: Implement actual macOS Accessibility API calls
         Ok(ActivityContext {
-            timestamp: Utc::now(),
-            app_name: "Unknown".to_string(),
-            window_title: "Unknown".to_string(),
-            url: None,
-            document_path: None,
+            active_app: WindowContext {
+                app_name: "Unknown".to_string(),
+                window_title: "Unknown".to_string(),
+                bundle_id: None,
+                url: None,
+                url_host: None,
+                document_name: None,
+                file_path: None,
+            },
+            recent_apps: vec![],
+            detected_activity: "Unknown".to_string(),
+            work_type: None,
+            activity_category: ActivityCategory::Administrative,
+            billable_confidence: 0.0,
+            suggested_client: None,
+            suggested_matter: None,
+            suggested_task_code: None,
+            extracted_metadata: ActivityMetadata::default(),
+            evidence: ConfidenceEvidence::default(),
+            calendar_event: None,
+            location: None,
+            temporal_context: None,
+            classification: None,
         })
     }
 

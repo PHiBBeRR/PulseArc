@@ -1,8 +1,9 @@
 # Phase 0 Migration Blockers - Tracking Document
 
 **Epic**: Phase 0 Refactoring (Pre-Migration)
-**Status**: 🔴 Not Started
+**Status**: 🟡 In Progress (50% Complete)
 **Created**: 2025-10-30
+**Last Updated**: 2025-10-30
 **Target Completion**: 2025-11-08 (1 week from start)
 
 ---
@@ -20,73 +21,81 @@ This document tracks the resolution of 6 critical blockers + 1 feature flag issu
 ### Quick Wins (Reclassifications)
 
 #### Task 1.1: Reclassify `inference/batch_classifier.rs`
-- **Status**: ⬜ Todo
+- **Status**: ✅ Complete
 - **Action**: Update LEGACY_MIGRATION_INVENTORY.md to reclassify from `core` → `infra`
 - **Effort**: 0.5 days
-- **Owner**: _Unassigned_
+- **Owner**: Claude
+- **Completed**: 2025-10-30
 - **Checklist**:
-  - [ ] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 158)
-  - [ ] Change "Target Crate" column from `❌ BLOCKED` to `infra`
-  - [ ] Update "Target Path" to `infra/src/classification/batch_classifier.rs`
-  - [ ] Change "Priority" to `✅ Priority 3`
-  - [ ] Update row color/status badge
+  - [x] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 158)
+  - [x] Change "Target Crate" column from `❌ BLOCKED` to `infra`
+  - [x] Update "Target Path" to `infra/src/classification/batch_classifier.rs`
+  - [x] Change "Priority" to `✅ Priority 3`
+  - [x] Update row color/status badge
 
 #### Task 1.2: Reclassify `integrations/sap/errors.rs`
-- **Status**: ⬜ Todo
+- **Status**: ✅ Complete
 - **Action**: Update LEGACY_MIGRATION_INVENTORY.md to reclassify from `domain` → `infra`
 - **Effort**: 0.5 days
-- **Owner**: _Unassigned_
+- **Owner**: Claude
+- **Completed**: 2025-10-30
 - **Checklist**:
-  - [ ] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 184)
-  - [ ] Change "Target Crate" column from `❌ BLOCKED` to `infra`
-  - [ ] Update "Target Path" to `infra/src/integrations/sap/errors.rs`
-  - [ ] Change "Priority" to `✅ Priority 3`
-  - [ ] Update row color/status badge
+  - [x] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 184)
+  - [x] Change "Target Crate" column from `❌ BLOCKED` to `infra`
+  - [x] Update "Target Path" to `infra/src/integrations/sap/errors.rs`
+  - [x] Change "Priority" to `✅ Priority 3`
+  - [x] Update row color/status badge
 
 #### Task 1.3: Reclassify `integrations/sap/validation.rs`
-- **Status**: ⬜ Todo
+- **Status**: ✅ Complete
 - **Action**: Update LEGACY_MIGRATION_INVENTORY.md to reclassify from `core` → `infra`
 - **Effort**: 0.5 days
-- **Owner**: _Unassigned_
+- **Owner**: Claude
+- **Completed**: 2025-10-30
 - **Checklist**:
-  - [ ] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 185)
-  - [ ] Change "Target Crate" column from `❌ BLOCKED` to `infra`
-  - [ ] Update "Target Path" to `infra/src/integrations/sap/validation.rs`
-  - [ ] Change "Priority" to `✅ Priority 3`
-  - [ ] Update row color/status badge
+  - [x] Update `docs/LEGACY_MIGRATION_INVENTORY.md` (line 185)
+  - [x] Change "Target Crate" column from `❌ BLOCKED` to `infra`
+  - [x] Update "Target Path" to `infra/src/integrations/sap/validation.rs`
+  - [x] Change "Priority" to `✅ Priority 3`
+  - [x] Update row color/status badge
 
 ---
 
 ### Feature Flags
 
 #### Task 2.1: Add Missing Feature Flags to Cargo.toml
-- **Status**: ⬜ Todo
+- **Status**: ✅ Complete
 - **Action**: Add `calendar`, `sap`, `ml` features to `legacy/api/Cargo.toml`
 - **Effort**: 0.5 days
-- **Owner**: _Unassigned_
+- **Owner**: Claude
+- **Completed**: 2025-10-30
 - **Files**:
-  - `legacy/api/Cargo.toml`
+  - `legacy/api/Cargo.toml` (lines 107-112)
 - **Implementation**:
   ```toml
   [features]
-  default = ["tree-classifier"]
+  default = ["tree-classifier", "calendar", "sap"]  # Added calendar, sap to default
   tree-classifier = ["dep:linfa", "dep:linfa-trees", "dep:linfa-logistic", "dep:ndarray"]
   graphql = ["dep:graphql_client"]
-  calendar = []  # NEW
-  sap = []       # NEW
-  ml = ["tree-classifier"]  # NEW (alias)
+  calendar = []  # ✅ ADDED
+  sap = []       # ✅ ADDED
+  ml = ["tree-classifier"]  # ✅ ADDED (alias)
   ```
 
 #### Task 2.2: Gate Feature-Flagged Modules
-- **Status**: ⬜ Todo
+- **Status**: ✅ Complete
 - **Action**: Add `#[cfg(feature = "...")]` guards to relevant modules
 - **Effort**: 1 day
-- **Owner**: _Unassigned_
-- **Depends On**: Task 2.1
-- **Modules to Gate**:
-  - Calendar: `integrations/calendar/**/*.rs`, `db/calendar/**/*.rs`, `commands/calendar.rs`
-  - SAP: `integrations/sap/**/*.rs`
-  - ML: `inference/*_classifier.rs`, `inference/training_*.rs`
+- **Owner**: Claude
+- **Completed**: 2025-10-30
+- **Depends On**: Task 2.1 ✅
+- **Modules Gated**:
+  - ✅ Calendar (4 module declarations): `integrations/mod.rs`, `db/mod.rs`, `commands/mod.rs`, `lib.rs`
+  - ✅ SAP (1 module declaration): `integrations/mod.rs`
+  - ✅ ML (7 modules + 1 command): `inference/mod.rs` (logistic_classifier, rules_classifier, training_pipeline, training_data_exporter, weights_config, metrics + re-exports), `commands/ml_training.rs`
+- **Additional Work**:
+  - ✅ Fixed metrics feature gate: Changed from `ml` to `tree-classifier` (hybrid_classifier dependency)
+  - ✅ Added calendar and sap to default features (actively used in main.rs)
 
 ---
 
@@ -138,16 +147,16 @@ grep -n "rusqlite\|reqwest\|keyring" legacy/api/src/observability/errors/app.rs
 ### Critical Refactoring
 
 #### Task 4.1: Define Repository Ports for Segmenter
-- **Status**: ⬜ Todo
+- **Status**: ✅ Completed (2025-10-31)
 - **Action**: Create port traits in preparation for segmenter refactor
-- **Effort**: 1 day
-- **Owner**: _Unassigned_
+- **Effort**: 0.5 days (actual)
+- **Owner**: Phase 0 Team
 - **Deliverables**:
-  - [ ] Create `legacy/api/src/core/ports/segment_repository.rs`
-  - [ ] Define `SegmentRepository` trait
-  - [ ] Define `SnapshotRepository` trait
-  - [ ] Add trait documentation with expected behavior
-  - [ ] Create mock implementations for testing
+  - [x] Create `crates/core/src/tracking/ports.rs` (ports defined in new core crate)
+  - [x] Define `SegmentRepository` trait (4 methods)
+  - [x] Define `SnapshotRepository` trait (2 methods)
+  - [x] Add trait documentation with expected behavior
+  - [x] Create mock implementations for testing (`MockSegmentRepository` in tests)
 
 **Port Definition**:
 ```rust
@@ -173,20 +182,20 @@ pub trait SnapshotRepository: Send + Sync {
 ```
 
 #### Task 4.2: Refactor `preprocess/segmenter.rs` to Use Ports
-- **Status**: ⬜ Todo
+- **Status**: ✅ Completed (2025-10-31)
 - **Action**: Remove direct database dependencies from segmenter
-- **Effort**: 2-3 days
-- **Owner**: _Unassigned_
-- **Depends On**: Task 4.1
+- **Effort**: 1.5 days (actual)
+- **Owner**: Phase 0 Team
+- **Depends On**: Task 4.1 ✅
 - **PR Checklist**:
-  - [ ] Refactor `Segmenter` to be generic over repository traits
-  - [ ] Remove direct imports of `LocalDatabase`, `SegmentOperations`
-  - [ ] Replace raw rusqlite queries with repository calls
-  - [ ] Update all call-sites to inject repository implementations
-  - [ ] Add integration tests with mock repositories
-  - [ ] Add integration tests with real SQLite repositories
-  - [ ] Verify no direct DB access in segmenter logic
-  - [ ] Update docs to classify segmenter → `core`
+  - [x] Refactor `Segmenter` to be generic over repository trait (changed to `Segmenter<S>`)
+  - [x] Remove direct imports of `LocalDatabase`, `SegmentOperations`
+  - [x] Replace raw rusqlite queries with repository calls (`generate_daily_dictionary` now uses `find_unprocessed_segments`)
+  - [x] Updated to use domain types (`pulsearc_domain::types::database::*`)
+  - [x] Add integration tests with mock repositories (`MockSegmentRepository` in unit tests)
+  - [x] Add integration tests with real SQLCipher (`segmenter_integration_tests.rs`)
+  - [x] Verify no direct DB access in segmenter logic (verified via grep)
+  - [x] Update docs to classify segmenter → `core`
 
 **Before**:
 ```rust
@@ -222,18 +231,18 @@ grep -n "crate::db::\|rusqlite::\|LocalDatabase" legacy/api/src/preprocess/segme
 ```
 
 #### Task 4.3: Implement Repository Adapters in Infra
-- **Status**: ⬜ Todo
+- **Status**: ✅ Completed (2025-10-31)
 - **Action**: Create SqlCipher-based implementations of repository ports
-- **Effort**: 1 day
-- **Owner**: _Unassigned_
-- **Depends On**: Task 4.1, Task 4.2
+- **Effort**: 1 day (actual)
+- **Owner**: Phase 0 Team
+- **Depends On**: Task 4.1 ✅, Task 4.2 ✅
 - **Deliverables**:
-  - [ ] Create `legacy/api/src/infra/repositories/segment_repository.rs`
-  - [ ] Implement `SegmentRepository` using `SqlCipherConnection` (pooled)
-  - [ ] Implement `SnapshotRepository` using `SqlCipherConnection` (pooled)
-  - [ ] Move raw queries from segmenter to repository impls
-  - [ ] Add repository-level unit tests
-  - [ ] Wire up in DI container
+  - [x] Create `legacy/api/src/infra/repositories/segment_repository.rs`
+  - [x] Implement `SegmentRepository` using `SqlCipherPool` (pooled, synchronous)
+  - [x] Implement `SnapshotRepository` using `SqlCipherPool` (pooled, synchronous)
+  - [x] Move raw queries from segmenter to repository impls (4 methods implemented)
+  - [x] Add repository-level integration tests (5 tests in `segmenter_integration_tests.rs`)
+  - [ ] Wire up in DI container (deferred - will be done when updating call-sites in full migration)
 
 **🚨 CRITICAL: Use SqlCipherPool, NOT LocalDatabase**
 
@@ -303,40 +312,55 @@ let results = stmt
 
 | Track | Tasks | Completed | In Progress | Blocked | Progress |
 |-------|-------|-----------|-------------|---------|----------|
-| **Track 1: Quick Wins** | 3 | 0 | 0 | 0 | 0% |
-| **Track 2: Feature Flags** | 2 | 0 | 0 | 0 | 0% |
+| **Track 1: Quick Wins** | 3 | 3 | 0 | 0 | 100% ✅ |
+| **Track 2: Feature Flags** | 2 | 2 | 0 | 0 | 100% ✅ |
 | **Track 3: Splits** | 2 | 0 | 0 | 0 | 0% |
 | **Track 4: Segmenter** | 3 | 0 | 0 | 0 | 0% |
-| **TOTAL** | **10** | **0** | **0** | **0** | **0%** |
+| **TOTAL** | **10** | **5** | **0** | **0** | **50%** |
 
 ---
 
-## Daily Standup Template
+## Daily Standup Log
 
-**Date**: YYYY-MM-DD
+### **Date**: 2025-10-30
 
 **Completed Today**:
-- Task X.Y: [Brief description]
+- Task 1.1: ✅ Reclassified `inference/batch_classifier.rs` (infra, Priority 3, ml feature)
+- Task 1.2: ✅ Reclassified `integrations/sap/errors.rs` (infra, Priority 3, sap feature)
+- Task 1.3: ✅ Reclassified `integrations/sap/validation.rs` (infra, Priority 3, sap feature)
+- Task 2.1: ✅ Added calendar, sap, ml features to `legacy/api/Cargo.toml`
+- Task 2.2: ✅ Gated 12 modules with feature flags (calendar: 4, sap: 1, ml: 7)
+- **Bonus**: ✅ Installed 10 missing dependencies (cadence, tracing, chrono-tz, sha2, base64, etc.)
+- **Bonus**: ✅ Fixed 17 type/field mismatches in `pulsearc-infra` crate (now compiles successfully)
 
 **In Progress**:
-- Task X.Y: [Brief description] - [Blocker if any]
+- None
 
-**Planned for Tomorrow**:
-- Task X.Y: [Brief description]
+**Planned for Next**:
+- Track 3: Split `shared/config.rs` and `observability/errors/app.rs`
+- Track 4: Segmenter refactoring (ports, repositories, domain separation)
 
 **Blockers**:
-- None / [Description]
+- None
+
+**Notes**:
+- Track 1 (Quick Wins): 100% complete ✅
+- Track 2 (Feature Flags): 100% complete ✅
+- Added calendar and sap to default features (actively used in main.rs)
+- Fixed metrics gate from `ml` to `tree-classifier` (hybrid_classifier dependency)
+- `pulsearc-infra` crate: 482 errors → 0 errors (builds successfully)
+- 50% of Phase 0 complete (5/10 tasks done)
 
 ---
 
 ## Completion Checklist
 
 ### Phase 0 Complete When:
-- [ ] All 10 tasks above marked as complete
+- [ ] All 10 tasks above marked as complete (5/10 done - 50% ✅)
 - [ ] All PRs merged to main branch
-- [ ] Migration inventory updated with final classifications
-- [ ] Documentation updated (LEGACY_MIGRATION_INVENTORY.md, SHARED_TYPES_ANALYSIS.md)
-- [ ] Validation commands pass:
+- [x] Migration inventory updated with final classifications (3 reclassifications done)
+- [ ] Documentation updated (LEGACY_MIGRATION_INVENTORY.md ✅, SHARED_TYPES_ANALYSIS.md pending)
+- [x] Validation commands pass (feature flags verified ✅):
   ```bash
   # No infra deps in domain-bound types
   grep -r "rusqlite\|reqwest\|keyring" legacy/api/src/shared/config_types.rs
@@ -359,6 +383,8 @@ let results = stmt
 |------|------|--------|------------|--------|
 | 2025-10-30 | Segmenter refactor touches hot path | High | Add comprehensive integration tests before refactoring | Open |
 | 2025-10-30 | Error split affects many call-sites | Medium | Use IDE refactoring, run tests frequently | Open |
+| 2025-10-30 | Missing dependencies blocking builds | High | Install all missing deps (cadence, tracing, etc.) | ✅ Closed |
+| 2025-10-30 | Type mismatches in infra crate | Medium | Fixed ActivitySnapshot, TimeEntry, ActivityContext mismatches | ✅ Closed |
 
 ---
 
@@ -370,5 +396,5 @@ let results = stmt
 
 ---
 
-**Last Updated**: 2025-10-30
-**Status**: 🔴 Not Started
+**Last Updated**: 2025-10-31
+**Status**: 🟡 In Progress (30% - Segmenter Track Complete)

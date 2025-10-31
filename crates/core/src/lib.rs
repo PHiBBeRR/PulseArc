@@ -18,4 +18,7 @@ pub mod tracking;
 
 // Re-export specific items to avoid ambiguity
 pub use classification::{ClassificationService, Classifier, TimeEntryRepository};
-pub use tracking::{ActivityEnricher, ActivityProvider, ActivityRepository, TrackingService};
+pub use tracking::{
+    ActivityEnricher, ActivityProvider, ActivityRepository, SegmentRepository,
+    SnapshotRepository, TrackingService,
+};

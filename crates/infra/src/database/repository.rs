@@ -27,12 +27,19 @@ impl ActivityRepository for SqliteActivityRepository {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
-            let context_json = serde_json::to_string(&snapshot.context)
-                .map_err(|e| PulseArcError::Internal(e.to_string()))?;
 
             conn.execute(
-                "INSERT INTO activity_snapshots (id, timestamp, context) VALUES (?1, ?2, ?3)",
-                (snapshot.id.to_string(), snapshot.timestamp.timestamp(), context_json),
+                "INSERT INTO activity_snapshots (id, timestamp, activity_context_json, detected_activity, primary_app, processed, created_at, is_idle) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                (
+                    &snapshot.id,
+                    snapshot.timestamp,
+                    &snapshot.activity_context_json,
+                    &snapshot.detected_activity,
+                    &snapshot.primary_app,
+                    snapshot.processed,
+                    snapshot.created_at,
+                    snapshot.is_idle,
+                ),
             )
             .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
@@ -51,33 +58,30 @@ impl ActivityRepository for SqliteActivityRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
             let mut stmt = conn
-                .prepare("SELECT id, timestamp, context FROM activity_snapshots WHERE timestamp BETWEEN ?1 AND ?2")
+                .prepare("SELECT id, timestamp, activity_context_json, detected_activity, work_type, activity_category, primary_app, processed, batch_id, created_at, processed_at, is_idle, idle_duration_secs FROM activity_snapshots WHERE timestamp BETWEEN ?1 AND ?2")
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let snapshots = stmt
                 .query_map((start.timestamp(), end.timestamp()), |row| {
-                    let id: String = row.get(0)?;
-                    let timestamp: i64 = row.get(1)?;
-                    let context_json: String = row.get(2)?;
-
-                    Ok((id, timestamp, context_json))
+                    Ok(ActivitySnapshot {
+                        id: row.get(0)?,
+                        timestamp: row.get(1)?,
+                        activity_context_json: row.get(2)?,
+                        detected_activity: row.get(3)?,
+                        work_type: row.get(4)?,
+                        activity_category: row.get(5)?,
+                        primary_app: row.get(6)?,
+                        processed: row.get(7)?,
+                        batch_id: row.get(8)?,
+                        created_at: row.get(9)?,
+                        processed_at: row.get(10)?,
+                        is_idle: row.get(11)?,
+                        idle_duration_secs: row.get(12)?,
+                    })
                 })
                 .map_err(|e| PulseArcError::Database(e.to_string()))?
                 .collect::<rusqlite::Result<Vec<_>>>()
-                .map_err(|e| PulseArcError::Database(e.to_string()))?
-                .into_iter()
-                .filter_map(|(id, timestamp, context_json)| {
-                    let id = Uuid::parse_str(&id).ok()?;
-                    let timestamp = DateTime::from_timestamp(timestamp, 0)?;
-                    let context = serde_json::from_str(&context_json).ok()?;
-
-                    Some(ActivitySnapshot {
-                        id,
-                        timestamp,
-                        context,
-                    })
-                })
-                .collect();
+                .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             Ok(snapshots)
         })
@@ -122,15 +126,15 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
             let conn = db.get_connection()?;
 
             conn.execute(
-                "INSERT INTO time_entries (id, start_time, end_time, duration_seconds, description, project, wbs_code)
+                "INSERT INTO time_entries (id, start_time, end_time, duration_seconds, description, project_id, wbs_code)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 (
                     entry.id.to_string(),
                     entry.start_time.timestamp(),
-                    entry.end_time.timestamp(),
+                    entry.end_time.map(|dt| dt.timestamp()),
                     entry.duration_seconds,
                     entry.description,
-                    entry.project,
+                    entry.project_id,
                     entry.wbs_code,
                 ),
             )
@@ -151,7 +155,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
             let mut stmt = conn
-                .prepare("SELECT id, start_time, end_time, duration_seconds, description, project, wbs_code FROM time_entries WHERE start_time BETWEEN ?1 AND ?2")
+                .prepare("SELECT id, start_time, end_time, duration_seconds, description, project_id, wbs_code FROM time_entries WHERE start_time BETWEEN ?1 AND ?2")
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let entries = stmt
@@ -159,8 +163,8 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<i64>>(2)?,
+                        row.get::<_, Option<i64>>(3)?,
                         row.get::<_, String>(4)?,
                         row.get::<_, Option<String>>(5)?,
                         row.get::<_, Option<String>>(6)?,
@@ -170,10 +174,10 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
                 .collect::<rusqlite::Result<Vec<_>>>()
                 .map_err(|e| PulseArcError::Database(e.to_string()))?
                 .into_iter()
-                .filter_map(|(id, start_time, end_time, duration_seconds, description, project, wbs_code)| {
+                .filter_map(|(id, start_time, end_time, duration_seconds, description, project_id, wbs_code)| {
                     let id = Uuid::parse_str(&id).ok()?;
                     let start_time = DateTime::from_timestamp(start_time, 0)?;
-                    let end_time = DateTime::from_timestamp(end_time, 0)?;
+                    let end_time = end_time.and_then(|ts| DateTime::from_timestamp(ts, 0));
 
                     Some(TimeEntry {
                         id,
@@ -181,7 +185,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
                         end_time,
                         duration_seconds,
                         description,
-                        project,
+                        project_id,
                         wbs_code,
                     })
                 })
@@ -199,14 +203,14 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
             let conn = db.get_connection()?;
 
             conn.execute(
-                "UPDATE time_entries SET start_time = ?2, end_time = ?3, duration_seconds = ?4, description = ?5, project = ?6, wbs_code = ?7 WHERE id = ?1",
+                "UPDATE time_entries SET start_time = ?2, end_time = ?3, duration_seconds = ?4, description = ?5, project_id = ?6, wbs_code = ?7 WHERE id = ?1",
                 (
                     entry.id.to_string(),
                     entry.start_time.timestamp(),
-                    entry.end_time.timestamp(),
+                    entry.end_time.map(|dt| dt.timestamp()),
                     entry.duration_seconds,
                     entry.description,
-                    entry.project,
+                    entry.project_id,
                     entry.wbs_code,
                 ),
             )

@@ -1,7 +1,7 @@
 # Legacy Code Migration Inventory
 
 **Generated**: October 30, 2025
-**Last Updated**: October 30, 2025 (Post-Critical Review)
+**Last Updated**: October 31, 2025 (Phase 0 Progress - Segmenter Refactor Complete)
 **Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration
 **Status**: ⚠️ BLOCKED - Critical issues require refactoring before Phase 1
 
@@ -155,7 +155,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `inference/training_data_exporter.rs` | `infra` | `infra/src/ml/training_exporter.rs` | ⚠️ Priority 3 | Feature-gated: ml |
 | `inference/weights_config.rs` | `domain` | `domain/src/config/weights_config.rs` | ⚠️ Priority 2 | Feature-gated: ml |
 | `inference/metrics.rs` | `infra` | `infra/src/ml/metrics.rs` | ⚠️ Priority 3 | Feature-gated: ml |
-| `inference/batch_classifier.rs` | ❌ **BLOCKED** | `infra/src/classification/batch_classifier.rs` | ⚠️ Reclassify | Uses `DbManager` + `tauri::Emitter` (side effects) → belongs in infra |
+| `inference/batch_classifier.rs` | `infra` | `infra/src/classification/batch_classifier.rs` | ✅ Priority 3 | Feature-gated: ml • Uses `DbManager` + `tauri::Emitter` (side effects) |
 | `inference/scheduler.rs` | `infra` | `infra/src/scheduling/block_scheduler.rs` | ✅ Priority 3 | Scheduler implementation |
 | `inference/classification_scheduler.rs` | `infra` | `infra/src/scheduling/classification_scheduler.rs` | ✅ Priority 3 | Classification scheduler |
 | `inference/timezone_utils.rs` | **`common`** | N/A | ❌ Excluded | Use `pulsearc_common::time` instead |
@@ -181,8 +181,8 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `integrations/sap/health_monitor.rs` | `infra` | `infra/src/integrations/sap/health.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/scheduler.rs` | `infra` | `infra/src/integrations/sap/scheduler.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/models.rs` | `domain` | `domain/src/types/sap.rs` | ⚠️ Priority 1 | Feature-gated: sap |
-| `integrations/sap/errors.rs` | ❌ **BLOCKED** | `infra/src/integrations/sap/errors.rs` | ⚠️ Reclassify | Wraps `reqwest::Error` directly → transport-specific, belongs in infra |
-| `integrations/sap/validation.rs` | ❌ **BLOCKED** | `infra/src/integrations/sap/validation.rs` | ⚠️ Reclassify | Uses `DbManager` + `WbsCache` (DB access) → belongs in infra |
+| `integrations/sap/errors.rs` | `infra` | `infra/src/integrations/sap/errors.rs` | ✅ Priority 3 | Feature-gated: sap • Wraps `reqwest::Error` directly (transport-specific) |
+| `integrations/sap/validation.rs` | `infra` | `infra/src/integrations/sap/validation.rs` | ✅ Priority 3 | Feature-gated: sap • Uses `DbManager` + `WbsCache` (DB access) |
 | **HTTP** |
 | `http/client.rs` | `infra` | `infra/src/http/client.rs` | ✅ Priority 2 | HTTP client implementation |
 | `http/graphql.rs` | `infra` | `infra/src/http/graphql.rs` | ⚠️ Priority 3 | Feature-gated: graphql |
@@ -277,24 +277,39 @@ impl From<rusqlite::Error> for AppError {
 }
 ```
 
-### 3. `preprocess/segmenter.rs` → Add Repository Port
+### 3. `preprocess/segmenter.rs` → Add Repository Port ✅ COMPLETED
 
-**Current Issues:**
-- Direct imports: `crate::db::activity::SegmentOperations`
-- Uses `LocalDatabase` directly
-- Contains raw rusqlite calls
+**Resolution (Phase 0)**:
+- ✅ Created `SegmentRepository` and `SnapshotRepository` traits in `crates/core/src/tracking/ports.rs`
+- ✅ Refactored `Segmenter<S, A>` to be generic over repository ports
+- ✅ Implemented `SqlCipherSegmentRepository` and `SqlCipherSnapshotRepository` in `legacy/api/src/infra/repositories/`
+- ✅ Added integration tests with real SqlCipher database
+- ✅ Removed all direct `LocalDatabase` and `rusqlite` usage from production code
 
-**Refactoring Strategy:**
+**Implementation:**
 ```rust
-// core/src/tracking/segmenter.rs (Business logic)
-pub struct Segmenter<R: SegmentRepository> {
-    repository: R,
+// crates/core/src/tracking/ports.rs (Port definitions)
+pub trait SegmentRepository: Send + Sync {
+    fn save_segment(&self, segment: &ActivitySegment) -> CommonResult<()>;
+    fn find_segments_by_date(&self, date: NaiveDate) -> CommonResult<Vec<ActivitySegment>>;
+    fn find_unprocessed_segments(&self, limit: usize) -> CommonResult<Vec<ActivitySegment>>;
+    fn mark_processed(&self, segment_id: &str) -> CommonResult<()>;
 }
 
-// infra/src/database/segment_repository.rs (Port implementation)
-impl SegmentRepository for SqliteSegmentRepository {
-    async fn save_segment(&self, segment: &ActivitySegment) -> Result<()> {
-        // Raw DB calls here
+// legacy/api/src/preprocess/segmenter.rs (Business logic)
+pub struct Segmenter<S, A>
+where
+    S: SegmentRepository,
+    A: SnapshotRepository,
+{
+    segment_repo: S,
+    snapshot_repo: A,
+}
+
+// legacy/api/src/infra/repositories/segment_repository.rs (SqlCipher implementation)
+impl SegmentRepository for SqlCipherSegmentRepository {
+    fn save_segment(&self, segment: &ActivitySegment) -> CommonResult<()> {
+        // SqlCipher pool-based implementation
     }
 }
 ```
@@ -515,15 +530,16 @@ pub trait OutboxQueue: Send + Sync {
 ### Phase 0: Pre-Migration Refactoring (Week 0)
 **Goal**: Resolve all blockers before Phase 1
 
-1. ✅ Split `shared/config.rs` → domain structs + infra loader
-2. ✅ Split `observability/errors/app.rs` → domain types + infra conversions
-3. ✅ Refactor `preprocess/segmenter.rs` → add `SegmentRepository` port
-4. ✅ Reclassify `inference/batch_classifier.rs` → infra (no changes needed)
-5. ✅ Reclassify `integrations/sap/errors.rs` → infra (no changes needed)
-6. ✅ Reclassify `integrations/sap/validation.rs` → infra (no changes needed)
-7. ✅ Add missing features to `Cargo.toml` (`calendar`, `sap`, `ml`)
+1. ⬜ Split `shared/config.rs` → domain structs + infra loader
+2. ⬜ Split `observability/errors/app.rs` → domain types + infra conversions
+3. ✅ **COMPLETED** Refactor `preprocess/segmenter.rs` → add `SegmentRepository` port
+4. ⬜ Reclassify `inference/batch_classifier.rs` → infra (no changes needed)
+5. ⬜ Reclassify `integrations/sap/errors.rs` → infra (no changes needed)
+6. ⬜ Reclassify `integrations/sap/validation.rs` → infra (no changes needed)
+7. ⬜ Add missing features to `Cargo.toml` (`calendar`, `sap`, `ml`)
 
-**Validation**: All blocked modules resolved
+**Progress**: 1/7 tasks completed (14%)
+**Next**: Continue with remaining blockers
 
 ### Phase 1: Foundation (Week 1)
 **Goal**: Establish domain types and core ports
@@ -708,12 +724,13 @@ pub trait OutboxQueue: Send + Sync {
 6. ❌ `inference/batch_classifier.rs` uses `DbManager` + `tauri::Emitter` → **RECLASSIFY TO INFRA**
 7. ❌ Feature flag mismatch (doc vs. Cargo.toml) → **ADD MISSING FEATURES**
 
-**Total Blocked Modules**: 6 modules require refactoring or reclassification
-**Estimated Refactoring Time**: 1 week (Phase 0)
+**Total Blocked Modules**: 5 modules require refactoring or reclassification (1 completed in Phase 0)
+**Estimated Refactoring Time**: 4 days remaining (reduced from 1 week after segmenter completion)
 
 **Validation**: All blockers verified by reading source code (lines 27-105, 363-447, 58-78, 4-29, 5-421)
 
 ---
 
-**Document Status**: ⚠️ BLOCKED - Phase 0 refactoring required before Phase 1 can begin
+**Document Status**: ⚠️ PARTIALLY BLOCKED - Phase 0 refactoring 14% complete (1/7 tasks done)
+**Latest**: Segmenter refactored to use repository ports (October 31, 2025)
 

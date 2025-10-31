@@ -4,7 +4,10 @@
 //! and infrastructure implementations.
 
 use async_trait::async_trait;
-use pulsearc_domain::{ActivityContext, ActivitySnapshot, Result};
+use chrono::{DateTime, NaiveDate, Utc};
+use pulsearc_common::error::CommonResult;
+use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot};
+use pulsearc_domain::{ActivityContext, Result};
 
 /// Trait for capturing activity from the operating system
 #[async_trait]
@@ -23,6 +26,8 @@ pub trait ActivityProvider: Send + Sync {
 }
 
 /// Trait for persisting activity snapshots
+///
+/// PHASE-0: Uses database::ActivitySnapshot (full legacy schema)
 #[async_trait]
 pub trait ActivityRepository: Send + Sync {
     /// Save an activity snapshot
@@ -44,4 +49,43 @@ pub trait ActivityRepository: Send + Sync {
 pub trait ActivityEnricher: Send + Sync {
     /// Enrich an activity context with additional information
     async fn enrich(&self, context: &mut ActivityContext) -> Result<()>;
+}
+
+// ============================================================================
+// Phase 0: Segmenter Refactor Ports
+// ============================================================================
+// These ports use synchronous APIs to match SqlCipherPool's synchronous design
+
+/// Port for segment persistence and retrieval
+///
+/// This trait uses synchronous methods because SqlCipherPool is synchronous.
+/// No async/await needed or supported.
+pub trait SegmentRepository: Send + Sync {
+    /// Save a segment to storage
+    fn save_segment(&self, segment: &ActivitySegment) -> CommonResult<()>;
+
+    /// Find segments by date (date derived from start_ts)
+    fn find_segments_by_date(&self, date: NaiveDate) -> CommonResult<Vec<ActivitySegment>>;
+
+    /// Find unprocessed segments (processed = false)
+    fn find_unprocessed_segments(&self, limit: usize) -> CommonResult<Vec<ActivitySegment>>;
+
+    /// Mark a segment as processed
+    fn mark_processed(&self, segment_id: &str) -> CommonResult<()>;
+}
+
+/// Port for snapshot retrieval (read-only for segmenter)
+///
+/// This trait uses synchronous methods because SqlCipherPool is synchronous.
+/// No async/await needed or supported.
+pub trait SnapshotRepository: Send + Sync {
+    /// Find snapshots within a time range
+    fn find_snapshots_by_time_range(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> CommonResult<Vec<ActivitySnapshot>>;
+
+    /// Count snapshots for a given date
+    fn count_snapshots_by_date(&self, date: NaiveDate) -> CommonResult<usize>;
 }

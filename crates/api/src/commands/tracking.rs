@@ -11,7 +11,7 @@ use crate::AppContext;
 #[tauri::command]
 pub async fn get_activity(ctx: State<'_, Arc<AppContext>>) -> Result<ActivityContext> {
     log::info!("get_activity command called");
-    ctx.tracking_service.capture_activity().await.map(|s| s.context)
+    ctx.tracking_service.capture_activity().await
 }
 
 /// Pause activity tracking
