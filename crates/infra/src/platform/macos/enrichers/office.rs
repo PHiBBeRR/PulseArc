@@ -6,10 +6,14 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! let doc = get_office_document("com.microsoft.Word", "Microsoft Word").await;
-//! if let Some(doc) = doc {
-//!     println!("Current document: {doc}");
-//! }
+//! use tokio::runtime::Runtime;
+//! use pulsearc_infra::platform::macos::enrichers::office::get_office_document;
+//!
+//! Runtime::new().unwrap().block_on(async {
+//!     if let Some(doc) = get_office_document("com.microsoft.Word", "Microsoft Word").await {
+//!         println!("Current document: {doc}");
+//!     }
+//! });
 //! ```
 
 use std::time::Duration;

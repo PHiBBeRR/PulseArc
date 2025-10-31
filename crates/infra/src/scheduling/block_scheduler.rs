@@ -155,7 +155,7 @@ impl BlockScheduler {
         let scheduler = self.scheduler.clone();
         let start_timeout = self.config.start_timeout;
         let start_result = tokio::time::timeout(start_timeout, async move {
-            let mut guard = scheduler.write().await;
+            let guard = scheduler.write().await;
             guard.start().await
         })
         .await
@@ -239,21 +239,15 @@ impl BlockScheduler {
                         debug!("Block generation finished successfully");
                     }
                     Ok(Err(err)) => {
-                        log_metric(
-                            metrics.record_fetch_error(),
-                            "scheduler.block.job.error",
-                        );
+                        log_metric(metrics.record_fetch_error(), "scheduler.block.job.error");
                         log_metric(
                             metrics.record_fetch_time(started.elapsed()),
                             "scheduler.block.job.duration",
                         );
-                        error!(error = %err, "Block generation failed");
+                        error!(error = ?err, "Block generation failed");
                     }
                     Err(elapsed) => {
-                        log_metric(
-                            metrics.record_fetch_timeout(),
-                            "scheduler.block.job.timeout",
-                        );
+                        log_metric(metrics.record_fetch_timeout(), "scheduler.block.job.timeout");
                         warn!(timeout_secs = job_timeout.as_secs(), "Block generation timed out");
                         debug!(elapsed = ?elapsed, "Timeout details");
                     }
@@ -263,7 +257,7 @@ impl BlockScheduler {
         .map_err(|source| SchedulerError::JobRegistrationFailed { source })?;
 
         let job_id = job_definition.guid();
-        let mut scheduler = self.scheduler.write().await;
+        let scheduler = self.scheduler.write().await;
         scheduler
             .add(job_definition)
             .await
@@ -286,7 +280,7 @@ impl BlockScheduler {
 
 fn log_metric(result: MetricsResult<()>, metric: &'static str) {
     if let Err(err) = result {
-        warn!(metric = metric, error = %err, "Failed to record scheduler metric");
+        warn!(metric = metric, error = ?err, "Failed to record scheduler metric");
     }
 }
 
@@ -301,9 +295,9 @@ impl Drop for BlockScheduler {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
     use super::*;
+    use crate::scheduling::error::SchedulerError;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct CountingJob {
         runs: AtomicUsize,

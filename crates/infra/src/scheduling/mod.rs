@@ -14,6 +14,3 @@
 
 pub mod block_scheduler;
 pub mod error;
-
-pub use block_scheduler::{BlockJob, BlockScheduler, BlockSchedulerConfig};
-pub use error::{SchedulerError, SchedulerResult};

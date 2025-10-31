@@ -18,13 +18,21 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! use pulsearc_infra::platform::macos::event_listener::MacOsEventListener;
+//! use pulsearc_infra::platform::macos::event_listener::{
+//!     MacOsEventListener, OsEventListener,
+//! };
 //!
-//! let mut listener = MacOsEventListener::new();
-//! listener.start(Box::new(|| {
-//!     println!("App switched!");
-//! }))?;
-//! # Ok::<(), String>(())
+//! fn main() -> Result<(), String> {
+//!     #[cfg(target_os = "macos")]
+//!     {
+//!         let mut listener = MacOsEventListener::new();
+//!         listener.start(Box::new(|| {
+//!             println!("App switched!");
+//!         }))?;
+//!         listener.stop()?;
+//!     }
+//!     Ok(())
+//! }
 //! ```
 
 use std::ptr::NonNull;

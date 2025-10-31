@@ -10,10 +10,14 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! let url = get_browser_url("com.apple.Safari", "Safari").await;
-//! if let Some(url) = url {
-//!     println!("Current URL: {url}");
-//! }
+//! use tokio::runtime::Runtime;
+//! use pulsearc_infra::platform::macos::enrichers::browser::get_browser_url;
+//!
+//! Runtime::new().unwrap().block_on(async {
+//!     if let Some(url) = get_browser_url("com.apple.Safari", "Safari").await {
+//!         println!("Current URL: {url}");
+//!     }
+//! });
 //! ```
 
 use std::time::Duration;

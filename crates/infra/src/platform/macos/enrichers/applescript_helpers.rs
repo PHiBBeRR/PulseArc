@@ -8,16 +8,24 @@
 //! # Example
 //! ```rust,no_run
 //! use std::time::Duration;
+//! use pulsearc_infra::platform::macos::enrichers::applescript_helpers::execute_applescript;
 //!
-//! let script = r#"
-//!     tell application "Safari"
-//!         if (count of windows) > 0 then
-//!             URL of current tab of front window
-//!         end if
-//!     end tell
-//! "#;
+//! fn main() -> pulsearc_domain::Result<()> {
+//!     #[cfg(target_os = "macos")]
+//!     {
+//!         let script = r#"
+//!             tell application "Safari"
+//!                 if (count of windows) > 0 then
+//!                     URL of current tab of front window
+//!                 end if
+//!             end tell
+//!         "#;
 //!
-//! let result = execute_applescript(script, Duration::from_secs(2))?;
+//!         let url = execute_applescript(script, Duration::from_secs(2))?;
+//!         println!("Active URL: {url}");
+//!     }
+//!     Ok(())
+//! }
 //! ```
 
 use std::process::{Command, Stdio};

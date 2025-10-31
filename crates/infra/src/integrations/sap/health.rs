@@ -294,7 +294,7 @@ async fn health_worker(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     use pulsearc_core::classification::ports::WbsRepository;
     use pulsearc_domain::types::sap::WbsElement;
@@ -343,13 +343,15 @@ mod tests {
         }
     }
 
+    type StatusLog = Arc<Mutex<Vec<HealthStatus>>>;
+
     // Mock Listener that records status changes
     struct TestListener {
-        statuses: Arc<Mutex<Vec<HealthStatus>>>,
+        statuses: StatusLog,
     }
 
     impl TestListener {
-        fn new() -> (Self, Arc<Mutex<Vec<HealthStatus>>>) {
+        fn new() -> (Self, StatusLog) {
             let statuses = Arc::new(Mutex::new(Vec::new()));
             (Self { statuses: statuses.clone() }, statuses)
         }

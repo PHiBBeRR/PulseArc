@@ -197,8 +197,7 @@ impl CostTracker {
 
     /// Get current metrics snapshot
     pub fn get_metrics(&self) -> CommonResult<CostMetrics> {
-        self
-            .metrics
+        self.metrics
             .lock()
             .map_err(|_| CommonError::lock_resource("CostMetrics", "mutex poisoned"))
             .map(|guard| guard.clone())
@@ -241,9 +240,7 @@ impl CostTracker {
             Ok(())
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
-        })??;
+        .map_err(|e| join_error("cost_tracker::record_usage", e))??;
 
         // Update in-memory metrics
         let mut metrics = self
@@ -297,9 +294,7 @@ impl CostTracker {
             Ok(total)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
-        })?
+        .map_err(|e| join_error("cost_tracker::get_monthly_cost", e))?
     }
 
     /// Check if monthly cost cap is exceeded
@@ -426,9 +421,7 @@ impl CostTracker {
             })
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
-        })?
+        .map_err(|e| join_error("cost_tracker::get_user_cost_summary", e))?
     }
 
     /// Get historical costs grouped by day
@@ -474,16 +467,14 @@ impl CostTracker {
             })?;
 
             let mut daily_costs = Vec::new();
-            while let Some(row) = rows.next() {
-                daily_costs.push(row?);
+            for row_result in rows {
+                daily_costs.push(row_result?);
             }
 
             Ok(daily_costs)
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
-        })?
+        .map_err(|e| join_error("cost_tracker::get_historical_costs", e))?
     }
 
     /// Get token variance (estimated vs actual)
@@ -510,16 +501,18 @@ impl CostTracker {
                 "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 0 LIMIT 1",
                 rusqlite::params![batch_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
-            ).map_err(|e| {
-                pulsearc_common::error::CommonError::Storage(format!("No estimated usage: {}", e))
+            ).map_err(|e| CommonError::Storage {
+                message: format!("No estimated usage: {}", e),
+                operation: Some("cost_tracker::get_token_variance".into()),
             })?;
 
             let (act_input, act_output): (Option<i64>, Option<i64>) = conn.query_row(
                 "SELECT input_tokens, output_tokens FROM token_usage WHERE batch_id = ?1 AND is_actual = 1 LIMIT 1",
                 rusqlite::params![batch_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
-            ).map_err(|e| {
-                pulsearc_common::error::CommonError::Storage(format!("No actual usage: {}", e))
+            ).map_err(|e| CommonError::Storage {
+                message: format!("No actual usage: {}", e),
+                operation: Some("cost_tracker::get_token_variance".into()),
             })?;
 
             let input_variance_pct = if let (Some(est), Some(act)) = (est_input, act_input) {
@@ -548,9 +541,7 @@ impl CostTracker {
             })
         })
         .await
-        .map_err(|e| {
-            pulsearc_common::error::CommonError::Internal(format!("Task join failed: {}", e))
-        })?
+        .map_err(|e| join_error("cost_tracker::get_token_variance", e))?
     }
 
     /// Check if variance exceeds threshold (20%)
@@ -582,6 +573,10 @@ impl CostTracker {
 
         Ok(should_alert)
     }
+}
+
+fn join_error(task: &'static str, error: tokio::task::JoinError) -> CommonError {
+    CommonError::Internal { message: format!("Task join failed: {error}"), context: Some(task.into()) }
 }
 
 #[cfg(test)]

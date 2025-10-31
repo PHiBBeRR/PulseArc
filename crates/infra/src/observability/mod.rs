@@ -26,10 +26,12 @@
 //! ## Error Handling
 //!
 //! ```rust
-//! use pulsearc_infra::observability::MetricsResult;
+//! use pulsearc_infra::observability::metrics::PerformanceMetrics;
+//!
+//! let metrics = PerformanceMetrics::new();
 //!
 //! // Recommended: Handle future errors gracefully
-//! if let Err(e) = metrics.record_call(123) {
+//! if let Err(e) = metrics.record_call() {
 //!     tracing::warn!("Failed to record metric: {}", e);
 //!     // Continue execution, metric dropped
 //! }

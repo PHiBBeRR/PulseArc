@@ -274,32 +274,50 @@ impl NeonClient {
     }
 
     async fn send_request(&self, builder: RequestBuilder) -> Result<Response, SyncError> {
-        let request = builder.build().map_err(|err| SyncError::Client(err.to_string()))?;
+        let prepared_builder = builder
+            .try_clone()
+            .ok_or_else(|| SyncError::Client("Unable to clone request for validation".into()))?;
+
+        let request = prepared_builder.build().map_err(|err| SyncError::Client(err.to_string()))?;
 
         if request.url().scheme() == "file" {
             return Err(SyncError::Config("file:// URLs are not supported".into()));
         }
 
         let method = request.method().clone();
-        let url = request.url().clone();
+        if ABNORMAL_METHODS.contains(&method) {
+            return Err(SyncError::Client(format!("HTTP method {} is not allowed", method)));
+        }
 
-        let response = tokio::time::timeout(self.config.timeout, self.http_client.execute(request))
-            .await
-            .map_err(|_| SyncError::Timeout(self.config.timeout))??;
-
+        let response = self.http_client.send(builder).await.map_err(SyncError::from)?;
         let status = response.status();
 
         if status == StatusCode::SERVICE_UNAVAILABLE {
-            Err(SyncError::RateLimit("Neon service unavailable".into()))
-        } else if ABNORMAL_METHODS.contains(&method) {
-            Err(SyncError::Client(format!("HTTP method {} is not allowed", method)))
-        } else {
-            Ok(response)
+            return Err(SyncError::RateLimit("Neon service unavailable".into()));
         }
+
+        classify_status(status)?;
+        Ok(response)
     }
 }
 
 const ABNORMAL_METHODS: &[Method] = &[Method::TRACE, Method::CONNECT];
+
+fn classify_status(status: StatusCode) -> Result<(), SyncError> {
+    if status.is_success() {
+        return Ok(());
+    }
+
+    match status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+            Err(SyncError::Auth(format!("Authentication failed ({})", status)))
+        }
+        StatusCode::TOO_MANY_REQUESTS => Err(SyncError::RateLimit("Rate limited by Neon".into())),
+        s if s.is_server_error() => Err(SyncError::Server(format!("Server error ({})", s))),
+        s if s.is_client_error() => Err(SyncError::Client(format!("Client error ({})", s))),
+        _ => Err(SyncError::Network(format!("Unexpected response status ({})", status))),
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -367,18 +385,26 @@ mod tests {
         // Set a test token
         client.set_api_token("test-token").unwrap();
 
+        let now = chrono::Utc::now().timestamp();
         let segment = ActivitySegment {
             id: "test123".to_string(),
-            user_id: "user1".to_string(),
-            start_time: chrono::Utc::now(),
-            end_time: chrono::Utc::now() + chrono::Duration::minutes(30),
-            duration_secs: 1800,
-            application: Some("VSCode".to_string()),
-            title: Some("main.rs".to_string()),
-            url: None,
-            idle: false,
-            project_id: None,
-            category: None,
+            start_ts: now,
+            end_ts: now + 1_800, // +30 minutes
+            primary_app: "VSCode".to_string(),
+            normalized_label: "coding".to_string(),
+            sample_count: 60,
+            dictionary_keys: None,
+            created_at: now,
+            processed: false,
+            snapshot_ids: vec![],
+            work_type: None,
+            activity_category: "development".to_string(),
+            detected_activity: "coding".to_string(),
+            extracted_signals_json: None,
+            project_match_json: None,
+            idle_time_secs: 0,
+            active_time_secs: 1_800,
+            user_action: None,
         };
 
         let result = client.sync_segment(&segment, "idempotency-key-123".to_string()).await;
