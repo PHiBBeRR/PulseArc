@@ -171,7 +171,11 @@ impl CallMetrics {
     ///
     /// ## Locking
     /// Holds lock during entire operation for consistent snapshot.
-    fn get_percentile_fetch_time(&self, percentile: f64, metric_name: &'static str) -> MetricsResult<u64> {
+    fn get_percentile_fetch_time(
+        &self,
+        percentile: f64,
+        metric_name: &'static str,
+    ) -> MetricsResult<u64> {
         // Poison-safe locking
         let times = match self.fetch_times.lock() {
             Ok(guard) => guard,
