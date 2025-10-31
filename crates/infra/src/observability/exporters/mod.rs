@@ -1,5 +1,8 @@
 //! Metrics exporters
 //!
-//! Exporters send metrics to external monitoring systems.
+//! Exporters send collected metrics to external monitoring systems.
 
-// Placeholder - exporters will be added in Day 2
+pub mod datadog;
+
+// Re-export exporter types for convenience
+pub use datadog::{DatadogClient, DEFAULT_DATADOG_ADDR};
