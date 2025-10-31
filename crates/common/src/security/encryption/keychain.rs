@@ -122,7 +122,7 @@ impl KeychainProvider {
 
         match self.create_entry(key) {
             Ok(entry) => {
-                if let Err(e) = entry.delete_password() {
+                if let Err(e) = entry.delete_credential() {
                     if !matches!(e, keyring::Error::NoEntry) {
                         return Err(KeychainError::AccessFailed(format!(
                             "Failed to delete secret for {}: {}",

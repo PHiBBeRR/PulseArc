@@ -45,7 +45,7 @@ impl KeyManager {
             .map_err(|e| PulseArcError::Security(format!("Failed to access keyring: {}", e)))?;
 
         entry
-            .delete_password()
+            .delete_credential()
             .map_err(|e| PulseArcError::Security(format!("Failed to delete key: {}", e)))?;
 
         Ok(())
