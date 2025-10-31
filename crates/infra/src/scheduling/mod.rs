@@ -13,5 +13,7 @@
 //! - Structured tracing with PerformanceMetrics integration
 
 pub mod block_scheduler;
+pub mod error;
 
-pub use block_scheduler::BlockScheduler;
+pub use block_scheduler::{BlockJob, BlockScheduler, BlockSchedulerConfig};
+pub use error::{SchedulerError, SchedulerResult};

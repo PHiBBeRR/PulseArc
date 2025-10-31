@@ -56,5 +56,6 @@ pub mod fallback {
 pub use fallback::FallbackActivityProvider;
 
 // Event listener is cross-platform (macOS has real impl, others have fallback)
-// But the fallback is defined in the same module as macOS, so we don't re-export here
-// Users should use macos::event_listener::FallbackEventListener directly if needed
+// But the fallback is defined in the same module as macOS, so we don't
+// re-export here Users should use macos::event_listener::FallbackEventListener
+// directly if needed

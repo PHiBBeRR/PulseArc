@@ -74,9 +74,10 @@ impl SapForwarder {
 
     /// Prepare a batch of SAP time entries from outbox records.
     ///
-    /// This is a pure function that attempts to map each outbox entry to an SAP time
-    /// entry, returning the conversion result per entry. Conversion failures are logged
-    /// and surfaced to callers via the returned `PreparedEntry`.
+    /// This is a pure function that attempts to map each outbox entry to an SAP
+    /// time entry, returning the conversion result per entry. Conversion
+    /// failures are logged and surfaced to callers via the returned
+    /// `PreparedEntry`.
     ///
     /// # Arguments
     ///
@@ -201,13 +202,15 @@ fn map_pulsearc_error(err: PulseArcError, outbox_id: &str, stage: &str) -> SapEr
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::integrations::sap::SapErrorCategory;
+    use std::collections::VecDeque;
+    use std::sync::{Arc, Mutex};
+
     use async_trait::async_trait;
     use pulsearc_core::sap_ports::SapClient as SapClientTrait;
     use pulsearc_domain::{OutboxStatus, PulseArcError, TimeEntryOutbox};
-    use std::collections::VecDeque;
-    use std::sync::{Arc, Mutex};
+
+    use super::*;
+    use crate::integrations::sap::SapErrorCategory;
 
     fn base_outbox_entry(id: &str) -> TimeEntryOutbox {
         TimeEntryOutbox {
@@ -338,7 +341,8 @@ impl Default for SapForwarder {
 pub struct PreparedEntry {
     /// Outbox identifier associated with this entry.
     pub outbox_id: String,
-    /// Conversion result; `Ok` contains the prepared SAP entry, `Err` contains validation error.
+    /// Conversion result; `Ok` contains the prepared SAP entry, `Err` contains
+    /// validation error.
     pub result: Result<SapTimeEntry>,
 }
 
@@ -410,7 +414,8 @@ pub struct BatchForwarder {
 }
 
 impl BatchForwarder {
-    /// Create a new batch forwarder with default retry and circuit breaker config.
+    /// Create a new batch forwarder with default retry and circuit breaker
+    /// config.
     ///
     /// Default configuration:
     /// - Max 3 retry attempts
@@ -462,9 +467,10 @@ impl BatchForwarder {
 
     /// Submit a batch of outbox entries to SAP with retry logic.
     ///
-    /// Conversion and submission happen entry-by-entry so that failures can be reported
-    /// precisely. Conversion failures are surfaced alongside submission failures, allowing
-    /// callers to update outbox status deterministically.
+    /// Conversion and submission happen entry-by-entry so that failures can be
+    /// reported precisely. Conversion failures are surfaced alongside
+    /// submission failures, allowing callers to update outbox status
+    /// deterministically.
     pub async fn submit_batch(&self, entries: &[TimeEntryOutbox]) -> Result<BatchSubmissionResult> {
         let batch_size = entries.len();
         debug!(batch_size, "Starting batch submission to SAP");

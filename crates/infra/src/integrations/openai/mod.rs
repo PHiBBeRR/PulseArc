@@ -1,11 +1,12 @@
 /// OpenAI integration for block classification
 ///
-/// This module provides an OpenAI API client for classifying time blocks as billable
-/// or G&A (non-billable) based on activity signals.
+/// This module provides an OpenAI API client for classifying time blocks as
+/// billable or G&A (non-billable) based on activity signals.
 ///
 /// # Architecture
 ///
-/// - **Client**: `OpenAIClient` - HTTP client wrapper for OpenAI Chat Completions API
+/// - **Client**: `OpenAIClient` - HTTP client wrapper for OpenAI Chat
+///   Completions API
 /// - **Types**: Request/response types for block classification
 /// - **Error Handling**: Structured error types with retry support
 /// # Usage

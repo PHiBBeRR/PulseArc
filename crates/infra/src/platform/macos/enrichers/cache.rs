@@ -24,8 +24,9 @@
 //! }
 //! ```
 
-use moka::sync::Cache;
 use std::time::Duration;
+
+use moka::sync::Cache;
 
 /// Default TTL for enrichment cache entries (5 minutes).
 pub const DEFAULT_ENRICHMENT_TTL: Duration = Duration::from_secs(300);
@@ -183,8 +184,9 @@ impl Default for EnrichmentCache {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::Duration;
+
+    use super::*;
 
     #[test]
     fn test_new_cache() {

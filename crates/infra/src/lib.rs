@@ -26,6 +26,7 @@ pub mod mdm;
 pub mod observability;
 pub mod platform;
 pub mod scheduling;
+pub mod scheduling;
 pub mod sync;
 
 // Re-export commonly used items
@@ -41,5 +42,6 @@ pub use integrations::sap;
 pub use key_manager::*;
 pub use mdm::*;
 pub use platform::*;
+pub use scheduling::{BlockJob, BlockScheduler, BlockSchedulerConfig, SchedulerError, SchedulerResult};
 pub use scheduling::BlockScheduler;
 pub use sync::{CleanupService, CostTracker, NeonClient};

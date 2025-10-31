@@ -1,17 +1,21 @@
 /// SAP integration module (feature-gated)
 ///
-/// This module provides SAP GraphQL client and time entry forwarding functionality.
-/// Only compiled when the `sap` feature is enabled.
+/// This module provides SAP GraphQL client and time entry forwarding
+/// functionality. Only compiled when the `sap` feature is enabled.
 ///
 /// # Architecture
 ///
 /// - **Client**: `SapClient` - GraphQL client for sap-connector API
 /// - **Forwarder**: `SapForwarder` - Converts outbox entries to SAP format
 /// - **Cache**: `WbsCache` - In-memory WBS code caching with TTL
-/// - **Validation**: `WbsValidator` - Three-layer WBS validation (format, existence, status)
-/// - **Errors**: `SapError` - SAP-specific error classification with retry recommendations
-/// - **Auth**: `SapAuthService` - OAuth wrapper for SAP connector authentication
-/// - **Health**: `SapHealthMonitor` - Background health monitoring with lifecycle management
+/// - **Validation**: `WbsValidator` - Three-layer WBS validation (format,
+///   existence, status)
+/// - **Errors**: `SapError` - SAP-specific error classification with retry
+///   recommendations
+/// - **Auth**: `SapAuthService` - OAuth wrapper for SAP connector
+///   authentication
+/// - **Health**: `SapHealthMonitor` - Background health monitoring with
+///   lifecycle management
 /// - **WBS Validation**: Integrated with `WbsRepository` from Phase 2
 ///
 /// # Usage

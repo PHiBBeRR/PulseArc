@@ -19,18 +19,20 @@
 //! - Window titles require Accessibility permission
 //! - No panics or errors on permission denial
 
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
 use async_trait::async_trait;
 use pulsearc_core::tracking::ports::ActivityProvider;
 use pulsearc_domain::types::{
     ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext,
 };
 use pulsearc_domain::{ActivityContext, Result as DomainResult};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use url::Url;
 
 use super::ax_helpers;
-use super::enrichers::{browser, cache::EnrichmentCache, office};
+use super::enrichers::cache::EnrichmentCache;
+use super::enrichers::{browser, office};
 use super::error_helpers::map_join_error;
 use crate::observability::metrics::PerformanceMetrics;
 
@@ -116,11 +118,13 @@ impl MacOsActivityProvider {
         Arc::clone(&self.metrics)
     }
 
-    /// Fetch active app information with enrichment (synchronous, called from spawn_blocking).
+    /// Fetch active app information with enrichment (synchronous, called from
+    /// spawn_blocking).
     ///
-    /// This is a helper method that performs synchronous AX API calls and enriches
-    /// the data with browser URLs or office document names where applicable.
-    /// It's designed to be called from within `tokio::task::spawn_blocking`.
+    /// This is a helper method that performs synchronous AX API calls and
+    /// enriches the data with browser URLs or office document names where
+    /// applicable. It's designed to be called from within
+    /// `tokio::task::spawn_blocking`.
     ///
     /// # Arguments
     ///
@@ -277,7 +281,8 @@ impl ActivityProvider for MacOsActivityProvider {
     /// Get the current activity context.
     ///
     /// Fetches active app info and recent apps using macOS Accessibility APIs.
-    /// All blocking AX API calls are wrapped in `spawn_blocking` for async safety.
+    /// All blocking AX API calls are wrapped in `spawn_blocking` for async
+    /// safety.
     ///
     /// # Returns
     ///

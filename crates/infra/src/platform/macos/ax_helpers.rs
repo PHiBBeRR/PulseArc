@@ -1,18 +1,20 @@
 //! macOS Accessibility API Integration
 //!
 //! This module provides Rust bindings for macOS Accessibility APIs to fetch
-//! focused window titles, active app information, and recent apps from running applications.
+//! focused window titles, active app information, and recent apps from running
+//! applications.
 //!
-//! All functions gracefully degrade when Accessibility permissions are not granted,
-//! returning limited app information (name, bundle ID) without window titles.
+//! All functions gracefully degrade when Accessibility permissions are not
+//! granted, returning limited app information (name, bundle ID) without window
+//! titles.
 
-use pulsearc_domain::{PulseArcError, Result as DomainResult};
 use std::sync::OnceLock;
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
 
 #[cfg(target_os = "macos")]
 use parking_lot::RwLock;
-#[cfg(target_os = "macos")]
-use std::time::{Duration, Instant};
+use pulsearc_domain::{PulseArcError, Result as DomainResult};
 
 /// Details about the currently active application.
 #[derive(Debug, Clone)]
@@ -32,9 +34,6 @@ pub struct RecentAppInfo {
 }
 
 #[cfg(target_os = "macos")]
-use super::error_helpers::ax_permission_error;
-
-#[cfg(target_os = "macos")]
 use core_foundation::base::{CFTypeRef, TCFType};
 #[cfg(target_os = "macos")]
 use core_foundation::boolean::CFBoolean;
@@ -44,6 +43,9 @@ use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::{CFString, CFStringRef};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::NSWorkspace;
+
+#[cfg(target_os = "macos")]
+use super::error_helpers::ax_permission_error;
 
 // Accessibility API types and functions (macOS only)
 #[cfg(target_os = "macos")]
@@ -78,7 +80,8 @@ struct CachedPermission {
     checked_at: Instant,
 }
 
-// Cache for AX permission state (avoid repeated system calls, but allow refresh)
+// Cache for AX permission state (avoid repeated system calls, but allow
+// refresh)
 #[cfg(target_os = "macos")]
 static AX_PERMISSION_CACHE: OnceLock<RwLock<Option<CachedPermission>>> = OnceLock::new();
 
@@ -177,7 +180,8 @@ pub fn check_ax_permission(_prompt: bool) -> DomainResult<bool> {
 ///
 /// # Returns
 ///
-/// * `Ok(Some(String))` - Window title if Accessibility permission granted and window has title
+/// * `Ok(Some(String))` - Window title if Accessibility permission granted and
+///   window has title
 /// * `Ok(None)` - Permission denied, invalid PID, or no focused window
 /// * `Err(_)` - Only on non-macOS platforms
 ///
@@ -208,7 +212,8 @@ pub fn get_focused_window_title(app_pid: i32) -> DomainResult<Option<String>> {
     }
 
     // SAFETY: This unsafe block interacts with macOS Accessibility APIs:
-    // - AXUIElementCreateApplication: Creates an AX element for the app (must be released)
+    // - AXUIElementCreateApplication: Creates an AX element for the app (must be
+    //   released)
     // - AXUIElementCopyAttributeValue: Queries attributes (returns owned CFTypeRef)
     // - CFRelease: Releases CoreFoundation objects
     //
@@ -216,7 +221,8 @@ pub fn get_focused_window_title(app_pid: i32) -> DomainResult<Option<String>> {
     // 1. All created/copied CF objects are released before function returns
     // 2. Null pointers are checked before dereferencing
     // 3. CF objects are not accessed after being released
-    // 4. CFString is wrapped with proper ownership semantics (wrap_under_create_rule)
+    // 4. CFString is wrapped with proper ownership semantics
+    //    (wrap_under_create_rule)
     unsafe {
         // Create AX element for the application
         let app_element = AXUIElementCreateApplication(app_pid);
@@ -260,7 +266,8 @@ pub fn get_focused_window_title(app_pid: i32) -> DomainResult<Option<String>> {
         }
 
         // Convert CFString to Rust String
-        // SAFETY: wrap_under_create_rule takes ownership of the CFString and will release it
+        // SAFETY: wrap_under_create_rule takes ownership of the CFString and will
+        // release it
         let cf_title = CFString::wrap_under_create_rule(title_ref.cast());
         let rust_title = cf_title.to_string();
 
@@ -342,7 +349,8 @@ fn get_main_window_title(app_pid: i32) -> DomainResult<Option<String>> {
 /// # Returns
 ///
 /// * `Ok((app_name, bundle_id, window_title_opt, pid))` - Full app context
-/// * `Err(PulseArcError::Platform)` - No active app, NSWorkspace unavailable, or non-macOS
+/// * `Err(PulseArcError::Platform)` - No active app, NSWorkspace unavailable,
+///   or non-macOS
 ///
 /// # Behavior
 ///
@@ -424,7 +432,8 @@ pub fn get_active_app_info() -> DomainResult<ActiveAppInfo> {
 ///
 /// # Arguments
 ///
-/// * `exclude_bundle_id` - Optional bundle ID to exclude (typically the current app)
+/// * `exclude_bundle_id` - Optional bundle ID to exclude (typically the current
+///   app)
 /// * `limit` - Maximum number of apps to return
 ///
 /// # Returns

@@ -43,7 +43,8 @@ impl SapClient {
     /// * `base_url` - Base URL of the sap-connector GraphQL API (e.g., "http://localhost:3000")
     /// * `wbs_repository` - Repository for WBS validation
     /// * `user_id` - SAP user ID for time entry submissions
-    /// * `access_token_provider` - Async provider that yields OAuth access tokens
+    /// * `access_token_provider` - Async provider that yields OAuth access
+    ///   tokens
     ///
     /// # Returns
     /// A configured SAP client
@@ -68,9 +69,11 @@ impl SapClient {
     ///
     /// # Arguments
     /// * `base_url` - Base URL of the sap-connector GraphQL API
-    /// * `wbs_validator` - Custom WBS validator instance (contains cache + repository)
+    /// * `wbs_validator` - Custom WBS validator instance (contains cache +
+    ///   repository)
     /// * `user_id` - SAP user ID for time entry submissions
-    /// * `access_token_provider` - Async provider that yields OAuth access tokens
+    /// * `access_token_provider` - Async provider that yields OAuth access
+    ///   tokens
     pub fn with_validator(
         base_url: String,
         wbs_validator: Arc<WbsValidator>,
@@ -87,7 +90,8 @@ impl SapClient {
 
     /// Check if SAP connector server is reachable
     ///
-    /// Performs a lightweight HEAD request to the /health endpoint with 5s timeout.
+    /// Performs a lightweight HEAD request to the /health endpoint with 5s
+    /// timeout.
     ///
     /// # Returns
     /// * `Ok(true)` - Server is reachable

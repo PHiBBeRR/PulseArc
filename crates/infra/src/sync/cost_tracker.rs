@@ -23,7 +23,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use pulsearc_common::error::CommonResult;
+use pulsearc_common::error::{CommonError, CommonResult};
 use pulsearc_common::observability::MetricsTracker;
 
 use crate::database::DbManager;
@@ -174,8 +174,11 @@ impl CostTracker {
     /// # Arguments
     ///
     /// * `service` - Service name (e.g., "sap", "calendar", "neon")
-    pub fn record_call(&self, service: &str) {
-        let mut metrics = self.metrics.lock().expect("CostMetrics mutex poisoned");
+    pub fn record_call(&self, service: &str) -> CommonResult<()> {
+        let mut metrics = self
+            .metrics
+            .lock()
+            .map_err(|_| CommonError::lock_resource("CostMetrics", "mutex poisoned"))?;
 
         metrics.total_api_calls += 1;
 
@@ -189,11 +192,16 @@ impl CostTracker {
 
         // Note: MetricsTracker integration would go here when API is available
         debug!(service = service, "Recorded API call");
+        Ok(())
     }
 
     /// Get current metrics snapshot
-    pub fn get_metrics(&self) -> CostMetrics {
-        self.metrics.lock().expect("CostMetrics mutex poisoned").clone()
+    pub fn get_metrics(&self) -> CommonResult<CostMetrics> {
+        self
+            .metrics
+            .lock()
+            .map_err(|_| CommonError::lock_resource("CostMetrics", "mutex poisoned"))
+            .map(|guard| guard.clone())
     }
 
     /// Record token usage to database
@@ -238,7 +246,10 @@ impl CostTracker {
         })??;
 
         // Update in-memory metrics
-        let mut metrics = self.metrics.lock().expect("CostMetrics mutex poisoned");
+        let mut metrics = self
+            .metrics
+            .lock()
+            .map_err(|_| CommonError::lock_resource("CostMetrics", "mutex poisoned"))?;
         metrics.total_cost_usd += usage.estimated_cost_usd;
         metrics.openai_calls += 1; // Assume token usage = OpenAI
 
@@ -454,7 +465,7 @@ impl CostTracker {
                 "#,
             )?;
 
-            let results = stmt.query_map(rusqlite::params![start], |row| {
+            let mut rows = stmt.query_map(rusqlite::params![start], |row| {
                 Ok(DailyCost {
                     date: row.get(0)?,
                     total_cost_usd: row.get(1)?,
@@ -462,7 +473,12 @@ impl CostTracker {
                 })
             })?;
 
-            Ok(results)
+            let mut daily_costs = Vec::new();
+            while let Some(row) = rows.next() {
+                daily_costs.push(row?);
+            }
+
+            Ok(daily_costs)
         })
         .await
         .map_err(|e| {
@@ -507,13 +523,21 @@ impl CostTracker {
             })?;
 
             let input_variance_pct = if let (Some(est), Some(act)) = (est_input, act_input) {
-                ((act - est) as f64 / est as f64) * 100.0
+                if est == 0 {
+                    0.0
+                } else {
+                    ((act - est) as f64 / est as f64) * 100.0
+                }
             } else {
                 0.0
             };
 
             let output_variance_pct = if let (Some(est), Some(act)) = (est_output, act_output) {
-                ((act - est) as f64 / est as f64) * 100.0
+                if est == 0 {
+                    0.0
+                } else {
+                    ((act - est) as f64 / est as f64) * 100.0
+                }
             } else {
                 0.0
             };
@@ -580,10 +604,10 @@ mod tests {
         let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let tracker = CostTracker::with_defaults(db).unwrap();
 
-        tracker.record_call("sap");
-        tracker.record_call("openai");
+        tracker.record_call("sap").unwrap();
+        tracker.record_call("openai").unwrap();
 
-        let metrics = tracker.get_metrics();
+        let metrics = tracker.get_metrics().unwrap();
         assert_eq!(metrics.total_api_calls, 2);
         assert_eq!(metrics.sap_calls, 1);
         assert_eq!(metrics.openai_calls, 1);

@@ -64,8 +64,10 @@ pub fn is_office_app(bundle_id: &str) -> bool {
 /// Office and Apple iWork apps and returns None on any failure.
 ///
 /// # Arguments
-/// * `bundle_id` - The application's bundle identifier (e.g., "com.microsoft.Word")
-/// * `app_name` - The application's display name (e.g., "Microsoft Word") - used as fallback
+/// * `bundle_id` - The application's bundle identifier (e.g.,
+///   "com.microsoft.Word")
+/// * `app_name` - The application's display name (e.g., "Microsoft Word") -
+///   used as fallback
 ///
 /// # Returns
 /// * `Some(String)` - The document name if successfully extracted
@@ -99,8 +101,8 @@ pub async fn get_office_document(bundle_id: &str, app_name: &str) -> Option<Stri
 
 /// Get the current document name from an office application synchronously.
 ///
-/// This is a blocking variant of `get_office_document` for use in synchronous contexts
-/// or within `spawn_blocking` tasks.
+/// This is a blocking variant of `get_office_document` for use in synchronous
+/// contexts or within `spawn_blocking` tasks.
 ///
 /// # Arguments
 /// * `bundle_id` - The application's bundle identifier
@@ -195,12 +197,13 @@ mod tests {
     }
 
     // Note: Testing actual document extraction requires office apps to be running
-    // with open documents, which is not suitable for CI. These are integration tests
-    // that should be run manually during development.
+    // with open documents, which is not suitable for CI. These are integration
+    // tests that should be run manually during development.
     //
     // Manual test procedure:
     // 1. Open Microsoft Word with a document (e.g., "Report.docx")
-    // 2. Run: cargo test --package pulsearc-infra get_office_document -- --ignored --nocapture
+    // 2. Run: cargo test --package pulsearc-infra get_office_document -- --ignored
+    //    --nocapture
     // 3. Verify the document name is extracted correctly
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]

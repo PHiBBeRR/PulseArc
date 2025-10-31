@@ -1,12 +1,14 @@
 //! Error mapping helpers for macOS platform operations
 //!
 //! This module provides helper functions to convert platform-specific errors
-//! (IO errors, task join errors, AX API errors) into the domain's `PulseArcError` type.
+//! (IO errors, task join errors, AX API errors) into the domain's
+//! `PulseArcError` type.
 //!
 //! # Error Mapping Strategy
 //!
 //! - `tokio::task::JoinError` → `PulseArcError::Internal` (runtime/task errors)
-//! - AppleScript/IO errors → `PulseArcError::Platform` (macOS-specific failures)
+//! - AppleScript/IO errors → `PulseArcError::Platform` (macOS-specific
+//!   failures)
 //! - AX API errors → `PulseArcError::Platform` (accessibility-related failures)
 //! - Enrichment failures → `PulseArcError::Internal` (non-critical failures)
 
@@ -42,7 +44,8 @@ pub(crate) fn map_join_error(err: tokio::task::JoinError) -> PulseArcError {
 ///
 /// # Arguments
 ///
-/// * `operation` - Human-readable description of the operation (e.g., "AppleScript execution")
+/// * `operation` - Human-readable description of the operation (e.g.,
+///   "AppleScript execution")
 /// * `err` - The IO error that occurred
 ///
 /// # Examples
@@ -110,7 +113,8 @@ pub(crate) fn applescript_timeout_error(duration_ms: u64) -> PulseArcError {
 ///
 /// # Arguments
 ///
-/// * `context` - Context about what enrichment failed (e.g., "browser URL capture")
+/// * `context` - Context about what enrichment failed (e.g., "browser URL
+///   capture")
 /// * `err` - The underlying error
 ///
 /// # Examples
@@ -129,8 +133,9 @@ pub(crate) fn enrichment_error(context: &str, err: &dyn std::error::Error) -> Pu
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tokio::task;
+
+    use super::*;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_map_join_error_cancelled() {

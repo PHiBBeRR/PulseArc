@@ -21,13 +21,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
+use pulsearc_common::error::CommonResult;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, instrument, warn};
-
-use pulsearc_common::error::CommonResult;
 
 use crate::database::DbManager;
 
@@ -400,7 +399,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cleanup_lifecycle() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config = CleanupConfig::default();
 
         let mut service = CleanupService::new(db, config);

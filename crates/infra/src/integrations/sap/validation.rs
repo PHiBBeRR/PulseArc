@@ -28,12 +28,12 @@
 //! }
 //! ```
 
-use regex::Regex;
 use std::sync::{Arc, OnceLock};
 
 use pulsearc_common::time::{Clock, SystemClock};
 use pulsearc_core::classification::ports::WbsRepository;
 use pulsearc_domain::Result;
+use regex::Regex;
 
 use super::cache::WbsCache;
 
@@ -258,7 +258,8 @@ impl WbsValidator<SystemClock> {
 }
 
 impl<C: Clock> WbsValidator<C> {
-    /// Create a new validator with a custom clock (useful for deterministic tests)
+    /// Create a new validator with a custom clock (useful for deterministic
+    /// tests)
     pub fn with_clock(
         cache: Arc<WbsCache>,
         repository: Arc<dyn WbsRepository>,
@@ -377,12 +378,13 @@ impl<C: Clock> WbsValidator<C> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use pulsearc_common::time::{MockClock, SystemClock};
-    use pulsearc_domain::types::sap::WbsElement;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use pulsearc_common::time::{MockClock, SystemClock};
+    use pulsearc_domain::types::sap::WbsElement;
+
+    use super::*;
     use crate::integrations::sap::cache::{WbsCache, WbsCacheConfig};
 
     /// Mock WBS repository for testing

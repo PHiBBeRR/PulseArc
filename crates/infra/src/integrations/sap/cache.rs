@@ -1,7 +1,8 @@
 //! WBS code caching with moka
 //!
-//! Provides in-memory cache for WBS validation results to reduce database queries.
-//! Uses WbsRepository as backing store with separate positive and negative caches.
+//! Provides in-memory cache for WBS validation results to reduce database
+//! queries. Uses WbsRepository as backing store with separate positive and
+//! negative caches.
 //!
 //! # Architecture
 //!
@@ -25,13 +26,14 @@
 //! }
 //! ```
 
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
 use moka::sync::Cache;
 use pulsearc_common::time::{Clock, SystemClock};
 use pulsearc_core::classification::ports::WbsRepository;
 use pulsearc_domain::types::sap::WbsElement;
 use pulsearc_domain::{PulseArcError, Result};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 /// Default TTL for WBS cache entries (5 minutes)
 ///
@@ -362,10 +364,12 @@ impl CacheStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Mutex;
+
     use pulsearc_common::time::MockClock;
     use pulsearc_domain::types::sap::WbsElement;
-    use std::sync::Mutex;
+
+    use super::*;
 
     /// Mock WBS repository for testing
     struct MockWbsRepository {

@@ -20,9 +20,10 @@
 //! let result = execute_applescript(script, Duration::from_secs(2))?;
 //! ```
 
-use pulsearc_domain::{PulseArcError, Result as DomainResult};
 use std::process::{Command, Stdio};
 use std::time::Duration;
+
+use pulsearc_domain::{PulseArcError, Result as DomainResult};
 use wait_timeout::ChildExt;
 
 use crate::platform::macos::error_helpers::map_platform_io_error;
@@ -35,7 +36,8 @@ use crate::platform::macos::error_helpers::map_platform_io_error;
 ///
 /// # Returns
 /// * `Ok(String)` - Trimmed stdout output if successful
-/// * `Err(PulseArcError::Platform)` - If execution fails, times out, or returns non-zero exit
+/// * `Err(PulseArcError::Platform)` - If execution fails, times out, or returns
+///   non-zero exit
 ///
 /// # Errors
 /// - If osascript fails to spawn
@@ -120,8 +122,8 @@ pub fn execute_applescript(script: &str, timeout: Duration) -> DomainResult<Stri
 
 /// Execute AppleScript and return None if it fails gracefully.
 ///
-/// This is useful for optional enrichment where failures should not halt processing.
-/// Logs warnings but does not propagate errors.
+/// This is useful for optional enrichment where failures should not halt
+/// processing. Logs warnings but does not propagate errors.
 ///
 /// # Arguments
 /// * `script` - The AppleScript source code

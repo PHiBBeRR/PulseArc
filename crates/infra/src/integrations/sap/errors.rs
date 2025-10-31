@@ -1,11 +1,12 @@
 //! SAP-specific error types and classification
 //!
-//! This module provides user-friendly error categorization for SAP integration errors,
-//! with retry recommendations and conversion to domain error types.
+//! This module provides user-friendly error categorization for SAP integration
+//! errors, with retry recommendations and conversion to domain error types.
+
+use std::fmt;
 
 use pulsearc_domain::PulseArcError;
 use reqwest::StatusCode;
-use std::fmt;
 
 /// SAP error category for external consumption
 ///

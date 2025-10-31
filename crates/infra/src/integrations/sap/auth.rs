@@ -1,15 +1,17 @@
 //! SAP OAuth authentication wrapper
 //!
-//! This module provides a thin wrapper around `pulsearc-common::auth::OAuthService`
-//! with SAP-specific configuration for Auth0 authentication.
+//! This module provides a thin wrapper around
+//! `pulsearc-common::auth::OAuthService` with SAP-specific configuration for
+//! Auth0 authentication.
 //!
 //! # Usage
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use pulsearc_infra::integrations::sap::auth::{create_sap_oauth_config, SapAuthService};
-//! use pulsearc_infra::integrations::sap::client::{SapClient, AccessTokenProvider};
+//!
 //! use pulsearc_common::security::KeychainProvider;
+//! use pulsearc_infra::integrations::sap::auth::{create_sap_oauth_config, SapAuthService};
+//! use pulsearc_infra::integrations::sap::client::{AccessTokenProvider, SapClient};
 //!
 //! # async fn example(
 //! #     wbs_repo: Arc<dyn pulsearc_core::classification::ports::WbsRepository>
@@ -58,7 +60,8 @@ pub type SapAuthService = OAuthService;
 
 /// Create SAP-specific OAuth configuration for Auth0
 ///
-/// Configures OAuth for the SAP connector API with Auth0 as the identity provider.
+/// Configures OAuth for the SAP connector API with Auth0 as the identity
+/// provider.
 ///
 /// # Arguments
 ///
@@ -70,7 +73,8 @@ pub type SapAuthService = OAuthService;
 /// An `OAuthConfig` configured for SAP with:
 /// - Auth0 domain: `dev-q6f8uk0tlxem2tpc.us.auth0.com`
 /// - Audience: `https://sap-connector.pulsarc.local`
-/// - Scopes: `timesheet:write`, `wbs:read`, `openid`, `profile`, `offline_access`
+/// - Scopes: `timesheet:write`, `wbs:read`, `openid`, `profile`,
+///   `offline_access`
 ///
 /// # Example
 ///

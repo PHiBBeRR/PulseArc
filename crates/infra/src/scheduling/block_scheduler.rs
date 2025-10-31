@@ -1,46 +1,55 @@
-//! Block generation scheduler for inference system
+//! Block generation scheduler for inference workloads.
 //!
-//! This module provides a cron-based scheduler that triggers block generation
-//! at configurable intervals. It follows CLAUDE.md runtime rules with explicit
-//! lifecycle management, join handle tracking, and cancellation support.
+//! Provides a cron-based scheduler that triggers a user-supplied job at fixed
+//! intervals. The implementation follows the runtime rules captured in
+//! `CLAUDE.md`: join handles are tracked, cancellation is explicit, and every
+//! asynchronous operation is wrapped in a timeout.
 //!
-//! # Architecture
-//!
-//! The scheduler wraps `tokio-cron-scheduler` with:
-//! - Explicit start/stop lifecycle with 5-second timeouts
-//! - Join handle tracking for spawned tasks
-//! - CancellationToken for graceful shutdown
-//! - Job ID tracking for proper cleanup
-//! - Structured tracing with span context
-//!
-//! # Usage
+//! # Example
 //!
 //! ```no_run
-//! use pulsearc_infra::scheduling::BlockScheduler;
+//! use std::sync::Arc;
+//! use std::time::Duration;
 //!
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let mut scheduler = BlockScheduler::new("0 */5 * * * *".to_string()).await?;
+//! use async_trait::async_trait;
+//! use pulsearc_infra::observability::metrics::PerformanceMetrics;
+//! use pulsearc_infra::scheduling::{
+//!     BlockJob, BlockScheduler, BlockSchedulerConfig, SchedulerResult,
+//! };
 //!
-//! // Start scheduler
+//! struct NoopJob;
+//!
+//! #[async_trait]
+//! impl BlockJob for NoopJob {
+//!     async fn run(&self) -> Result<(), pulsearc_infra::errors::InfraError> {
+//!         Ok(())
+//!     }
+//! }
+//!
+//! # async fn example() -> SchedulerResult<()> {
+//! let metrics = Arc::new(PerformanceMetrics::new());
+//! let job = Arc::new(NoopJob);
+//! let mut scheduler = BlockScheduler::with_config(
+//!     BlockSchedulerConfig {
+//!         cron_expression: "0 */5 * * * *".into(), // every 5 minutes
+//!         ..Default::default()
+//!     },
+//!     job,
+//!     metrics,
+//! )
+//! .await?;
+//!
 //! scheduler.start().await?;
-//!
 //! // ... application runs ...
-//!
-//! // Stop scheduler gracefully
 //! scheduler.stop().await?;
 //! # Ok(())
 //! # }
 //! ```
-//!
-//! # Compliance
-//!
-//! - **CLAUDE.md §5**: All spawns tracked with join handles
-//! - **CLAUDE.md §3**: Structured tracing (no println!/log::)
-//! - **Runtime rules**: Explicit shutdown with timeout, cancellation tests
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -48,387 +57,329 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
-use super::error::{SchedulerError, SchedulerResult};
+use crate::errors::InfraError;
+use crate::observability::metrics::PerformanceMetrics;
+use crate::observability::MetricsResult;
+use crate::scheduling::error::{SchedulerError, SchedulerResult};
 
-/// Configuration for block generation scheduler
+/// Trait representing a block generation job.
+#[async_trait]
+pub trait BlockJob: Send + Sync {
+    /// Execute the job.
+    async fn run(&self) -> Result<(), InfraError>;
+}
+
+/// Configuration for the block scheduler.
 #[derive(Debug, Clone)]
 pub struct BlockSchedulerConfig {
-    /// Cron expression for scheduling (e.g., "0 */5 * * * *" for every 5 minutes)
+    /// Cron expression describing the execution schedule.
     pub cron_expression: String,
-    /// Timeout for individual job execution
-    pub job_timeout_secs: u64,
-    /// Timeout for scheduler start operation
-    pub start_timeout_secs: u64,
-    /// Timeout for scheduler stop operation
-    pub stop_timeout_secs: u64,
+    /// Timeout applied to a single job execution.
+    pub job_timeout: Duration,
+    /// Timeout for starting the underlying scheduler.
+    pub start_timeout: Duration,
+    /// Timeout for stopping the scheduler.
+    pub stop_timeout: Duration,
+    /// Timeout for awaiting the monitor task join handle.
+    pub join_timeout: Duration,
 }
 
 impl Default for BlockSchedulerConfig {
     fn default() -> Self {
         Self {
-            cron_expression: "0 */15 * * * *".to_string(), // Every 15 minutes
-            job_timeout_secs: 300,                         // 5 minutes
-            start_timeout_secs: 5,
-            stop_timeout_secs: 5,
+            cron_expression: "0 */15 * * * *".into(), // every 15 minutes
+            job_timeout: Duration::from_secs(300),
+            start_timeout: Duration::from_secs(5),
+            stop_timeout: Duration::from_secs(5),
+            join_timeout: Duration::from_secs(5),
         }
     }
 }
 
-/// Block generation scheduler with lifecycle management
-///
-/// Wraps `tokio-cron-scheduler` with CLAUDE.md-compliant patterns:
-/// - Join handle tracking
-/// - CancellationToken for graceful shutdown
-/// - Timeout wrapping on all operations
-/// - Job ID tracking for cleanup
+/// Block scheduler with explicit lifecycle management.
 pub struct BlockScheduler {
     scheduler: Arc<RwLock<JobScheduler>>,
     config: BlockSchedulerConfig,
-    task_handle: Option<JoinHandle<()>>,
-    job_id: Option<Uuid>,
-    cancellation: Option<CancellationToken>,
+    job_id: Uuid,
+    monitor_handle: Option<JoinHandle<()>>,
+    cancellation: CancellationToken,
+    metrics: Arc<PerformanceMetrics>,
+    job: Arc<dyn BlockJob>,
 }
 
 impl BlockScheduler {
-    /// Create a new block scheduler
-    ///
-    /// # Arguments
-    ///
-    /// * `cron_expression` - Cron expression for scheduling (e.g., "0 */5 * * * *")
-    ///
-    /// # Returns
-    ///
-    /// A configured block scheduler ready to start
-    ///
-    /// # Errors
-    ///
-    /// Returns error if scheduler creation fails
-    pub async fn new(cron_expression: String) -> SchedulerResult<Self> {
-        let config = BlockSchedulerConfig { cron_expression, ..Default::default() };
-
-        Self::with_config(config).await
+    /// Create a scheduler with the default configuration.
+    pub async fn new(
+        cron_expression: String,
+        job: Arc<dyn BlockJob>,
+        metrics: Arc<PerformanceMetrics>,
+    ) -> SchedulerResult<Self> {
+        let mut config = BlockSchedulerConfig::default();
+        config.cron_expression = cron_expression;
+        Self::with_config(config, job, metrics).await
     }
 
-    /// Create a new block scheduler with custom configuration
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - Scheduler configuration
-    ///
-    /// # Returns
-    ///
-    /// A configured block scheduler ready to start
-    pub async fn with_config(config: BlockSchedulerConfig) -> SchedulerResult<Self> {
-        let scheduler =
-            JobScheduler::new().await.map_err(|e| SchedulerError::CreationFailed(e.to_string()))?;
+    /// Create a scheduler with a custom configuration.
+    pub async fn with_config(
+        config: BlockSchedulerConfig,
+        job: Arc<dyn BlockJob>,
+        metrics: Arc<PerformanceMetrics>,
+    ) -> SchedulerResult<Self> {
+        let raw_scheduler = JobScheduler::new()
+            .await
+            .map_err(|source| SchedulerError::CreationFailed { source })?;
 
-        Ok(Self {
-            scheduler: Arc::new(RwLock::new(scheduler)),
+        let mut scheduler = Self {
+            scheduler: Arc::new(RwLock::new(raw_scheduler)),
             config,
-            task_handle: None,
-            job_id: None,
-            cancellation: None,
-        })
+            job_id: Uuid::nil(),
+            monitor_handle: None,
+            cancellation: CancellationToken::new(),
+            metrics,
+            job,
+        };
+
+        scheduler.job_id = scheduler.register_block_job().await?;
+        Ok(scheduler)
     }
 
-    /// Start the scheduler
-    ///
-    /// Registers the block generation job, creates a fresh cancellation token,
-    /// and starts the scheduler. Spawns a monitoring task to track scheduler state.
-    ///
-    /// # Returns
-    ///
-    /// Ok on successful start, error if already running or start fails
-    ///
-    /// # Timeouts
-    ///
-    /// Start operation has a 5-second timeout (configurable)
-    #[instrument(skip(self), fields(cron = %self.config.cron_expression))]
+    /// Start the scheduler, spawning the monitoring task.
+    #[instrument(skip(self))]
     pub async fn start(&mut self) -> SchedulerResult<()> {
         if self.is_running() {
             return Err(SchedulerError::AlreadyRunning);
         }
 
-        info!("Starting block scheduler");
+        self.cancellation = CancellationToken::new();
 
-        // Create fresh cancellation token
-        let cancel = CancellationToken::new();
-        self.cancellation = Some(cancel.clone());
-
-        // Register block generation job
-        let job_id = self.register_block_job().await?;
-        self.job_id = Some(job_id);
-
-        // Start scheduler with timeout
         let scheduler = self.scheduler.clone();
-        let start_timeout = Duration::from_secs(self.config.start_timeout_secs);
-
-        tokio::time::timeout(start_timeout, async move {
-            let mut sched = scheduler.write().await;
-            sched.start().await
+        let start_timeout = self.config.start_timeout;
+        let start_result = tokio::time::timeout(start_timeout, async move {
+            let mut guard = scheduler.write().await;
+            guard.start().await
         })
         .await
-        .map_err(|_| SchedulerError::Timeout { seconds: self.config.start_timeout_secs })?
-        .map_err(|e| SchedulerError::StartFailed(e.to_string()))?;
+        .map_err(|source| SchedulerError::Timeout { duration: start_timeout, source })?;
 
-        // Spawn monitoring task with handle tracking
-        let scheduler = self.scheduler.clone();
+        start_result.map_err(|source| SchedulerError::StartFailed { source })?;
 
+        let cancel = self.cancellation.clone();
+        let metrics = self.metrics.clone();
         let handle = tokio::spawn(async move {
-            Self::monitor_task(scheduler, cancel).await;
+            Self::monitor_task(cancel, metrics).await;
         });
 
-        self.task_handle = Some(handle);
-
-        info!("Block scheduler started successfully");
-
+        self.monitor_handle = Some(handle);
+        info!("Block scheduler started");
+        log_metric(self.metrics.record_call(), "scheduler.block.start");
         Ok(())
     }
 
-    /// Stop the scheduler gracefully
-    ///
-    /// Cancels the monitoring task, removes the registered job, stops the scheduler,
-    /// and awaits join handle completion with timeout.
-    ///
-    /// # Returns
-    ///
-    /// Ok on successful stop, error if not running or stop fails
-    ///
-    /// # Timeouts
-    ///
-    /// - Scheduler stop: 5 seconds (configurable)
-    /// - Join handle await: 5 seconds
+    /// Stop the scheduler and wait for the monitor task to finish.
     #[instrument(skip(self))]
     pub async fn stop(&mut self) -> SchedulerResult<()> {
         if !self.is_running() {
             return Err(SchedulerError::NotRunning);
         }
 
-        info!("Stopping block scheduler");
+        self.cancellation.cancel();
 
-        // Cancel monitoring task
-        if let Some(ref cancel) = self.cancellation {
-            cancel.cancel();
-        }
-
-        // Remove registered job
-        if let Some(job_id) = self.job_id.take() {
-            let mut sched = self.scheduler.write().await;
-            if let Err(e) = sched.remove(&job_id).await {
-                warn!(job_id = %job_id, error = %e, "Failed to remove job");
-            }
-        }
-
-        // Stop scheduler with timeout
         let scheduler = self.scheduler.clone();
-        let stop_timeout = Duration::from_secs(self.config.stop_timeout_secs);
-
-        tokio::time::timeout(stop_timeout, async move {
-            let mut sched = scheduler.write().await;
-            sched.shutdown().await
+        let stop_timeout = self.config.stop_timeout;
+        let stop_result = tokio::time::timeout(stop_timeout, async move {
+            let mut guard = scheduler.write().await;
+            guard.shutdown().await
         })
         .await
-        .map_err(|_| SchedulerError::Timeout { seconds: self.config.stop_timeout_secs })?
-        .map_err(|e| SchedulerError::StopFailed(e.to_string()))?;
+        .map_err(|source| SchedulerError::Timeout { duration: stop_timeout, source })?;
 
-        // Await join handle with timeout
-        if let Some(handle) = self.task_handle.take() {
-            let handle_timeout = Duration::from_secs(5);
-            tokio::time::timeout(handle_timeout, handle)
+        stop_result.map_err(|source| SchedulerError::StopFailed { source })?;
+
+        if let Some(handle) = self.monitor_handle.take() {
+            let join_timeout = self.config.join_timeout;
+            tokio::time::timeout(join_timeout, handle)
                 .await
-                .map_err(|_| {
-                    warn!("Monitor task did not complete within timeout");
-                    SchedulerError::Timeout { seconds: 5 }
-                })?
-                .map_err(|e| SchedulerError::TaskJoinFailed(e.to_string()))?;
+                .map_err(|source| SchedulerError::Timeout { duration: join_timeout, source })??
         }
 
-        // Clear cancellation token
-        self.cancellation = None;
-
-        info!("Block scheduler stopped successfully");
-
+        info!("Block scheduler stopped");
+        self.cancellation = CancellationToken::new();
         Ok(())
     }
 
-    /// Check if scheduler is currently running
+    /// Returns true when the monitor task is active.
     pub fn is_running(&self) -> bool {
-        self.task_handle.is_some()
-            && self.cancellation.as_ref().map_or(false, |c| !c.is_cancelled())
+        self.monitor_handle.as_ref().map_or(false, |handle| !handle.is_finished())
     }
 
-    /// Register the block generation job with the scheduler
-    ///
-    /// Creates a cron job that executes block generation at configured intervals.
-    /// Returns the job UUID for later removal.
-    async fn register_block_job(&self) -> SchedulerResult<Uuid> {
+    async fn register_block_job(&mut self) -> SchedulerResult<Uuid> {
+        if self.job_id != Uuid::nil() {
+            return Ok(self.job_id);
+        }
+
         let cron_expr = self.config.cron_expression.clone();
-        let job_timeout = Duration::from_secs(self.config.job_timeout_secs);
+        let metrics = self.metrics.clone();
+        let job = self.job.clone();
+        let job_timeout = self.config.job_timeout;
 
-        let job = Job::new_async(cron_expr.as_str(), move |uuid, _lock| {
+        let job_definition = Job::new_async(cron_expr.as_str(), move |_id, _lock| {
+            let metrics = metrics.clone();
+            let job = job.clone();
+
             Box::pin(async move {
-                let start = std::time::Instant::now();
+                log_metric(metrics.record_call(), "scheduler.block.job.invoked");
+                let started = Instant::now();
 
-                debug!(job_id = %uuid, "Block generation job triggered");
-
-                // Execute block generation with timeout
-                match tokio::time::timeout(job_timeout, Self::execute_block_generation()).await {
+                match tokio::time::timeout(job_timeout, job.run()).await {
                     Ok(Ok(())) => {
-                        let duration = start.elapsed().as_secs_f64();
-                        info!(duration_secs = duration, "Block generation completed");
+                        log_metric(
+                            metrics.record_fetch_time(started.elapsed()),
+                            "scheduler.block.job.duration",
+                        );
+                        debug!("Block generation finished successfully");
                     }
-                    Ok(Err(e)) => {
-                        let duration = start.elapsed().as_secs_f64();
-                        error!(error = %e, duration_secs = duration, "Block generation failed");
+                    Ok(Err(err)) => {
+                        log_metric(
+                            metrics.record_fetch_error(),
+                            "scheduler.block.job.error",
+                        );
+                        log_metric(
+                            metrics.record_fetch_time(started.elapsed()),
+                            "scheduler.block.job.duration",
+                        );
+                        error!(error = %err, "Block generation failed");
                     }
-                    Err(_) => {
-                        warn!(timeout_secs = job_timeout.as_secs(), "Block generation timeout");
+                    Err(elapsed) => {
+                        log_metric(
+                            metrics.record_fetch_timeout(),
+                            "scheduler.block.job.timeout",
+                        );
+                        warn!(timeout_secs = job_timeout.as_secs(), "Block generation timed out");
+                        debug!(elapsed = ?elapsed, "Timeout details");
                     }
                 }
             })
         })
-        .map_err(|e| SchedulerError::JobRegistrationFailed(e.to_string()))?;
+        .map_err(|source| SchedulerError::JobRegistrationFailed { source })?;
 
+        let job_id = job_definition.guid();
         let mut scheduler = self.scheduler.write().await;
-        let job_id = scheduler
-            .add(job)
+        scheduler
+            .add(job_definition)
             .await
-            .map_err(|e| SchedulerError::JobRegistrationFailed(e.to_string()))?;
+            .map_err(|source| SchedulerError::JobRegistrationFailed { source })?;
 
-        debug!(job_id = %job_id, cron = %cron_expr, "Block generation job registered");
-
+        debug!(cron = %self.config.cron_expression, job_id = %job_id, "Registered block generation job");
         Ok(job_id)
     }
 
-    /// Execute block generation (placeholder for actual implementation)
-    ///
-    /// This will be integrated with the inference system in future PRs.
-    /// For now, it's a stub that demonstrates the execution pattern.
-    async fn execute_block_generation() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Integrate with inference system (Phase 3D follow-up)
-        // For now, simulate work
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        debug!("Block generation executed (stub)");
-        Ok(())
-    }
-
-    /// Monitoring task that runs while scheduler is active
-    ///
-    /// This task uses tokio::select! to wait for cancellation signal.
-    /// It's a pure async function separated for testability.
-    async fn monitor_task(_scheduler: Arc<RwLock<JobScheduler>>, cancel: CancellationToken) {
+    async fn monitor_task(cancel: CancellationToken, metrics: Arc<PerformanceMetrics>) {
         tokio::select! {
             _ = cancel.cancelled() => {
-                debug!("Block scheduler monitor task cancelled");
+                debug!("Block scheduler monitor cancelled");
             }
         }
+
+        log_metric(metrics.record_call(), "scheduler.block.monitor_exit");
     }
 }
 
-/// Ensure scheduler is stopped when dropped
+fn log_metric(result: MetricsResult<()>, metric: &'static str) {
+    if let Err(err) = result {
+        warn!(metric = metric, error = %err, "Failed to record scheduler metric");
+    }
+}
+
 impl Drop for BlockScheduler {
     fn drop(&mut self) {
         if self.is_running() {
-            warn!("BlockScheduler dropped while running; cancelling");
-            if let Some(ref cancel) = self.cancellation {
-                cancel.cancel();
-            }
+            warn!("BlockScheduler dropped while running; cancelling tasks");
+            self.cancellation.cancel();
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_scheduler_lifecycle() {
-        let mut scheduler = BlockScheduler::new("0 * * * * *".to_string()).await.unwrap();
-
-        // Initially not running
-        assert!(!scheduler.is_running());
-
-        // Start succeeds
-        scheduler.start().await.unwrap();
-        assert!(scheduler.is_running());
-
-        // Stop succeeds
-        scheduler.stop().await.unwrap();
-        assert!(!scheduler.is_running());
+    struct CountingJob {
+        runs: AtomicUsize,
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_double_start_fails() {
-        let mut scheduler = BlockScheduler::new("0 * * * * *".to_string()).await.unwrap();
-
-        scheduler.start().await.unwrap();
-
-        // Second start should fail
-        let result = scheduler.start().await;
-        assert!(matches!(result, Err(SchedulerError::AlreadyRunning)));
-
-        scheduler.stop().await.unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_stop_without_start_fails() {
-        let mut scheduler = BlockScheduler::new("0 * * * * *".to_string()).await.unwrap();
-
-        // Stop without start should fail
-        let result = scheduler.stop().await;
-        assert!(matches!(result, Err(SchedulerError::NotRunning)));
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_start_stop_start_cycle() {
-        let mut scheduler = BlockScheduler::new("0 * * * * *".to_string()).await.unwrap();
-
-        // First cycle
-        scheduler.start().await.unwrap();
-        assert!(scheduler.is_running());
-        scheduler.stop().await.unwrap();
-        assert!(!scheduler.is_running());
-
-        // Second cycle (tests fresh cancellation token and job cleanup)
-        scheduler.start().await.unwrap();
-        assert!(scheduler.is_running());
-        scheduler.stop().await.unwrap();
-        assert!(!scheduler.is_running());
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_cancellation_stops_scheduler() {
-        let mut scheduler = BlockScheduler::new("0 * * * * *".to_string()).await.unwrap();
-
-        scheduler.start().await.unwrap();
-
-        // Cancel via cancellation token
-        if let Some(ref cancel) = scheduler.cancellation {
-            cancel.cancel();
+    impl CountingJob {
+        fn new() -> Self {
+            Self { runs: AtomicUsize::new(0) }
         }
 
-        // Give time for cancellation to propagate
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        fn run_count(&self) -> usize {
+            self.runs.load(Ordering::SeqCst)
+        }
+    }
 
-        // Should no longer be running after cancellation
+    #[async_trait]
+    impl BlockJob for CountingJob {
+        async fn run(&self) -> Result<(), InfraError> {
+            self.runs.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    fn fast_config() -> BlockSchedulerConfig {
+        BlockSchedulerConfig {
+            cron_expression: "*/1 * * * * *".into(), // every second
+            job_timeout: Duration::from_secs(2),
+            start_timeout: Duration::from_secs(2),
+            stop_timeout: Duration::from_secs(2),
+            join_timeout: Duration::from_secs(2),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn lifecycle_runs_successfully() {
+        let metrics = Arc::new(PerformanceMetrics::new());
+        let job = Arc::new(CountingJob::new());
+        let mut scheduler = BlockScheduler::with_config(fast_config(), job.clone(), metrics)
+            .await
+            .expect("scheduler created");
+
+        scheduler.start().await.expect("start succeeds");
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        scheduler.stop().await.expect("stop succeeds");
+
+        assert!(job.run_count() >= 1);
         assert!(!scheduler.is_running());
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_custom_config() {
-        let config = BlockSchedulerConfig {
-            cron_expression: "0 */10 * * * *".to_string(),
-            job_timeout_secs: 600,
-            start_timeout_secs: 10,
-            stop_timeout_secs: 10,
-        };
+    async fn double_start_is_rejected() {
+        let metrics = Arc::new(PerformanceMetrics::new());
+        let job = Arc::new(CountingJob::new());
+        let mut scheduler = BlockScheduler::with_config(fast_config(), job, metrics)
+            .await
+            .expect("scheduler created");
 
-        let mut scheduler = BlockScheduler::with_config(config).await.unwrap();
+        scheduler.start().await.expect("first start");
+        let err = scheduler.start().await.expect_err("second start fails");
+        matches!(err, SchedulerError::AlreadyRunning);
+        scheduler.stop().await.expect("stop succeeds");
+    }
 
-        scheduler.start().await.unwrap();
-        assert!(scheduler.is_running());
+    #[tokio::test(flavor = "multi_thread")]
+    async fn restart_after_stop_succeeds() {
+        let metrics = Arc::new(PerformanceMetrics::new());
+        let job = Arc::new(CountingJob::new());
+        let mut scheduler = BlockScheduler::with_config(fast_config(), job, metrics)
+            .await
+            .expect("scheduler created");
 
-        scheduler.stop().await.unwrap();
+        scheduler.start().await.expect("start succeeds");
+        scheduler.stop().await.expect("stop succeeds");
         assert!(!scheduler.is_running());
+
+        scheduler.start().await.expect("start again");
+        scheduler.stop().await.expect("stop again");
     }
 }

@@ -1,7 +1,12 @@
 //! Scheduler error types
 
+use std::time::Duration;
+
 use pulsearc_domain::PulseArcError;
 use thiserror::Error;
+use tokio::task::JoinError;
+use tokio::time::error::Elapsed;
+use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::errors::InfraError;
 
@@ -17,38 +22,57 @@ pub enum SchedulerError {
     NotRunning,
 
     /// Failed to create scheduler
-    #[error("Failed to create scheduler: {0}")]
-    CreationFailed(String),
+    #[error("Failed to create scheduler")]
+    CreationFailed {
+        #[source]
+        source: JobSchedulerError,
+    },
 
     /// Failed to start scheduler
-    #[error("Failed to start scheduler: {0}")]
-    StartFailed(String),
+    #[error("Failed to start scheduler")]
+    StartFailed {
+        #[source]
+        source: JobSchedulerError,
+    },
 
     /// Failed to stop scheduler
-    #[error("Failed to stop scheduler: {0}")]
-    StopFailed(String),
+    #[error("Failed to stop scheduler")]
+    StopFailed {
+        #[source]
+        source: JobSchedulerError,
+    },
 
     /// Failed to register job
-    #[error("Failed to register job: {0}")]
-    JobRegistrationFailed(String),
+    #[error("Failed to register job")]
+    JobRegistrationFailed {
+        #[source]
+        source: JobSchedulerError,
+    },
 
     /// Operation timed out
-    #[error("Operation timed out after {seconds}s")]
-    Timeout { seconds: u64 },
+    #[error("Operation timed out after {duration:?}")]
+    Timeout {
+        duration: Duration,
+        #[source]
+        source: Elapsed,
+    },
 
     /// Task join failed
-    #[error("Task join failed: {0}")]
-    TaskJoinFailed(String),
+    #[error("Task join failed")]
+    JoinFailed {
+        #[from]
+        source: JoinError,
+    },
 }
 
 impl From<SchedulerError> for InfraError {
     fn from(err: SchedulerError) -> Self {
+        let message = err.to_string();
         let pulse_err = match err {
             SchedulerError::AlreadyRunning | SchedulerError::NotRunning => {
-                PulseArcError::InvalidInput(err.to_string())
+                PulseArcError::InvalidInput(message)
             }
-            SchedulerError::Timeout { .. } => PulseArcError::Internal(err.to_string()),
-            _ => PulseArcError::Internal(err.to_string()),
+            _ => PulseArcError::Internal(message),
         };
         InfraError(pulse_err)
     }

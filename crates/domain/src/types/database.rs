@@ -3,15 +3,15 @@
 //! These types represent the database schema and are used by repository ports.
 //! Phase 1 migration includes all types from legacy/api/src/db/models.rs
 
-use crate::types::ActivityContext;
-use crate::PulseArcError;
-use crate::Result as DomainResult;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json;
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;
 use uuid::Uuid;
+
+use crate::types::ActivityContext;
+use crate::{PulseArcError, Result as DomainResult};
 
 /// Activity snapshot - raw 30s activity capture
 ///
@@ -101,10 +101,12 @@ impl ActivitySnapshot {
         DateTime::from_timestamp(self.timestamp, 0)
     }
 
-    /// Construct a snapshot from an `ActivityContext` using the supplied metadata.
+    /// Construct a snapshot from an `ActivityContext` using the supplied
+    /// metadata.
     ///
-    /// Serializes the context into JSON and derives legacy string fields so that
-    /// downstream repositories can persist the record without additional mapping.
+    /// Serializes the context into JSON and derives legacy string fields so
+    /// that downstream repositories can persist the record without
+    /// additional mapping.
     pub fn from_activity_context(
         context: &ActivityContext,
         metadata: SnapshotMetadata,
@@ -143,7 +145,8 @@ impl ActivitySnapshot {
         })
     }
 
-    /// Deserialize the embedded activity context JSON into the strongly-typed structure.
+    /// Deserialize the embedded activity context JSON into the strongly-typed
+    /// structure.
     pub fn activity_context(&self) -> DomainResult<ActivityContext> {
         serde_json::from_str(&self.activity_context_json).map_err(|err| {
             PulseArcError::Database(format!("invalid activity_context_json payload: {err}"))

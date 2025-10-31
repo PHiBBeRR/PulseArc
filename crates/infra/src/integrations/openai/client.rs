@@ -5,12 +5,11 @@ use reqwest::Method;
 use serde_json::json;
 use tracing::{debug, info};
 
-use crate::http::HttpClient;
-
 use super::types::{
     BlockClassificationResponse, ChatCompletionRequest, ChatCompletionResponse, ChatMessage,
     JsonSchema, LLMBlockResponse, OpenAIError, ResponseFormat,
 };
+use crate::http::HttpClient;
 
 const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
@@ -66,10 +65,12 @@ impl OpenAIClient {
     /// * `blocks` - Vector of proposed blocks to classify
     ///
     /// # Returns
-    /// Classification response with billable status, confidence, and cost metrics
+    /// Classification response with billable status, confidence, and cost
+    /// metrics
     ///
     /// # Errors
-    /// Returns `OpenAIError` for network failures, API errors, or invalid responses
+    /// Returns `OpenAIError` for network failures, API errors, or invalid
+    /// responses
     pub async fn classify_blocks(
         &self,
         blocks: &[ProposedBlock],

@@ -20,16 +20,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::Method;
+use pulsearc_common::security::KeychainProvider;
+use pulsearc_domain::types::ActivitySegment;
+use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
-use pulsearc_common::security::KeychainProvider;
-use pulsearc_domain::types::ActivitySegment;
-
-use crate::http::HttpClient;
-
 use super::errors::SyncError;
+use crate::http::HttpClient;
 
 /// Configuration for Neon client
 #[derive(Debug, Clone)]
@@ -57,8 +55,9 @@ impl Default for NeonClientConfig {
 
 /// Neon API client for remote sync
 ///
-/// Provides HTTP-based synchronization of activity data to remote Neon database.
-/// Uses HttpClient from Phase 3A with automatic retry and timeout handling.
+/// Provides HTTP-based synchronization of activity data to remote Neon
+/// database. Uses HttpClient from Phase 3A with automatic retry and timeout
+/// handling.
 pub struct NeonClient {
     http_client: Arc<HttpClient>,
     config: NeonClientConfig,
@@ -304,11 +303,10 @@ const ABNORMAL_METHODS: &[Method] = &[Method::TRACE, Method::CONNECT];
 
 #[cfg(test)]
 mod tests {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
     use super::*;
-    use wiremock::{
-        matchers::{header, method, path},
-        Mock, MockServer, ResponseTemplate,
-    };
 
     #[tokio::test]
     async fn test_health_check_success() {

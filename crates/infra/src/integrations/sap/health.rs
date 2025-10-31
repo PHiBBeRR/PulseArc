@@ -1,6 +1,7 @@
 //! SAP health monitoring with proper lifecycle management
 //!
-//! This module provides background health monitoring for the SAP connector API with:
+//! This module provides background health monitoring for the SAP connector API
+//! with:
 //! - Explicit lifecycle (start/stop with join handles)
 //! - Cancellation support
 //! - Timeout protection
@@ -12,16 +13,20 @@
 //! The health monitor follows the worker pattern with clean separation:
 //! - `SapHealthMonitor`: Lifecycle coordinator (owns task handle)
 //! - `health_worker()`: Pure async worker function (easier to test)
-//! - `HealthStatusListener`: Trait for downstream event handling (Tauri in API layer)
+//! - `HealthStatusListener`: Trait for downstream event handling (Tauri in API
+//!   layer)
 //!
 //! # Usage
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use pulsearc_infra::integrations::sap::health::{SapHealthMonitor, HealthStatus, HealthStatusListener};
-//! use pulsearc_infra::integrations::sap::client::SapClient;
+//!
 //! use async_trait::async_trait;
 //! use pulsearc_domain::Result;
+//! use pulsearc_infra::integrations::sap::client::SapClient;
+//! use pulsearc_infra::integrations::sap::health::{
+//!     HealthStatus, HealthStatusListener, SapHealthMonitor,
+//! };
 //!
 //! // Implement listener (Tauri layer would emit events here)
 //! struct MyListener;
@@ -80,8 +85,8 @@ pub enum HealthStatus {
 /// # Example
 ///
 /// ```no_run
-/// use pulsearc_infra::integrations::sap::health::{HealthStatus, HealthStatusListener};
 /// use async_trait::async_trait;
+/// use pulsearc_infra::integrations::sap::health::{HealthStatus, HealthStatusListener};
 ///
 /// struct TauriHealthListener {
 ///     app_handle: tauri::AppHandle,
@@ -99,14 +104,15 @@ pub enum HealthStatus {
 pub trait HealthStatusListener: Send + Sync {
     /// Called when health status changes
     ///
-    /// This is only called when the status actually changes, not on every check.
+    /// This is only called when the status actually changes, not on every
+    /// check.
     async fn on_health_changed(&self, status: HealthStatus);
 }
 
 /// SAP health monitor with explicit lifecycle
 ///
-/// Monitors SAP connector health in the background and emits events on status changes.
-/// Follows CLAUDE.md runtime rules:
+/// Monitors SAP connector health in the background and emits events on status
+/// changes. Follows CLAUDE.md runtime rules:
 /// - Spawns via Tokio with join handle
 /// - Explicit shutdown via `stop()`
 /// - Cancellation support
@@ -126,7 +132,8 @@ impl SapHealthMonitor {
     ///
     /// * `client` - SAP client to check health
     /// * `listener` - Callback for status changes
-    /// * `interval_secs` - How often to check health (recommended: 30-60 seconds)
+    /// * `interval_secs` - How often to check health (recommended: 30-60
+    ///   seconds)
     ///
     /// # Returns
     ///

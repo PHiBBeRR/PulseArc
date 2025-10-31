@@ -70,11 +70,13 @@ pub fn is_browser(bundle_id: &str) -> bool {
 ///
 /// This function attempts to extract the frontmost tab's URL using
 /// browser-specific AppleScript commands. It handles different browsers'
-/// quirks and returns None on any failure (permission denied, no windows, etc.).
+/// quirks and returns None on any failure (permission denied, no windows,
+/// etc.).
 ///
 /// # Arguments
 /// * `bundle_id` - The browser's bundle identifier (e.g., "com.apple.Safari")
-/// * `app_name` - The browser's display name (e.g., "Safari") - used as fallback
+/// * `app_name` - The browser's display name (e.g., "Safari") - used as
+///   fallback
 ///
 /// # Returns
 /// * `Some(String)` - The URL if successfully extracted
@@ -108,8 +110,8 @@ pub async fn get_browser_url(bundle_id: &str, app_name: &str) -> Option<String> 
 
 /// Get the current URL from a browser synchronously.
 ///
-/// This is a blocking variant of `get_browser_url` for use in synchronous contexts
-/// or within `spawn_blocking` tasks.
+/// This is a blocking variant of `get_browser_url` for use in synchronous
+/// contexts or within `spawn_blocking` tasks.
 ///
 /// # Arguments
 /// * `bundle_id` - The browser's bundle identifier
@@ -209,7 +211,8 @@ mod tests {
     //
     // Manual test procedure:
     // 1. Open Safari with a URL (e.g., https://example.com)
-    // 2. Run: cargo test --package pulsearc-infra get_browser_url -- --ignored --nocapture
+    // 2. Run: cargo test --package pulsearc-infra get_browser_url -- --ignored
+    //    --nocapture
     // 3. Verify the URL is extracted correctly
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]

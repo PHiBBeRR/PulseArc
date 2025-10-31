@@ -23,9 +23,8 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! use pulsearc_infra::platform::macos::enrichers::{
-//!     browser, office, cache::EnrichmentCache
-//! };
+//! use pulsearc_infra::platform::macos::enrichers::cache::EnrichmentCache;
+//! use pulsearc_infra::platform::macos::enrichers::{browser, office};
 //!
 //! let cache = EnrichmentCache::default();
 //!

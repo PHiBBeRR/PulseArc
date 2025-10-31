@@ -18,7 +18,8 @@
 //! # Permission Requirements
 //!
 //! - **NSWorkspace**: No special permissions (app name, bundle ID, PID)
-//! - **Accessibility API**: Requires user approval in System Settings for window titles
+//! - **Accessibility API**: Requires user approval in System Settings for
+//!   window titles
 //!
 //! The provider gracefully degrades to "app-only mode" when Accessibility
 //! permissions are not granted.
