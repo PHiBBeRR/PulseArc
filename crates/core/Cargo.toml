@@ -20,6 +20,7 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
+tracing = { workspace = true }
 
 # Async support
 async-trait = "0.1"

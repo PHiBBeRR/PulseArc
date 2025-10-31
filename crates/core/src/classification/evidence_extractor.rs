@@ -9,7 +9,7 @@ use chrono::{TimeZone, Utc};
 use pulsearc_domain::types::classification::{
     ActivityBreakdownEvidence, BlockEvidence, EvidenceSignals, ProposedBlock,
 };
-use pulsearc_domain::{ActivityContext, ActivitySnapshot, Result};
+use pulsearc_domain::{ActivityContext, ActivitySnapshot, CalendarEventRow, Result};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -21,6 +21,19 @@ use crate::tracking::ports::{CalendarEventRepository, SnapshotRepository};
 pub struct EvidenceExtractor {
     snapshot_repo: Arc<dyn SnapshotRepository>,
     calendar_repo: Option<Arc<dyn CalendarEventRepository>>,
+}
+
+#[derive(Default)]
+struct CalendarMetadataFlags {
+    has_recurring_meeting: bool,
+    has_online_meeting: bool,
+}
+
+struct CalendarMetadataAccumulator<'a> {
+    titles: &'a mut HashSet<String>,
+    platforms: &'a mut HashSet<String>,
+    domains: &'a mut HashSet<String>,
+    flags: &'a mut CalendarMetadataFlags,
 }
 
 impl EvidenceExtractor {
@@ -150,13 +163,12 @@ impl EvidenceExtractor {
         let mut url_domains: HashSet<String> = HashSet::new();
         let mut file_paths: HashSet<String> = HashSet::new();
         let mut calendar_event_titles: HashSet<String> = HashSet::new();
-        let attendee_domains: HashSet<String> = HashSet::new();
+        let mut attendee_domains: HashSet<String> = HashSet::new();
         let mut vdr_providers: HashSet<String> = HashSet::new();
 
         // FEATURE-029 Phase 4: Meeting metadata
         let mut meeting_platforms: HashSet<String> = HashSet::new();
-        let mut has_recurring_meeting = false;
-        let mut has_online_meeting = false;
+        let mut calendar_flags = CalendarMetadataFlags::default();
 
         for snapshot in snapshots {
             // Add primary app
@@ -216,23 +228,13 @@ impl EvidenceExtractor {
                 if let Ok(Some(event)) =
                     calendar_repo.find_event_by_timestamp(ts, time_window).await
                 {
-                    // Add event title
-                    calendar_event_titles.insert(event.summary);
-
-                    // Extract meeting platform (if available)
-                    if let Some(platform) = event.meeting_platform {
-                        meeting_platforms.insert(platform);
-                    }
-
-                    // Check for recurring meetings
-                    if event.is_recurring_series {
-                        has_recurring_meeting = true;
-                    }
-
-                    // Check for online meetings
-                    if event.is_online_meeting {
-                        has_online_meeting = true;
-                    }
+                    let mut accumulator = CalendarMetadataAccumulator {
+                        titles: &mut calendar_event_titles,
+                        platforms: &mut meeting_platforms,
+                        domains: &mut attendee_domains,
+                        flags: &mut calendar_flags,
+                    };
+                    self.capture_calendar_metadata(event, &mut accumulator);
                 }
             }
         }
@@ -247,9 +249,57 @@ impl EvidenceExtractor {
             attendee_domains: attendee_domains.into_iter().collect(),
             vdr_providers: vdr_providers.into_iter().collect(),
             meeting_platforms: meeting_platforms.into_iter().collect(),
-            has_recurring_meeting,
-            has_online_meeting,
+            has_recurring_meeting: calendar_flags.has_recurring_meeting,
+            has_online_meeting: calendar_flags.has_online_meeting,
         })
+    }
+
+    fn capture_calendar_metadata(
+        &self,
+        event: CalendarEventRow,
+        accumulator: &mut CalendarMetadataAccumulator,
+    ) {
+        let attendee_domain = Self::extract_attendee_domain(&event);
+
+        accumulator.titles.insert(event.summary);
+
+        if let Some(platform) = event.meeting_platform {
+            accumulator.platforms.insert(platform);
+        }
+
+        if event.is_recurring_series {
+            accumulator.flags.has_recurring_meeting = true;
+        }
+
+        if event.is_online_meeting {
+            accumulator.flags.has_online_meeting = true;
+        }
+
+        if let Some(domain) = attendee_domain {
+            accumulator.domains.insert(domain);
+        }
+    }
+
+    fn extract_attendee_domain(event: &CalendarEventRow) -> Option<String> {
+        event
+            .organizer_domain
+            .as_deref()
+            .and_then(Self::normalize_domain)
+            .or_else(|| event.organizer_email.as_deref().and_then(Self::extract_domain_from_email))
+    }
+
+    fn normalize_domain(raw: &str) -> Option<String> {
+        let trimmed = raw.trim().trim_matches(|c| c == '<' || c == '>');
+        if trimmed.is_empty() {
+            return None;
+        }
+        Some(trimmed.to_ascii_lowercase())
+    }
+
+    fn extract_domain_from_email(email: &str) -> Option<String> {
+        let at_pos = email.rfind('@')?;
+        let domain = email.get(at_pos + 1..)?.trim();
+        Self::normalize_domain(domain)
     }
 
     /// Extract keywords from text (simple word splitting, >3 chars)
@@ -376,5 +426,64 @@ mod tests {
         assert!(keywords.contains(&"project".to_string()));
         assert!(keywords.contains(&"astro".to_string()));
         assert!(keywords.contains(&"model".to_string()));
+    }
+
+    #[test]
+    fn test_extract_attendee_domain_prefers_explicit_domain() {
+        let mut event = calendar_event_fixture();
+        event.organizer_domain = Some("ClientCorp.COM".to_string());
+        event.organizer_email = Some("host@old-domain.com".to_string());
+
+        let domain = EvidenceExtractor::extract_attendee_domain(&event);
+
+        assert_eq!(domain.as_deref(), Some("clientcorp.com"));
+    }
+
+    #[test]
+    fn test_extract_attendee_domain_falls_back_to_email() {
+        let mut event = calendar_event_fixture();
+        event.organizer_email = Some("Host.Name@ClientCorp.com".to_string());
+
+        let domain = EvidenceExtractor::extract_attendee_domain(&event);
+
+        assert_eq!(domain.as_deref(), Some("clientcorp.com"));
+    }
+
+    #[test]
+    fn test_extract_attendee_domain_handles_invalid_email() {
+        let mut event = calendar_event_fixture();
+        event.organizer_email = Some("not-an-email".to_string());
+
+        let domain = EvidenceExtractor::extract_attendee_domain(&event);
+
+        assert!(domain.is_none());
+    }
+
+    fn calendar_event_fixture() -> CalendarEventRow {
+        CalendarEventRow {
+            id: "event-1".to_string(),
+            google_event_id: "google-event-1".to_string(),
+            user_email: "user@pulsearc.com".to_string(),
+            summary: "Weekly Sync".to_string(),
+            description: None,
+            start_ts: 1_700_000_000,
+            end_ts: 1_700_003_600,
+            is_all_day: false,
+            recurring_event_id: None,
+            parsed_project: None,
+            parsed_workstream: None,
+            parsed_task: None,
+            confidence_score: None,
+            meeting_platform: None,
+            is_recurring_series: false,
+            is_online_meeting: false,
+            has_external_attendees: None,
+            organizer_email: None,
+            organizer_domain: None,
+            meeting_id: None,
+            attendee_count: None,
+            external_attendee_count: None,
+            created_at: 1_700_000_000,
+        }
     }
 }

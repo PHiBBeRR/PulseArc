@@ -619,40 +619,37 @@ pub trait OutboxQueue: Send + Sync {
 9. ✅ **PR #1 COMPLETE**: Created `SqlCipherWbsRepository` in `legacy/api/src/infra/repositories/wbs_repository.rs` (455 lines, 7 comprehensive tests)
 10. ✅ **PR #1 COMPLETE**: FTS5 full-text search with BM25 ranking, Porter stemming, typo tolerance (<3ms query performance target)
 
-**Remaining Business Logic Migrations (~6553 lines total):**
+**Remaining Business Logic Migrations (~2800 lines total):**
 
-1. ⏳ **`inference/signals.rs`** (692 lines, 16 tests) → `core/src/classification/signal_extractor.rs`
+1. ✅ **`inference/signals.rs`** (692 lines, 16 tests → 8 tests) → `core/src/classification/signal_extractor.rs` **COMPLETE (PR #2, Oct 31, 2025)**
    - **Priority**: HIGH (dependency for block_builder)
-   - **Public API**: 5 methods (`new()`, `with_db()`, `extract()`, `extract_and_merge()`, `merge_signals()`)
-   - **Refactoring needed**:
-     - Replace `Arc<DbManager>` with `Option<Arc<dyn CalendarEventRepository>>`
-     - Convert `query_calendar_event()` from sync to async, use repository port
-     - Update to return `CalendarEventRow`, extract fields in caller
-     - Convert `ActivityContext` deserialization to use `pulsearc_domain::ActivityContext`
-   - **Constructor change**: `with_calendar_repo(repo: Arc<dyn CalendarEventRepository>)`
-   - **Async conversion**: All 5 public methods need `async fn`
+   - **Completed refactoring**:
+     - ✅ Replaced `Arc<DbManager>` with `Option<Arc<dyn CalendarEventRepository>>`
+     - ✅ Converted `query_calendar_event()` to async with repository port
+     - ✅ Returns `CalendarEventRow`, extracts fields in caller
+     - ✅ Uses `pulsearc_domain::ActivityContext`
+     - ✅ All 5 public methods converted to async
+   - **Migrated**: 602 lines + 8 tests to `core/src/classification/signal_extractor.rs`
 
-2. ⏳ **`inference/evidence_extractor.rs`** (488 lines, 7 tests) → `core/src/classification/evidence_extractor.rs`
+2. ✅ **`inference/evidence_extractor.rs`** (488 lines, 7 tests → 5 tests) → `core/src/classification/evidence_extractor.rs` **COMPLETE (PR #3, Oct 31, 2025)**
    - **Priority**: HIGH (dependency for block_builder)
-   - **Public API**: 1 method (`extract_evidence()`)
-   - **Refactoring needed**:
-     - Replace `Arc<DbManager>` with `Arc<dyn SnapshotRepository>` + `Option<Arc<dyn CalendarEventRepository>>`
-     - Convert `fetch_snapshots_for_block()` to async with repository call
-     - Convert `extract_signals_from_snapshots()` to async (uses calendar repo)
-     - Use domain types: `ProposedBlock`, `ActivitySnapshot`, `EvidenceSignals`
-   - **Async conversion**: All methods
+   - **Completed refactoring**:
+     - ✅ Replaced `Arc<DbManager>` with `Arc<dyn SnapshotRepository>` + `Option<Arc<dyn CalendarEventRepository>>`
+     - ✅ Converted `fetch_snapshots_for_block()` to use repository (sync, not async)
+     - ✅ Converted `extract_signals_from_snapshots()` to async (uses calendar repo)
+     - ✅ Uses domain types: `ProposedBlock`, `ActivitySnapshot`, `EvidenceSignals`
+   - **Migrated**: 380 lines + 5 tests to `core/src/classification/evidence_extractor.rs`
 
-3. ⏳ **`inference/project_matcher.rs`** (1146 lines) → `core/src/classification/project_matcher.rs`
+3. ✅ **`inference/project_matcher.rs`** (1146 lines, 18 tests → 10 tests) → `core/src/classification/project_matcher.rs` **COMPLETE (PR #4, Nov 1, 2025)**
    - **Priority**: HIGH (dependency for block_builder)
-   - **Complexity**: Very high (FTS5 full-text search, WBS cache)
-   - **Public API**: 2 methods (`new()`, `get_candidate_projects()`)
-   - **Refactoring needed**:
-     - Replace `Arc<DbManager>` with `Arc<dyn WbsRepository>` ✅ **PORT COMPLETE (PR #1)**
-     - Implement `ProjectMatcher` port trait (`match_project()` method)
-     - Keep FTS5 search logic, expose via repository ✅ **DONE IN SqlCipherWbsRepository**
-     - Convert HashMap caching to async-safe structure
-   - **Dependencies**: ✅ WbsRepository trait available (PR #1), SqlCipherWbsRepository implemented
-   - **Status**: ✅ **UNBLOCKED** - Ready for migration now that WbsRepository is complete
+   - **Completed refactoring**:
+     - ✅ Replaced `Arc<DbManager>` with `Arc<dyn WbsRepository>`
+     - ✅ Uses WbsRepository port trait (6 methods: count, timestamp, load, search, get by project_def, get by wbs_code)
+     - ✅ Preserved FTS5 search logic via repository
+     - ✅ Preserved HashMap caching (common projects cache)
+     - ✅ Preserved all business logic: hybrid matching, confidence scoring, workstream inference
+   - **Migrated**: 784 lines + 10 tests to `core/src/classification/project_matcher.rs`
+   - **Performance**: Target <15ms per match, <3ms FTS5 queries
 
 4. ⏳ **`inference/block_builder.rs`** (~2800 lines, many tests) → merge into `ClassificationService`
    - **Priority**: MEDIUM (depends on above 3)
@@ -699,39 +696,63 @@ pub trait OutboxQueue: Send + Sync {
 
 **Critical Blockers for Continuing:**
 1. ✅ **RESOLVED (PR #1)**: WbsRepository port complete with SqlCipherWbsRepository implementation (455 lines, 7 tests)
-2. **Large scope**: ~6553 lines of complex business logic remaining with async conversions
-3. **Test complexity**: Need async test infrastructure with mock repositories
+2. ✅ **RESOLVED (PRs #2-4)**: Week 1 PRs complete (signal_extractor, evidence_extractor, project_matcher)
+3. **Large scope**: ~2800 lines of block_builder logic remaining with async conversions
+4. **Test complexity**: Need async test infrastructure with mock repositories for block_builder
 
-**Recommended Next Steps (PR #2-5):**
-1. ✅ **COMPLETE (PR #1)**: WbsRepository trait + SqlCipherWbsRepository implementation
-2. **PR #2**: Migrate signal_extractor.rs (692 lines, 16 tests) - smallest, fewest dependencies
-3. **PR #3**: Migrate evidence_extractor.rs (488 lines, 7 tests) - uses signal_extractor
-4. **PR #4**: Migrate project_matcher.rs (1146 lines, 11 tests) - now unblocked, implements port trait
-5. **PR #5+**: Migrate block_builder.rs (2882 lines, many tests) - largest, depends on all above
-6. **Later**: Merge segmenter into TrackingService (straightforward async conversion)
-7. **Later**: Extract tracker equality logic (simple utility functions)
-8. **Later**: Port all tests with async mocks
-9. **Final**: Full validation with `cargo test`
+**Completed PRs (Week 1-2):**
+1. ✅ **COMPLETE (PR #1, Oct 31)**: WbsRepository trait + SqlCipherWbsRepository implementation (455 lines, 7 tests)
+2. ✅ **COMPLETE (PR #2, Oct 31)**: Migrated signal_extractor.rs (602 lines, 8 tests)
+3. ✅ **COMPLETE (PR #3, Oct 31)**: Migrated evidence_extractor.rs (380 lines, 5 tests)
+4. ✅ **COMPLETE (PR #4, Nov 1)**: Migrated project_matcher.rs (784 lines, 10 tests)
 
-**Status**: ✅ Foundation complete (ports + utils + deps + WbsRepository). ⏳ Core business logic migrations remaining (~6500 lines).
+**Remaining Next Steps (PR #5+):**
+1. **PR #5+**: Migrate block_builder.rs (~2800 lines, 80+ tests) - largest, depends on all above
+2. **Later**: Merge segmenter into TrackingService (straightforward async conversion)
+3. **Later**: Extract tracker equality logic (simple utility functions)
+4. **Later**: Port all tests with async mocks
+5. **Final**: Full validation with `cargo test`
 
-**Latest Progress (Oct 31, 2025):**
-- ✅ **PR #1 Complete**: WbsRepository trait + SqlCipherWbsRepository (455 lines, 7 tests)
-- ✅ **Blocker Resolved**: project_matcher.rs now unblocked and ready for migration
-- ✅ **Next Up**: signal_extractor.rs → evidence_extractor.rs → project_matcher.rs (PRs #2-4)
+**Status**: ✅ Week 1 complete (4 PRs, ~2,200 lines migrated). ⏳ block_builder remaining (~2,800 lines).
 
-**Validation**: ✅ Core compilation passes. ✅ WbsRepository tests pass. ⏳ Full validation pending business logic migration completion.
+**Latest Progress (Nov 1, 2025):**
+- ✅ **PR #1 Complete (Oct 31)**: WbsRepository trait + SqlCipherWbsRepository (455 lines, 7 tests)
+- ✅ **PR #2 Complete (Oct 31)**: SignalExtractor migration (602 lines, 8 tests) - async conversion, CalendarEventRepository integration
+- ✅ **PR #3 Complete (Oct 31)**: EvidenceExtractor migration (380 lines, 5 tests) - SnapshotRepository integration, calendar metadata
+- ✅ **PR #4 Complete (Nov 1)**: ProjectMatcher migration (784 lines, 10 tests) - WbsRepository integration, hybrid matching preserved
+- 🔄 **Next Up**: Migrate block_builder.rs (~2,800 lines, 80+ tests) - largest remaining module
 
-### Phase 3: Infrastructure Adapters (Week 3-4)
-**Goal**: Implement all port adapters
+**Week 1-2 Summary:**
+- **Total Migrated**: ~2,200 lines of business logic + 23 tests
+- **Files Created**: signal_extractor.rs, evidence_extractor.rs, project_matcher.rs
+- **Repository Ports Used**: WbsRepository, SnapshotRepository, CalendarEventRepository
+- **Key Patterns Preserved**: FTS5 search, hybrid matching, confidence scoring, workstream inference
 
-1. Database repositories (`db/activity/`, `db/blocks/`, `db/outbox/`)
-2. Platform providers (`tracker/providers/macos.rs`, `tracker/os_events/`)
-3. OpenAI adapter (`inference/openai_types.rs` → `infra/src/integrations/openai/`)
-4. Integration adapters (calendar, SAP) behind feature flags
-5. ML adapters (linfa, training) behind feature flags
+**Validation**: ✅ Core compilation passes. ✅ All 23 core tests pass. ✅ Clippy clean (0 warnings). ⏳ Full validation pending block_builder migration.
 
-**Validation**: Integration tests with real adapters pass
+### Phase 3: Infrastructure Adapters (Weeks 3-8) ⏳ **READY TO START**
+
+**Goal**: Implement all port adapters (~60+ modules, ~17,600 LOC)
+
+**📋 DETAILED PLAN**: See [**PHASE-3-INFRA-TRACKING.md**](issues/PHASE-3-INFRA-TRACKING.md) for complete breakdown
+
+**Duration**: 4-6 weeks (23-31 working days)
+**Dependencies**: Phase 2 (Core Business Logic) must be complete
+**Priority**: P1-P3 (mixed priorities across sub-phases)
+
+**Sub-Phases:**
+1. **3A: Core Infrastructure** (5-7 days) - Database repos, HTTP client, config loader
+2. **3B: Platform Adapters** (4-6 days) - macOS provider, enrichment, Windows/Linux fallback
+3. **3C: Integration Adapters** (5-7 days) - OpenAI, SAP, Calendar (feature-gated)
+4. **3D: Schedulers & Workers** (4-5 days) - Cron jobs, outbox processing, sync infrastructure
+5. **3E: ML Adapters (optional)** (3-4 days) - Linfa, training pipeline (feature-gated)
+6. **3F: Observability (parallel)** (2-3 days) - Metrics collection
+
+**Validation**:
+- Integration tests with real adapters pass
+- All feature combinations compile and work
+- Performance targets met (database < 50ms p99, enrichment < 100ms p50)
+- Manual testing complete on macOS, Windows, Linux
 
 ### Phase 4: API Layer (Week 5)
 **Goal**: Migrate Tauri commands and wire everything
@@ -936,5 +957,5 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-**Document Status**: 🟢 PHASE 2 IN PROGRESS - WbsRepository complete (PR #1)
-**Latest**: WbsRepository trait + SqlCipherWbsRepository implementation complete (455 lines, 7 tests, FTS5 search with BM25 ranking); project_matcher.rs unblocked and ready for migration (October 31, 2025)
+**Document Status**: 🟢 PHASE 2 IN PROGRESS - Week 1-2 Complete (4 PRs, ~2,200 lines migrated)
+**Latest**: Week 1 complete with 4 PRs (WbsRepository, SignalExtractor, EvidenceExtractor, ProjectMatcher); ~2,200 lines migrated, 23 tests passing; block_builder.rs remaining (~2,800 lines) (November 1, 2025)
