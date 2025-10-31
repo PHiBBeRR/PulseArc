@@ -244,7 +244,7 @@ function AppContent() {
       // Debug: Check for elements exceeding window bounds (development only)
       if (import.meta.env.DEV && TauriAPI.isTauri()) {
         // Get expected dimensions based on current view/mode
-        let expectedWidth, expectedHeight;
+        let expectedWidth: number, expectedHeight: number;
         if (currentView === 'entries') {
           const entriesConfig = ViewSizeConfig.entries[entriesViewMode];
           expectedWidth = entriesConfig.width;
