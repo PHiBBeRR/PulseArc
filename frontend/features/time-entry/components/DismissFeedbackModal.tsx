@@ -4,7 +4,7 @@
  * Used to help train the AI model
  */
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -12,11 +12,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/components/ui/utils';
+} from '@/shared/components/ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { cn } from '@/shared/components/ui/utils';
 import { haptic } from '@/shared/utils';
 import { Check, ChevronsUpDown, MessageSquare, Send } from 'lucide-react';
 import { useState } from 'react';

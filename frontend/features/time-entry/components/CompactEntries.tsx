@@ -1,12 +1,12 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from '@/shared/components/ui/dropdown-menu';
+import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { ErrorMessage, LoadingSpinner } from '@/shared/components';
 import { Calendar, MoreHorizontal, Sparkles } from 'lucide-react';
 import { useEffect } from 'react';

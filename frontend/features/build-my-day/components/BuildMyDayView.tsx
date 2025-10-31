@@ -16,11 +16,11 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Badge } from '../../../components/ui/badge';
-import { Button } from '../../../components/ui/button';
-import { Calendar } from '../../../components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { ScrollArea } from '../../../components/ui/scroll-area';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Calendar } from '@/shared/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { ScrollArea } from '@/shared/components/ui/scroll-area';
 
 type BuildMyDayViewProps = {
   onBack: () => void;

@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
 import type { WbsElement } from '@/shared/types/generated';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Loader2, Minus, Plus } from 'lucide-react';

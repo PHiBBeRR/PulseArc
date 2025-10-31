@@ -1,6 +1,6 @@
 // Error message component
-import { Button } from '@/components/ui/button';
-import { cn } from '@/components/ui/utils';
+import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/components/ui/utils';
 import { AlertCircle } from 'lucide-react';
 
 export interface ErrorMessageProps {

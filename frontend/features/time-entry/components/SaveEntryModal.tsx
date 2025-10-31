@@ -1,6 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Textarea } from '@/shared/components/ui/textarea';
 import { celebrateWithConfetti, haptic } from '@/shared/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Edit2, Minus, Plus, X } from 'lucide-react';

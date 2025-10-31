@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/components/ui/button';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Check, Info, X } from 'lucide-react';
 import { useEffect } from 'react';

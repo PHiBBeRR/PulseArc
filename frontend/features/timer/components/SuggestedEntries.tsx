@@ -1,14 +1,14 @@
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/components/ui/utils';
+} from '@/shared/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Tooltip, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { cn } from '@/shared/components/ui/utils';
 import { projectCache } from '@/shared/services';
 import type {
   AcceptPatch,

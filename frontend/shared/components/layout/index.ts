@@ -1,8 +1,5 @@
-// Shared feedback components
+// Shared layout components
 export { CompactEmptyState } from './CompactEmptyState';
-export { CompactErrorAlert } from './CompactErrorAlert';
-export { InWidgetNotification } from './InWidgetNotification';
-export type { Notification, NotificationType } from './InWidgetNotification';
 export {
   AnalyticsChartSkeleton,
   EntriesListSkeleton,
@@ -10,3 +7,5 @@ export {
   StatCardSkeleton,
   TimelineEntrySkeleton,
 } from './LoadingSkeletons';
+export { SkeletonTimeline } from './SkeletonTimeline';
+export { ThemeProvider, useTheme } from './ThemeProvider';

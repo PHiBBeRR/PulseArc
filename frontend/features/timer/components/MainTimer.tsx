@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
 import { InWidgetNotification } from '@/shared/components/feedback';
 import { useTheme } from '@/shared/components/layout';
 import { useInWidgetNotification } from '@/shared/hooks';

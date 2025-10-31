@@ -4,8 +4,8 @@
  * Used to categorize time entries as billable or G&A
  */
 
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { WbsAutocomplete } from '@/features/timer/components/WbsAutocomplete';
 import type { AcceptPatch, WbsElement } from '@/shared/types/generated';
 import { haptic } from '@/shared/utils';

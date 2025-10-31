@@ -1,8 +1,8 @@
 // FEATURE-020 Phase 2: WBS Autocomplete Component
 // Searchable WBS code picker with FTS5 search
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -10,9 +10,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/components/ui/utils';
+} from '@/shared/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { cn } from '@/shared/components/ui/utils';
 import { SapService } from '@/features/settings/services/sapService';
 import { WbsUsageService } from '@/features/timer/services/wbsUsageService';
 import type { WbsElement } from '@/shared/types/generated';

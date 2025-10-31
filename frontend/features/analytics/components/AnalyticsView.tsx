@@ -1,12 +1,12 @@
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/shared/components/ui/button';
+import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/shared/components/ui/select';
 import { AnalyticsChartSkeleton, StatCardSkeleton } from '@/shared/components/feedback';
 import type { TimeEntryAnalytics } from '@/shared/types/generated';
 import {

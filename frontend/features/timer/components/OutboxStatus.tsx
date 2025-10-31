@@ -1,9 +1,9 @@
 // FEATURE-020 Phase 2: Outbox Status Component
 // Displays SAP time entry outbox status with retry functionality
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/components/ui/utils';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/components/ui/utils';
 import { SapService, type OutboxStatus } from '@/features/settings/services/sapService';
 import { AlertCircle, CheckCircle, Clock, Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

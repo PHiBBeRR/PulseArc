@@ -1,5 +1,5 @@
 // Loading spinner component
-import { cn } from '@/components/ui/utils';
+import { cn } from '@/shared/components/ui/utils';
 import { Loader2 } from 'lucide-react';
 
 export interface LoadingSpinnerProps {

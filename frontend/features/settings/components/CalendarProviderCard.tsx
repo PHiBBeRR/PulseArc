@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/shared/components/ui/dropdown-menu';
 import type { CalendarConnectionStatus } from '@/shared/types/generated/CalendarConnectionStatus';
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
