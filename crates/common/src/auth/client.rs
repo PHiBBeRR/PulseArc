@@ -74,7 +74,7 @@ impl From<reqwest::Error> for OAuthClientError {
 #[derive(Debug, Clone)]
 pub struct OAuthClient {
     config: OAuthConfig,
-    client: Client,
+    client: Option<Client>,
     current_challenge: Arc<Mutex<Option<PKCEChallenge>>>,
 }
 
@@ -99,13 +99,17 @@ impl OAuthClient {
     /// ```
     #[must_use]
     pub fn new(config: OAuthConfig) -> Self {
-        let builder = Client::builder().timeout(std::time::Duration::from_secs(30));
-        let builder = if std::env::var_os("PULSEARC_DISABLE_PROXY").is_some() {
-            builder.no_proxy()
+        let client = if std::env::var_os("PULSEARC_OAUTH_DISABLE_HTTP").is_some() {
+            None
         } else {
-            builder
+            let builder = Client::builder().timeout(std::time::Duration::from_secs(30));
+            let builder = if std::env::var_os("PULSEARC_DISABLE_PROXY").is_some() {
+                builder.no_proxy()
+            } else {
+                builder
+            };
+            Some(builder.build().unwrap_or_else(|_| Client::new()))
         };
-        let client = builder.build().unwrap_or_else(|_| Client::new());
 
         Self { config, client, current_challenge: Arc::new(Mutex::new(None)) }
     }
@@ -231,7 +235,11 @@ impl OAuthClient {
         };
 
         // Execute token exchange
-        let response = self.client.post(self.config.token_url()).form(&request_body).send().await?;
+        let client = self
+            .client
+            .as_ref()
+            .ok_or_else(|| OAuthClientError::ConfigError("HTTP client disabled".to_string()))?;
+        let response = client.post(self.config.token_url()).form(&request_body).send().await?;
 
         // Handle OAuth errors
         if !response.status().is_success() {
@@ -279,7 +287,11 @@ impl OAuthClient {
         params.insert("refresh_token", refresh_token);
 
         // Execute refresh
-        let response = self.client.post(self.config.token_url()).form(&params).send().await?;
+        let client = self
+            .client
+            .as_ref()
+            .ok_or_else(|| OAuthClientError::ConfigError("HTTP client disabled".to_string()))?;
+        let response = client.post(self.config.token_url()).form(&params).send().await?;
 
         // Handle errors
         if !response.status().is_success() {
@@ -342,13 +354,16 @@ mod tests {
 
     use super::*;
 
-    fn disable_proxy() {
+    fn disable_oauth_http() {
         static INIT: Once = Once::new();
-        INIT.call_once(|| std::env::set_var("PULSEARC_DISABLE_PROXY", "1"));
+        INIT.call_once(|| {
+            std::env::set_var("PULSEARC_DISABLE_PROXY", "1");
+            std::env::set_var("PULSEARC_OAUTH_DISABLE_HTTP", "1");
+        });
     }
 
     fn create_test_config() -> OAuthConfig {
-        disable_proxy();
+        disable_oauth_http();
         OAuthConfig::new(
             "dev-test.us.auth0.com".to_string(),
             "test_client_id".to_string(),

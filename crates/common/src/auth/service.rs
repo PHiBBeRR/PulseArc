@@ -332,13 +332,16 @@ mod tests {
     use super::*;
     use crate::testing::MockKeychainProvider;
 
-    fn disable_proxy() {
+    fn disable_oauth_http() {
         static INIT: Once = Once::new();
-        INIT.call_once(|| std::env::set_var("PULSEARC_DISABLE_PROXY", "1"));
+        INIT.call_once(|| {
+            std::env::set_var("PULSEARC_DISABLE_PROXY", "1");
+            std::env::set_var("PULSEARC_OAUTH_DISABLE_HTTP", "1");
+        });
     }
 
     fn create_test_service() -> OAuthService<MockKeychainProvider> {
-        disable_proxy();
+        disable_oauth_http();
         let config = OAuthConfig::new(
             "dev-test.us.auth0.com".to_string(),
             "test_client".to_string(),

@@ -12,9 +12,12 @@ use pulsearc_common::auth::{
 };
 use pulsearc_common::testing::{MockKeychainProvider, MockOAuthClient};
 
-fn disable_proxy() {
+fn disable_oauth_http() {
     static INIT: Once = Once::new();
-    INIT.call_once(|| std::env::set_var("PULSEARC_DISABLE_PROXY", "1"));
+    INIT.call_once(|| {
+        std::env::set_var("PULSEARC_DISABLE_PROXY", "1");
+        std::env::set_var("PULSEARC_OAUTH_DISABLE_HTTP", "1");
+    });
 }
 
 /// Validates PKCE (Proof Key for Code Exchange) challenge generation and
@@ -321,7 +324,7 @@ async fn test_token_expiration() {
 /// 5. Verify parameters are properly URL-encoded
 #[tokio::test(flavor = "multi_thread")]
 async fn test_oauth_client_authorization_url() {
-    disable_proxy();
+    disable_oauth_http();
     let config = OAuthConfig::new(
         "dev-test.auth0.com".to_string(),
         "test_client_id".to_string(),

@@ -5,7 +5,7 @@
 
 #![cfg(feature = "platform")]
 
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 use std::time::Duration;
 
 use pulsearc_common::auth::{OAuthClient, OAuthConfig, TokenManager, TokenSet};
@@ -16,6 +16,14 @@ use pulsearc_common::resilience::{
     retry_with_policy, CircuitBreaker, CircuitBreakerConfig, RetryConfig,
 };
 use pulsearc_common::testing::{random_string, MockKeychainProvider};
+
+fn disable_oauth_http() {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        std::env::set_var("PULSEARC_DISABLE_PROXY", "1");
+        std::env::set_var("PULSEARC_OAUTH_DISABLE_HTTP", "1");
+    });
+}
 use pulsearc_common::validation::{EmailValidator, Validator};
 
 mod data;
@@ -102,6 +110,7 @@ async fn test_cache_with_validation() {
 /// 6. Clean up keychain entries
 #[tokio::test(flavor = "multi_thread")]
 async fn test_resilience_with_auth() {
+    disable_oauth_http();
     let keychain = Arc::new(MockKeychainProvider::new("PulseArcTest".to_string()));
     let service_name = unique_test_id("test_auth_resilience");
     let account_name = "test_user";
@@ -415,6 +424,7 @@ async fn test_complete_workflow() {
 /// 7. Clean up keychain entries
 #[tokio::test(flavor = "multi_thread")]
 async fn test_auth_with_cache() {
+    disable_oauth_http();
     let cache: AsyncCache<String, String> =
         AsyncCache::new(CacheConfig::ttl(Duration::from_secs(300)));
     let keychain = Arc::new(MockKeychainProvider::new("PulseArcTest".to_string()));

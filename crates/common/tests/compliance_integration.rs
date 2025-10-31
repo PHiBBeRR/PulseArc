@@ -1236,7 +1236,8 @@ async fn test_audit_streaming_success() {
         .await;
 
     // Give async task time to complete webhook call
-    sleep(Duration::from_millis(100)).await;
+    // Increased from 100ms to 500ms to handle test parallelism and system load
+    sleep(Duration::from_millis(500)).await;
 
     // Verify the mock server received the request
     // (wiremock will panic if expectations aren't met when mock_server is

@@ -257,7 +257,8 @@ where
     /// ```
     /// use pulsearc_common::validation::{CollectionValidator, EmailValidator};
     ///
-    /// let validator = CollectionValidator::new().min_size(1).item_validator(EmailValidator::new());
+    /// let validator: CollectionValidator<String> =
+    ///     CollectionValidator::new().min_size(1).item_validator(EmailValidator::new());
     /// ```
     pub fn item_validator<V>(mut self, validator: V) -> Self
     where
