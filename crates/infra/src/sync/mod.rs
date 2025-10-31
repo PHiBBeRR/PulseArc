@@ -10,8 +10,8 @@
 
 pub mod cleanup;
 pub mod cost_tracker;
-pub mod neon_client;
 mod errors;
+pub mod neon_client;
 
 pub use cleanup::{CleanupConfig, CleanupService, CleanupStats};
 pub use cost_tracker::{CostMetrics, CostRateConfig, CostTracker, DailyCost};

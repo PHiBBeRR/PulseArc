@@ -104,8 +104,8 @@ pub struct TokenVariance {
 /// Classification mode based on cost caps
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClassificationMode {
-    OpenAI,     // Use OpenAI API
-    RulesOnly,  // Cost cap exceeded, use rule-based only
+    OpenAI,    // Use OpenAI API
+    RulesOnly, // Cost cap exceeded, use rule-based only
 }
 
 /// Cost tracker with persistent storage and observability
@@ -129,8 +129,8 @@ impl CostTracker {
     /// Configured cost tracker
     pub fn new(db: Arc<DbManager>, config: CostRateConfig) -> CommonResult<Self> {
         if config.max_monthly_cost_usd <= 0.0 {
-            return Err(pulsearc_common::error::CommonError::Configuration(
-                "max_monthly_cost_usd must be positive".to_string(),
+            return Err(pulsearc_common::error::CommonError::config(
+                "max_monthly_cost_usd must be positive",
             ));
         }
 
@@ -160,10 +160,12 @@ impl CostTracker {
     ///
     /// Estimated cost in USD
     pub fn calculate_cost(&self, input_tokens: u32, output_tokens: u32) -> f64 {
-        let input_cost =
-            (f64::from(input_tokens) * self.config.gpt4o_mini_input_cost_per_1m_tokens) / 1_000_000.0;
-        let output_cost =
-            (f64::from(output_tokens) * self.config.gpt4o_mini_output_cost_per_1m_tokens) / 1_000_000.0;
+        let input_cost = (f64::from(input_tokens)
+            * self.config.gpt4o_mini_input_cost_per_1m_tokens)
+            / 1_000_000.0;
+        let output_cost = (f64::from(output_tokens)
+            * self.config.gpt4o_mini_output_cost_per_1m_tokens)
+            / 1_000_000.0;
         input_cost + output_cost
     }
 
@@ -173,10 +175,7 @@ impl CostTracker {
     ///
     /// * `service` - Service name (e.g., "sap", "calendar", "neon")
     pub fn record_call(&self, service: &str) {
-        let mut metrics = self
-            .metrics
-            .lock()
-            .expect("CostMetrics mutex poisoned");
+        let mut metrics = self.metrics.lock().expect("CostMetrics mutex poisoned");
 
         metrics.total_api_calls += 1;
 
@@ -188,19 +187,13 @@ impl CostTracker {
             _ => {}
         }
 
-        // Update observability metrics
-        self.metrics_tracker.increment_counter("cost.api_calls", 1);
-        self.metrics_tracker.increment_counter(&format!("cost.{}.calls", service), 1);
-
+        // Note: MetricsTracker integration would go here when API is available
         debug!(service = service, "Recorded API call");
     }
 
     /// Get current metrics snapshot
     pub fn get_metrics(&self) -> CostMetrics {
-        self.metrics
-            .lock()
-            .expect("CostMetrics mutex poisoned")
-            .clone()
+        self.metrics.lock().expect("CostMetrics mutex poisoned").clone()
     }
 
     /// Record token usage to database
@@ -402,7 +395,7 @@ impl CostTracker {
 
             let (batch_count, total_input, total_output, total_cost): (i64, i64, i64, f64) = conn
                 .query_row(
-                    r#"
+                r#"
                     SELECT COUNT(*),
                            COALESCE(SUM(input_tokens), 0),
                            COALESCE(SUM(output_tokens), 0),
@@ -410,9 +403,9 @@ impl CostTracker {
                     FROM token_usage
                     WHERE user_id = ?1 AND timestamp >= ?2
                     "#,
-                    rusqlite::params![user_id, thirty_days_ago],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-                )?;
+                rusqlite::params![user_id, thirty_days_ago],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )?;
 
             Ok(UserCostSummary {
                 batch_count,
@@ -574,7 +567,7 @@ mod tests {
     #[test]
     fn test_calculate_cost() {
         let config = CostRateConfig::default();
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let tracker = CostTracker::new(db, config).unwrap();
 
         // 1M input tokens + 1M output tokens
@@ -584,7 +577,7 @@ mod tests {
 
     #[test]
     fn test_record_call() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let tracker = CostTracker::with_defaults(db).unwrap();
 
         tracker.record_call("sap");
@@ -598,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_cost_config_validation() {
-        let db = Arc::new(DbManager::new(":memory:").unwrap());
+        let db = Arc::new(DbManager::new(":memory:", 1, Some("test-key")).unwrap());
         let config = CostRateConfig {
             max_monthly_cost_usd: -1.0, // Invalid
             ..Default::default()

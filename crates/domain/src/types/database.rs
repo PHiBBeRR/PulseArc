@@ -3,10 +3,15 @@
 //! These types represent the database schema and are used by repository ports.
 //! Phase 1 migration includes all types from legacy/api/src/db/models.rs
 
+use crate::types::ActivityContext;
+use crate::PulseArcError;
+use crate::Result as DomainResult;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json;
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;
+use uuid::Uuid;
 
 /// Activity snapshot - raw 30s activity capture
 ///
@@ -32,6 +37,31 @@ pub struct ActivitySnapshot {
     pub processed_at: Option<i64>,
     pub is_idle: bool,
     pub idle_duration_secs: Option<i32>,
+}
+
+/// Metadata required to construct a new `ActivitySnapshot`.
+#[derive(Debug, Clone)]
+pub struct SnapshotMetadata {
+    pub id: String,
+    pub timestamp: i64,
+    pub created_at: i64,
+    pub batch_id: Option<String>,
+}
+
+impl SnapshotMetadata {
+    /// Generate metadata for the current timestamp using a UUIDv7 identifier.
+    #[must_use]
+    pub fn now() -> Self {
+        let now = Utc::now().timestamp();
+        Self { id: Uuid::now_v7().to_string(), timestamp: now, created_at: now, batch_id: None }
+    }
+
+    /// Override the batch identifier associated with the snapshot.
+    #[must_use]
+    pub fn with_batch_id(mut self, batch_id: Option<String>) -> Self {
+        self.batch_id = batch_id;
+        self
+    }
 }
 
 /// Activity segment - 5-minute aggregated segment
@@ -69,6 +99,59 @@ impl ActivitySnapshot {
     /// Get timestamp as DateTime<Utc>
     pub fn timestamp_utc(&self) -> Option<DateTime<Utc>> {
         DateTime::from_timestamp(self.timestamp, 0)
+    }
+
+    /// Construct a snapshot from an `ActivityContext` using the supplied metadata.
+    ///
+    /// Serializes the context into JSON and derives legacy string fields so that
+    /// downstream repositories can persist the record without additional mapping.
+    pub fn from_activity_context(
+        context: &ActivityContext,
+        metadata: SnapshotMetadata,
+    ) -> DomainResult<Self> {
+        let serialized = serde_json::to_string(context).map_err(|err| {
+            PulseArcError::Internal(format!(
+                "failed to serialize activity context for snapshot: {err}"
+            ))
+        })?;
+
+        let SnapshotMetadata { id, timestamp, created_at, batch_id } = metadata;
+
+        let work_type = context.work_type.as_ref().and_then(Self::enum_to_string);
+        let activity_category = Self::enum_to_string(&context.activity_category);
+
+        let primary_app = context
+            .active_app
+            .bundle_id
+            .clone()
+            .unwrap_or_else(|| context.active_app.app_name.clone());
+
+        Ok(Self {
+            id,
+            timestamp,
+            activity_context_json: serialized,
+            detected_activity: context.detected_activity.clone(),
+            work_type,
+            activity_category,
+            primary_app,
+            processed: false,
+            batch_id,
+            created_at,
+            processed_at: None,
+            is_idle: context.detected_activity.eq_ignore_ascii_case("idle"),
+            idle_duration_secs: None,
+        })
+    }
+
+    /// Deserialize the embedded activity context JSON into the strongly-typed structure.
+    pub fn activity_context(&self) -> DomainResult<ActivityContext> {
+        serde_json::from_str(&self.activity_context_json).map_err(|err| {
+            PulseArcError::Database(format!("invalid activity_context_json payload: {err}"))
+        })
+    }
+
+    fn enum_to_string<T: Serialize>(value: &T) -> Option<String> {
+        serde_json::to_value(value).ok().and_then(|val| val.as_str().map(str::to_string))
     }
 }
 
@@ -524,4 +607,56 @@ pub struct SuggestionFeedbackParams {
     pub confidence_before: Option<f32>,
     pub source: Option<String>,
     pub context_json: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{
+        ActivityCategory, ActivityContext, ActivityMetadata, ConfidenceEvidence, WindowContext,
+    };
+
+    #[test]
+    fn snapshot_round_trip_from_context() {
+        let context = ActivityContext {
+            active_app: WindowContext {
+                app_name: "Safari".into(),
+                window_title: "PulseArc Docs".into(),
+                bundle_id: Some("com.apple.Safari".into()),
+                url: Some("https://pulsearc.dev".into()),
+                url_host: Some("pulsearc.dev".into()),
+                document_name: None,
+                file_path: None,
+            },
+            recent_apps: vec![],
+            detected_activity: "Browsing".into(),
+            work_type: None,
+            activity_category: ActivityCategory::Communication,
+            billable_confidence: 0.2,
+            suggested_client: None,
+            suggested_matter: None,
+            suggested_task_code: None,
+            extracted_metadata: ActivityMetadata::default(),
+            evidence: ConfidenceEvidence::default(),
+            calendar_event: None,
+            location: None,
+            temporal_context: None,
+            classification: None,
+        };
+
+        let metadata = SnapshotMetadata {
+            id: "snapshot-1".into(),
+            timestamp: 1_700_000_000,
+            created_at: 1_700_000_000,
+            batch_id: None,
+        };
+
+        let snapshot = ActivitySnapshot::from_activity_context(&context, metadata).unwrap();
+        assert_eq!(snapshot.detected_activity, "Browsing");
+        assert_eq!(snapshot.primary_app, "com.apple.Safari");
+
+        let round_trip = snapshot.activity_context().unwrap();
+        assert_eq!(round_trip.active_app.app_name, "Safari");
+        assert_eq!(round_trip.activity_category, ActivityCategory::Communication);
+    }
 }

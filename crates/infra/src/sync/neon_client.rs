@@ -20,13 +20,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::future::BoxFuture;
-use reqwest::{Method, RequestBuilder, Response, StatusCode};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
 use pulsearc_common::security::KeychainProvider;
-use pulsearc_core::domain::ActivitySegment;
+use pulsearc_domain::types::ActivitySegment;
 
 use crate::http::HttpClient;
 
@@ -119,11 +118,7 @@ impl NeonClient {
 
         let keychain = KeychainProvider::new(&config.keychain_service_name);
 
-        Ok(Self {
-            http_client: Arc::new(http_client),
-            config,
-            keychain: Arc::new(keychain),
-        })
+        Ok(Self { http_client: Arc::new(http_client), config, keychain: Arc::new(keychain) })
     }
 
     /// Get API token from keychain
@@ -175,10 +170,7 @@ impl NeonClient {
         let token = self.get_api_token()?;
         let url = format!("{}/segments", self.config.base_url);
 
-        let request_body = CreateSegmentRequest {
-            segment: segment.clone(),
-            idempotency_key,
-        };
+        let request_body = CreateSegmentRequest { segment: segment.clone(), idempotency_key };
 
         debug!(url = %url, "Syncing segment to Neon");
 
@@ -328,10 +320,7 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let config = NeonClientConfig {
-            base_url: mock_server.uri(),
-            ..Default::default()
-        };
+        let config = NeonClientConfig { base_url: mock_server.uri(), ..Default::default() };
 
         let client = NeonClient::with_config(config).unwrap();
 
@@ -350,10 +339,7 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let config = NeonClientConfig {
-            base_url: mock_server.uri(),
-            ..Default::default()
-        };
+        let config = NeonClientConfig { base_url: mock_server.uri(), ..Default::default() };
 
         let client = NeonClient::with_config(config).unwrap();
 
@@ -397,9 +383,7 @@ mod tests {
             category: None,
         };
 
-        let result = client
-            .sync_segment(&segment, "idempotency-key-123".to_string())
-            .await;
+        let result = client.sync_segment(&segment, "idempotency-key-123".to_string()).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), SyncError::Auth(_)));

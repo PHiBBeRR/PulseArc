@@ -115,8 +115,8 @@ impl CleanupService {
     #[instrument(skip(self))]
     pub async fn start(&mut self) -> CommonResult<()> {
         if self.is_running() {
-            return Err(pulsearc_common::error::CommonError::Configuration(
-                "Cleanup service already running".to_string(),
+            return Err(pulsearc_common::error::CommonError::config(
+                "Cleanup service already running",
             ));
         }
 
@@ -147,9 +147,7 @@ impl CleanupService {
     #[instrument(skip(self))]
     pub async fn stop(&mut self) -> CommonResult<()> {
         if !self.is_running() {
-            return Err(pulsearc_common::error::CommonError::Configuration(
-                "Cleanup service not running".to_string(),
-            ));
+            return Err(pulsearc_common::error::CommonError::config("Cleanup service not running"));
         }
 
         info!("Stopping cleanup service");
@@ -159,14 +157,10 @@ impl CleanupService {
 
         // Await handle with timeout
         if let Some(handle) = self.task_handle.lock().await.take() {
-            tokio::time::timeout(Duration::from_secs(5), handle)
-                .await
-                .map_err(|_| {
-                    warn!("Cleanup task did not complete within timeout");
-                    pulsearc_common::error::CommonError::Internal(
-                        "Cleanup task timeout".to_string(),
-                    )
-                })??;
+            tokio::time::timeout(Duration::from_secs(5), handle).await.map_err(|_| {
+                warn!("Cleanup task did not complete within timeout");
+                pulsearc_common::error::CommonError::Internal("Cleanup task timeout".to_string())
+            })??;
         }
 
         info!("Cleanup service stopped");
@@ -261,12 +255,7 @@ impl CleanupService {
                 |r| r.get(0),
             )?;
 
-            Ok(DryRunResult {
-                segments,
-                snapshots,
-                batches,
-                token_usage,
-            })
+            Ok(DryRunResult { segments, snapshots, batches, token_usage })
         })
         .await
         .map_err(|e| {
@@ -306,7 +295,8 @@ impl CleanupService {
     /// Delete old segments
     async fn cleanup_old_segments(&self) -> CommonResult<usize> {
         let db = Arc::clone(&self.db);
-        let cutoff = Utc::now().timestamp() - (i64::from(self.config.segment_retention_days) * 86400);
+        let cutoff =
+            Utc::now().timestamp() - (i64::from(self.config.segment_retention_days) * 86400);
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
@@ -328,7 +318,8 @@ impl CleanupService {
     /// Delete old snapshots
     async fn cleanup_old_snapshots(&self) -> CommonResult<usize> {
         let db = Arc::clone(&self.db);
-        let cutoff = Utc::now().timestamp() - (i64::from(self.config.snapshot_retention_days) * 86400);
+        let cutoff =
+            Utc::now().timestamp() - (i64::from(self.config.snapshot_retention_days) * 86400);
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
@@ -350,7 +341,8 @@ impl CleanupService {
     /// Delete old completed batches
     async fn cleanup_old_batches(&self) -> CommonResult<usize> {
         let db = Arc::clone(&self.db);
-        let cutoff = Utc::now().timestamp() - (i64::from(self.config.snapshot_retention_days) * 86400);
+        let cutoff =
+            Utc::now().timestamp() - (i64::from(self.config.snapshot_retention_days) * 86400);
         let max_batch = self.config.max_batch_size;
 
         tokio::task::spawn_blocking(move || {
@@ -472,10 +464,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cancellation_stops_service() {
         let db = Arc::new(DbManager::new(":memory:").unwrap());
-        let config = CleanupConfig {
-            cleanup_interval: Duration::from_millis(100),
-            ..Default::default()
-        };
+        let config =
+            CleanupConfig { cleanup_interval: Duration::from_millis(100), ..Default::default() };
 
         let mut service = CleanupService::new(db, config);
 

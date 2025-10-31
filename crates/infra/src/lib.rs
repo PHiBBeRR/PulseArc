@@ -8,6 +8,7 @@
 //! - HTTP client implementations
 //! - Platform-specific code (macOS Accessibility API)
 //! - External service integrations (Calendar, SAP)
+//! - Background services (schedulers, sync, cleanup)
 //!
 //! ## Architecture
 //! - Implements traits defined in `pulsearc-core`
@@ -24,6 +25,8 @@ pub mod key_manager;
 pub mod mdm;
 pub mod observability;
 pub mod platform;
+pub mod scheduling;
+pub mod sync;
 
 // Re-export commonly used items
 pub use config::*;
@@ -38,3 +41,5 @@ pub use integrations::sap;
 pub use key_manager::*;
 pub use mdm::*;
 pub use platform::*;
+pub use scheduling::BlockScheduler;
+pub use sync::{CleanupService, CostTracker, NeonClient};

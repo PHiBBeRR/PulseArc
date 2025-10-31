@@ -84,11 +84,11 @@ impl SyncError {
     /// Get suggested retry delay in seconds
     pub fn retry_delay_secs(&self) -> u64 {
         match self.category() {
-            SyncErrorCategory::Authentication => 5,  // Quick retry after token refresh
-            SyncErrorCategory::RateLimit => 60,      // Wait for rate limit window
-            SyncErrorCategory::Server => 10,         // Moderate delay for server issues
-            SyncErrorCategory::Network => 5,         // Quick retry for network
-            SyncErrorCategory::Database => 2,        // Quick retry for DB
+            SyncErrorCategory::Authentication => 5, // Quick retry after token refresh
+            SyncErrorCategory::RateLimit => 60,     // Wait for rate limit window
+            SyncErrorCategory::Server => 10,        // Moderate delay for server issues
+            SyncErrorCategory::Network => 5,        // Quick retry for network
+            SyncErrorCategory::Database => 2,       // Quick retry for DB
             SyncErrorCategory::Client | SyncErrorCategory::Config => 0, // No retry
         }
     }
@@ -102,9 +102,7 @@ impl From<PulseArcError> for SyncError {
             PulseArcError::Config(message) => Self::Config(message),
             PulseArcError::Platform(message) => Self::Server(message),
             PulseArcError::Network(message) => Self::Network(message),
-            PulseArcError::Auth(message) | PulseArcError::Security(message) => {
-                Self::Auth(message)
-            }
+            PulseArcError::Auth(message) | PulseArcError::Security(message) => Self::Auth(message),
             PulseArcError::NotFound(message) | PulseArcError::InvalidInput(message) => {
                 Self::Client(message)
             }
@@ -116,14 +114,18 @@ impl From<PulseArcError> for SyncError {
 /// Convert from CommonError to SyncError
 impl From<pulsearc_common::error::CommonError> for SyncError {
     fn from(err: pulsearc_common::error::CommonError) -> Self {
-        use pulsearc_common::error::{CommonError, ErrorCategory};
-
-        match err.category() {
-            ErrorCategory::Network => Self::Network(err.to_string()),
-            ErrorCategory::Storage => Self::Database(err.to_string()),
-            ErrorCategory::Security => Self::Auth(err.to_string()),
-            ErrorCategory::Configuration => Self::Config(err.to_string()),
-            _ => Self::Client(err.to_string()),
+        // Simple conversion based on error message patterns
+        let msg = err.to_string();
+        if msg.contains("network") || msg.contains("Network") || msg.contains("timeout") {
+            Self::Network(msg)
+        } else if msg.contains("storage") || msg.contains("Storage") || msg.contains("database") {
+            Self::Database(msg)
+        } else if msg.contains("auth") || msg.contains("security") || msg.contains("Security") {
+            Self::Auth(msg)
+        } else if msg.contains("config") || msg.contains("Config") {
+            Self::Config(msg)
+        } else {
+            Self::Client(msg)
         }
     }
 }
@@ -142,14 +144,8 @@ mod tests {
             SyncError::RateLimit("test".to_string()).category(),
             SyncErrorCategory::RateLimit
         );
-        assert_eq!(
-            SyncError::Server("test".to_string()).category(),
-            SyncErrorCategory::Server
-        );
-        assert_eq!(
-            SyncError::Network("test".to_string()).category(),
-            SyncErrorCategory::Network
-        );
+        assert_eq!(SyncError::Server("test".to_string()).category(), SyncErrorCategory::Server);
+        assert_eq!(SyncError::Network("test".to_string()).category(), SyncErrorCategory::Network);
     }
 
     #[test]
@@ -165,15 +161,9 @@ mod tests {
     #[test]
     fn test_retry_delays() {
         assert_eq!(SyncError::Auth("test".to_string()).retry_delay_secs(), 5);
-        assert_eq!(
-            SyncError::RateLimit("test".to_string()).retry_delay_secs(),
-            60
-        );
+        assert_eq!(SyncError::RateLimit("test".to_string()).retry_delay_secs(), 60);
         assert_eq!(SyncError::Server("test".to_string()).retry_delay_secs(), 10);
-        assert_eq!(
-            SyncError::Network("test".to_string()).retry_delay_secs(),
-            5
-        );
+        assert_eq!(SyncError::Network("test".to_string()).retry_delay_secs(), 5);
         assert_eq!(SyncError::Client("test".to_string()).retry_delay_secs(), 0);
     }
 }

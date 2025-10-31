@@ -104,10 +104,7 @@ impl BlockScheduler {
     ///
     /// Returns error if scheduler creation fails
     pub async fn new(cron_expression: String) -> SchedulerResult<Self> {
-        let config = BlockSchedulerConfig {
-            cron_expression,
-            ..Default::default()
-        };
+        let config = BlockSchedulerConfig { cron_expression, ..Default::default() };
 
         Self::with_config(config).await
     }
@@ -122,9 +119,8 @@ impl BlockScheduler {
     ///
     /// A configured block scheduler ready to start
     pub async fn with_config(config: BlockSchedulerConfig) -> SchedulerResult<Self> {
-        let scheduler = JobScheduler::new()
-            .await
-            .map_err(|e| SchedulerError::CreationFailed(e.to_string()))?;
+        let scheduler =
+            JobScheduler::new().await.map_err(|e| SchedulerError::CreationFailed(e.to_string()))?;
 
         Ok(Self {
             scheduler: Arc::new(RwLock::new(scheduler)),
@@ -172,9 +168,7 @@ impl BlockScheduler {
             sched.start().await
         })
         .await
-        .map_err(|_| SchedulerError::Timeout {
-            seconds: self.config.start_timeout_secs,
-        })?
+        .map_err(|_| SchedulerError::Timeout { seconds: self.config.start_timeout_secs })?
         .map_err(|e| SchedulerError::StartFailed(e.to_string()))?;
 
         // Spawn monitoring task with handle tracking
@@ -234,9 +228,7 @@ impl BlockScheduler {
             sched.shutdown().await
         })
         .await
-        .map_err(|_| SchedulerError::Timeout {
-            seconds: self.config.stop_timeout_secs,
-        })?
+        .map_err(|_| SchedulerError::Timeout { seconds: self.config.stop_timeout_secs })?
         .map_err(|e| SchedulerError::StopFailed(e.to_string()))?;
 
         // Await join handle with timeout
@@ -262,10 +254,7 @@ impl BlockScheduler {
     /// Check if scheduler is currently running
     pub fn is_running(&self) -> bool {
         self.task_handle.is_some()
-            && self
-                .cancellation
-                .as_ref()
-                .map_or(false, |c| !c.is_cancelled())
+            && self.cancellation.as_ref().map_or(false, |c| !c.is_cancelled())
     }
 
     /// Register the block generation job with the scheduler
