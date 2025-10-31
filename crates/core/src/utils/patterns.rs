@@ -107,9 +107,7 @@ pub fn extract_github_repo(title: &str) -> Option<String> {
 /// Extracts PR number and formats as "Reviewing PR #123".
 pub fn extract_github_pr_context(title: &str) -> String {
     // Try to extract PR number from title
-    GITHUB_PR_EXTRACTOR
-        .extract(title)
-        .unwrap_or_else(|| "Reviewing pull request".to_string())
+    GITHUB_PR_EXTRACTOR.extract(title).unwrap_or_else(|| "Reviewing pull request".to_string())
 }
 
 /// Extract GitHub issue context from title
@@ -117,9 +115,7 @@ pub fn extract_github_pr_context(title: &str) -> String {
 /// Extracts issue number and formats as "Working on issue #456".
 pub fn extract_github_issue_context(title: &str) -> String {
     // Try to extract issue number from title
-    GITHUB_ISSUE_EXTRACTOR
-        .extract(title)
-        .unwrap_or_else(|| "Reviewing GitHub issue".to_string())
+    GITHUB_ISSUE_EXTRACTOR.extract(title).unwrap_or_else(|| "Reviewing GitHub issue".to_string())
 }
 
 /// Extract Stack Overflow topic from title
@@ -137,11 +133,7 @@ pub fn extract_github_issue_context(title: &str) -> String {
 /// PatternExtractor pattern and is kept as-is for maintainability.
 pub fn extract_stackoverflow_topic(title: &str) -> Option<String> {
     // Remove "- Stack Overflow" suffix
-    let clean = title
-        .split(" - Stack Overflow")
-        .next()
-        .unwrap_or(title)
-        .trim();
+    let clean = title.split(" - Stack Overflow").next().unwrap_or(title).trim();
 
     // Check if this is a "topic - question" format and extract just the topic
     // Example: "javascript - How to use promises" -> "javascript"
@@ -216,14 +208,7 @@ pub fn extract_stackoverflow_topic(title: &str) -> Option<String> {
         }
     } else {
         // No " in " pattern, just strip common prefixes
-        let prefixes = [
-            "How to ",
-            "How do I ",
-            "How can I ",
-            "What is ",
-            "Why does ",
-            "Why is ",
-        ];
+        let prefixes = ["How to ", "How do I ", "How can I ", "What is ", "Why does ", "Why is "];
         for prefix in &prefixes {
             if let Some(stripped) = clean.strip_prefix(prefix) {
                 if !stripped.is_empty() && stripped.len() < MAX_STACKOVERFLOW_TOPIC_LENGTH {
@@ -297,9 +282,7 @@ pub fn extract_tech_from_docs(title: &str) -> Option<String> {
 /// Removes " - Google Docs" or " - Google Sheets" suffix.
 pub fn extract_google_doc_name(title: &str) -> String {
     // Pattern: "Doc Name - Google Docs"
-    GOOGLE_DOC_EXTRACTOR
-        .extract(title)
-        .unwrap_or_else(|| truncate_title(title))
+    GOOGLE_DOC_EXTRACTOR.extract(title).unwrap_or_else(|| truncate_title(title))
 }
 
 /// Extract Notion page name from title
@@ -407,10 +390,7 @@ mod tests {
 
     #[test]
     fn test_extract_github_repo() {
-        assert_eq!(
-            extract_github_repo("user/repo: Pull Request"),
-            Some("user/repo".to_string())
-        );
+        assert_eq!(extract_github_repo("user/repo: Pull Request"), Some("user/repo".to_string()));
         assert_eq!(extract_github_repo("no repo here"), None);
     }
 
@@ -435,10 +415,7 @@ mod tests {
     #[test]
     fn test_extract_github_issue_context_no_number() {
         let title = "Issue without number";
-        assert_eq!(
-            extract_github_issue_context(title),
-            "Reviewing GitHub issue"
-        );
+        assert_eq!(extract_github_issue_context(title), "Reviewing GitHub issue");
     }
 
     #[test]
@@ -456,31 +433,16 @@ mod tests {
 
     #[test]
     fn test_extract_tech_from_docs() {
-        assert_eq!(
-            extract_tech_from_docs("React Documentation"),
-            Some("react".to_string())
-        );
-        assert_eq!(
-            extract_tech_from_docs("Rust by Example"),
-            Some("rust".to_string())
-        );
-        assert_eq!(
-            extract_tech_from_docs("Tauri Guides"),
-            Some("tauri".to_string())
-        );
+        assert_eq!(extract_tech_from_docs("React Documentation"), Some("react".to_string()));
+        assert_eq!(extract_tech_from_docs("Rust by Example"), Some("rust".to_string()));
+        assert_eq!(extract_tech_from_docs("Tauri Guides"), Some("tauri".to_string()));
         assert_eq!(extract_tech_from_docs("Random Documentation"), None);
     }
 
     #[test]
     fn test_extract_google_doc_name() {
-        assert_eq!(
-            extract_google_doc_name("My Document - Google Docs"),
-            "My Document"
-        );
-        assert_eq!(
-            extract_google_doc_name("Budget 2024 - Google Sheets"),
-            "Budget 2024"
-        );
+        assert_eq!(extract_google_doc_name("My Document - Google Docs"), "My Document");
+        assert_eq!(extract_google_doc_name("Budget 2024 - Google Sheets"), "Budget 2024");
     }
 
     #[test]
@@ -489,54 +451,33 @@ mod tests {
             extract_notion_page("Project Planning | Notion"),
             Some("Project Planning".to_string())
         );
-        assert_eq!(
-            extract_notion_page("Just Notion"),
-            Some("Just Notion".to_string())
-        );
+        assert_eq!(extract_notion_page("Just Notion"), Some("Just Notion".to_string()));
         assert_eq!(extract_notion_page(" | Notion"), None);
     }
 
     #[test]
     fn test_extract_jira_ticket() {
-        assert_eq!(
-            extract_jira_ticket("[PROJ-123] Fix the bug"),
-            Some("PROJ-123".to_string())
-        );
-        assert_eq!(
-            extract_jira_ticket("Working on PROJ-456 today"),
-            Some("PROJ-456".to_string())
-        );
+        assert_eq!(extract_jira_ticket("[PROJ-123] Fix the bug"), Some("PROJ-123".to_string()));
+        assert_eq!(extract_jira_ticket("Working on PROJ-456 today"), Some("PROJ-456".to_string()));
         assert_eq!(extract_jira_ticket("No ticket here"), None);
     }
 
     #[test]
     fn test_extract_linear_issue() {
-        assert_eq!(
-            extract_linear_issue("ENG-123: Implement feature"),
-            Some("ENG-123".to_string())
-        );
-        assert_eq!(
-            extract_linear_issue("Working on TEAM-456"),
-            Some("TEAM-456".to_string())
-        );
+        assert_eq!(extract_linear_issue("ENG-123: Implement feature"), Some("ENG-123".to_string()));
+        assert_eq!(extract_linear_issue("Working on TEAM-456"), Some("TEAM-456".to_string()));
         assert_eq!(extract_linear_issue("No issue"), None);
     }
 
     #[test]
     fn test_extract_slack_channel() {
-        assert_eq!(
-            extract_slack_channel("#general | My Workspace"),
-            Some("#general".to_string())
-        );
+        assert_eq!(extract_slack_channel("#general | My Workspace"), Some("#general".to_string()));
         assert_eq!(extract_slack_channel("general | My Workspace"), None);
     }
 
     #[test]
     fn test_extract_discord_channel() {
-        assert_eq!(
-            extract_discord_channel("#general - My Server"),
-            Some("#general".to_string())
-        );
+        assert_eq!(extract_discord_channel("#general - My Server"), Some("#general".to_string()));
         assert_eq!(extract_discord_channel("general - My Server"), None);
     }
 
@@ -546,10 +487,7 @@ mod tests {
             extract_terminal_context("user@host: ~/projects/my-app"),
             Some("my-app".to_string())
         );
-        assert_eq!(
-            extract_terminal_context("user@host: /usr/local/bin"),
-            Some("bin".to_string())
-        );
+        assert_eq!(extract_terminal_context("user@host: /usr/local/bin"), Some("bin".to_string()));
         assert_eq!(extract_terminal_context("simple title"), None);
     }
 
@@ -584,10 +522,6 @@ mod tests {
         assert_eq!(extract_terminal_context("/usr/local/bin"), None);
 
         // Test tilde home directory
-        assert_eq!(
-            extract_terminal_context("user@host: ~"),
-            Some("~".to_string())
-        );
+        assert_eq!(extract_terminal_context("user@host: ~"), Some("~".to_string()));
     }
 }
-

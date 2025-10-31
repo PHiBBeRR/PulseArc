@@ -32,6 +32,9 @@ ahash = "0.8"
 # URL parsing for signal extraction
 url = "2.5"
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [features]
 calendar = []
 sap = []

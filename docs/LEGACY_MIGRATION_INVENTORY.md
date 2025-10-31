@@ -1,9 +1,9 @@
 # Legacy Code Migration Inventory
 
 **Generated**: October 30, 2025
-**Last Updated**: October 31, 2025 (Phase 1 Complete ✅)
+**Last Updated**: October 31, 2025 (Phase 2 PR #1 Complete ✅ - WbsRepository)
 **Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration
-**Status**: 🟢 PHASE 1 COMPLETE - All domain types and core ports migrated! Ready for Phase 2
+**Status**: 🟢 PHASE 2 IN PROGRESS - WbsRepository port complete, classification modules ready for migration
 
 ---
 
@@ -200,7 +200,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `integrations/calendar/config.rs` | `domain` | `domain/src/config/calendar_config.rs` | ⚠️ Priority 1 | Feature-gated: calendar |
 | `integrations/sap/client.rs` | `infra` | `infra/src/integrations/sap/client.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/auth_commands.rs` | `infra` | `infra/src/integrations/sap/auth.rs` | ⚠️ Priority 3 | Feature-gated: sap |
-| `integrations/sap/cache.rs` | `infra` | `infra/src/integrations/sap/cache.rs` | ⚠️ Priority 3 | Feature-gated: sap |
+| `integrations/sap/cache.rs` | `infra` | `infra/src/integrations/sap/cache.rs` | ⚠️ Priority 3 | Feature-gated: sap • ✅ WbsRepository port complete (PR #1), SqlCipherWbsRepository impl ready (455 lines, FTS5 search) |
 | `integrations/sap/forwarder.rs` | `infra` | `infra/src/integrations/sap/forwarder.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/health_monitor.rs` | `infra` | `infra/src/integrations/sap/health.rs` | ⚠️ Priority 3 | Feature-gated: sap |
 | `integrations/sap/scheduler.rs` | `infra` | `infra/src/integrations/sap/scheduler.rs` | ⚠️ Priority 3 | Feature-gated: sap |
@@ -615,6 +615,9 @@ pub trait OutboxQueue: Send + Sync {
 5. ✅ Added dependencies to `core/Cargo.toml` (log, ahash, url, lazy_static)
 6. ✅ Updated `core/src/lib.rs` with utils module and new port re-exports
 7. ✅ Verified compilation: `cargo check -p pulsearc-core` passes
+8. ✅ **PR #1 COMPLETE (Oct 31, 2025)**: Added `WbsRepository` trait to `classification/ports.rs` with 6 methods (count, timestamp, load, search, get by project_def, get by wbs_code)
+9. ✅ **PR #1 COMPLETE**: Created `SqlCipherWbsRepository` in `legacy/api/src/infra/repositories/wbs_repository.rs` (455 lines, 7 comprehensive tests)
+10. ✅ **PR #1 COMPLETE**: FTS5 full-text search with BM25 ranking, Porter stemming, typo tolerance (<3ms query performance target)
 
 **Remaining Business Logic Migrations (~6553 lines total):**
 
@@ -644,12 +647,12 @@ pub trait OutboxQueue: Send + Sync {
    - **Complexity**: Very high (FTS5 full-text search, WBS cache)
    - **Public API**: 2 methods (`new()`, `get_candidate_projects()`)
    - **Refactoring needed**:
-     - Replace `Arc<DbManager>` with `Arc<dyn WbsRepository>` (NEW PORT NEEDED)
+     - Replace `Arc<DbManager>` with `Arc<dyn WbsRepository>` ✅ **PORT COMPLETE (PR #1)**
      - Implement `ProjectMatcher` port trait (`match_project()` method)
-     - Keep FTS5 search logic, expose via repository
+     - Keep FTS5 search logic, expose via repository ✅ **DONE IN SqlCipherWbsRepository**
      - Convert HashMap caching to async-safe structure
-   - **NEW PORT**: Need to add `WbsRepository` trait to classification/ports.rs
-   - **Async conversion**: All methods
+   - **Dependencies**: ✅ WbsRepository trait available (PR #1), SqlCipherWbsRepository implemented
+   - **Status**: ✅ **UNBLOCKED** - Ready for migration now that WbsRepository is complete
 
 4. ⏳ **`inference/block_builder.rs`** (~2800 lines, many tests) → merge into `ClassificationService`
    - **Priority**: MEDIUM (depends on above 3)
@@ -695,24 +698,29 @@ pub trait OutboxQueue: Send + Sync {
 - ⏳ Run `cargo test -p pulsearc-core --all-features` and verify all pass
 
 **Critical Blockers for Continuing:**
-1. **WbsRepository port missing**: project_matcher.rs requires a new `WbsRepository` trait for FTS5 search and WBS cache access
+1. ✅ **RESOLVED (PR #1)**: WbsRepository port complete with SqlCipherWbsRepository implementation (455 lines, 7 tests)
 2. **Large scope**: ~6553 lines of complex business logic remaining with async conversions
 3. **Test complexity**: Need async test infrastructure with mock repositories
 
-**Recommended Next Steps:**
-1. Add `WbsRepository` trait to `classification/ports.rs` (FTS5 search + cache methods)
-2. Migrate signal_extractor.rs (smallest, fewest dependencies)
-3. Migrate evidence_extractor.rs (uses signal_extractor)
-4. Migrate project_matcher.rs (complex, implements port trait)
-5. Migrate block_builder.rs (largest, depends on all above)
-6. Merge segmenter into TrackingService (straightforward async conversion)
-7. Extract tracker equality logic (simple utility functions)
-8. Port all tests with async mocks
-9. Full validation with `cargo test`
+**Recommended Next Steps (PR #2-5):**
+1. ✅ **COMPLETE (PR #1)**: WbsRepository trait + SqlCipherWbsRepository implementation
+2. **PR #2**: Migrate signal_extractor.rs (692 lines, 16 tests) - smallest, fewest dependencies
+3. **PR #3**: Migrate evidence_extractor.rs (488 lines, 7 tests) - uses signal_extractor
+4. **PR #4**: Migrate project_matcher.rs (1146 lines, 11 tests) - now unblocked, implements port trait
+5. **PR #5+**: Migrate block_builder.rs (2882 lines, many tests) - largest, depends on all above
+6. **Later**: Merge segmenter into TrackingService (straightforward async conversion)
+7. **Later**: Extract tracker equality logic (simple utility functions)
+8. **Later**: Port all tests with async mocks
+9. **Final**: Full validation with `cargo test`
 
-**Status**: ✅ Foundation complete (ports + utils + deps). ⏳ Core business logic migrations remaining (~6500 lines).
+**Status**: ✅ Foundation complete (ports + utils + deps + WbsRepository). ⏳ Core business logic migrations remaining (~6500 lines).
 
-**Validation**: ✅ Core compilation passes. ⏳ Full validation pending business logic migration completion.
+**Latest Progress (Oct 31, 2025):**
+- ✅ **PR #1 Complete**: WbsRepository trait + SqlCipherWbsRepository (455 lines, 7 tests)
+- ✅ **Blocker Resolved**: project_matcher.rs now unblocked and ready for migration
+- ✅ **Next Up**: signal_extractor.rs → evidence_extractor.rs → project_matcher.rs (PRs #2-4)
+
+**Validation**: ✅ Core compilation passes. ✅ WbsRepository tests pass. ⏳ Full validation pending business logic migration completion.
 
 ### Phase 3: Infrastructure Adapters (Week 3-4)
 **Goal**: Implement all port adapters
@@ -928,5 +936,5 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-**Document Status**: 🟢 PHASE 1 COMPLETE - Foundation established
-**Latest**: All domain types and core ports migrated; Phase 2 ready to begin (October 31, 2025)
+**Document Status**: 🟢 PHASE 2 IN PROGRESS - WbsRepository complete (PR #1)
+**Latest**: WbsRepository trait + SqlCipherWbsRepository implementation complete (455 lines, 7 tests, FTS5 search with BM25 ranking); project_matcher.rs unblocked and ready for migration (October 31, 2025)

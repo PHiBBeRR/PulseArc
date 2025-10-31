@@ -5,6 +5,7 @@
 pub mod classification;
 pub mod database;
 pub mod idle;
+pub mod sap;
 pub mod stats;
 
 use chrono::{DateTime, Utc};
@@ -15,6 +16,7 @@ pub use database::{
     PrismaTimeEntryDto, Project, ProjectWithWbs, TimeEntryOutbox,
 };
 pub use idle::{IdlePeriod, IdleSummary};
+pub use sap::{OutboxStatusSummary, SapSyncSettings, WbsElement};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;

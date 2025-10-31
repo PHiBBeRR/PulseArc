@@ -51,6 +51,9 @@ core-foundation = "0.10"
 core-graphics = "0.25"
 io-kit-sys = "0.4"
 
+[dev-dependencies]
+tempfile = { workspace = true }
+
 [features]
 default = []
 calendar = []

@@ -26,7 +26,9 @@ pub mod calendar_ports;
 pub mod sap_ports;
 
 // Re-export specific items to avoid ambiguity
-pub use classification::ports::{BlockRepository, Classifier, ProjectMatcher, TimeEntryRepository};
+pub use classification::ports::{
+    BlockRepository, Classifier, ProjectMatcher, TimeEntryRepository, WbsRepository,
+};
 pub use classification::ClassificationService;
 pub use sync::ports::OutboxQueue;
 pub use tracking::ports::{
