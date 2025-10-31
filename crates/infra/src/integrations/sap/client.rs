@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 use crate::http::HttpClient;
+use super::cache::{WbsCache, WbsCacheConfig};
+use super::validation::WbsValidator;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 const HEALTH_CHECK_TIMEOUT_SECS: u64 = 5;
@@ -19,7 +21,7 @@ const HEALTH_CHECK_TIMEOUT_SECS: u64 = 5;
 pub struct SapClient {
     base_url: String,
     http_client: HttpClient,
-    wbs_repository: Arc<dyn WbsRepository>,
+    wbs_validator: Arc<WbsValidator>,
     user_id: String,
     access_token_provider: Arc<dyn AccessTokenProvider>,
 }
@@ -32,7 +34,10 @@ pub trait AccessTokenProvider: Send + Sync {
 }
 
 impl SapClient {
-    /// Create a new SAP client
+    /// Create a new SAP client with default cache configuration
+    ///
+    /// Creates an internal WBS cache with default TTL (5 minutes) and
+    /// validator. For custom cache configuration, use `with_cache()`.
     ///
     /// # Arguments
     /// * `base_url` - Base URL of the sap-connector GraphQL API (e.g., "http://localhost:3000")
@@ -48,12 +53,47 @@ impl SapClient {
         user_id: String,
         access_token_provider: Arc<dyn AccessTokenProvider>,
     ) -> Result<Self> {
+        // Create default cache and validator
+        let cache_config = WbsCacheConfig::default();
+        let cache = Arc::new(WbsCache::new(cache_config));
+        let validator = Arc::new(WbsValidator::new(cache, wbs_repository));
+
+        Self::with_validator(
+            base_url,
+            validator,
+            user_id,
+            access_token_provider,
+        )
+    }
+
+    /// Create a new SAP client with custom validator (for testing)
+    ///
+    /// Allows injection of custom validator instance, useful for
+    /// testing with `MockClock` or custom cache configurations.
+    ///
+    /// # Arguments
+    /// * `base_url` - Base URL of the sap-connector GraphQL API
+    /// * `wbs_validator` - Custom WBS validator instance (contains cache + repository)
+    /// * `user_id` - SAP user ID for time entry submissions
+    /// * `access_token_provider` - Async provider that yields OAuth access tokens
+    pub fn with_validator(
+        base_url: String,
+        wbs_validator: Arc<WbsValidator>,
+        user_id: String,
+        access_token_provider: Arc<dyn AccessTokenProvider>,
+    ) -> Result<Self> {
         let http_client = HttpClient::builder()
             .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
             .max_attempts(3)
             .build()?;
 
-        Ok(Self { base_url, http_client, wbs_repository, user_id, access_token_provider })
+        Ok(Self {
+            base_url,
+            http_client,
+            wbs_validator,
+            user_id,
+            access_token_provider,
+        })
     }
 
     /// Check if SAP connector server is reachable
@@ -239,21 +279,25 @@ impl SapClient {
 #[async_trait]
 impl SapClientTrait for SapClient {
     async fn forward_entry(&self, entry: &TimeEntry) -> Result<SapEntryId> {
-        // Fail fast if SAP_ACCESS_TOKEN is not configured
-        // TODO: Integrate with OAuth token manager (Phase 3C follow-up)
+        // Get access token from provider (auto-refreshes if using OAuth service)
         let access_token = self.access_token_provider.access_token().await?;
         self.submit_time_entry(entry, &access_token).await
     }
 
     async fn validate_wbs(&self, wbs_code: &str) -> Result<bool> {
-        // Use WbsRepository for validation
-        match self.wbs_repository.get_wbs_by_wbs_code(wbs_code)? {
-            Some(wbs_element) => {
-                // Check if WBS element is active (status = 'REL')
-                Ok(wbs_element.status == "REL")
+        // Use validator with caching for performance
+        let result = self.wbs_validator.validate(wbs_code)?;
+
+        // Log warnings for visibility
+        if let Some(message) = result.message() {
+            if result.is_ok() {
+                debug!(wbs_code, message, "WBS validation warning");
+            } else {
+                warn!(wbs_code, message, "WBS validation failed");
             }
-            None => Ok(false),
         }
+
+        Ok(result.is_ok())
     }
 }
 

@@ -7,6 +7,11 @@
 ///
 /// - **Client**: `SapClient` - GraphQL client for sap-connector API
 /// - **Forwarder**: `SapForwarder` - Converts outbox entries to SAP format
+/// - **Cache**: `WbsCache` - In-memory WBS code caching with TTL
+/// - **Validation**: `WbsValidator` - Three-layer WBS validation (format, existence, status)
+/// - **Errors**: `SapError` - SAP-specific error classification with retry recommendations
+/// - **Auth**: `SapAuthService` - OAuth wrapper for SAP connector authentication
+/// - **Health**: `SapHealthMonitor` - Background health monitoring with lifecycle management
 /// - **WBS Validation**: Integrated with `WbsRepository` from Phase 2
 ///
 /// # Usage
@@ -60,8 +65,23 @@
 /// - Network errors: Retried automatically by `HttpClient`
 /// - GraphQL errors: Returned with correlation IDs for tracing
 /// - Missing token: Fails fast with `PulseArcError::Config`
+/// - SAP-specific errors: Classified into categories with retry recommendations
+/// - OAuth authentication: Wrapper around common auth infrastructure
+pub mod auth;
+pub mod cache;
 pub mod client;
+pub mod errors;
 pub mod forwarder;
+pub mod health;
+pub mod validation;
 
+pub use auth::{create_sap_oauth_config, SapAuthService};
+pub use cache::{CacheResult, CacheStats, WbsCache, WbsCacheConfig};
 pub use client::{AccessTokenProvider, SapClient};
-pub use forwarder::SapForwarder;
+pub use errors::{SapError, SapErrorCategory};
+pub use forwarder::{BatchForwarder, BatchRetryConfig, BatchSubmissionResult, SapForwarder};
+pub use health::{HealthStatus, HealthStatusListener, SapHealthMonitor};
+pub use validation::{
+    normalize_wbs_code, validate_wbs_format, validate_wbs_status, WbsValidationCode,
+    WbsValidationResult, WbsValidator,
+};
