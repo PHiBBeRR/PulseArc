@@ -1,6 +1,8 @@
 //! Port interfaces for activity classification
 
 use async_trait::async_trait;
+use chrono::NaiveDate;
+use pulsearc_domain::types::classification::ProposedBlock;
 use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
 /// Trait for classifying activities into time entries
@@ -28,4 +30,14 @@ pub trait TimeEntryRepository: Send + Sync {
 
     /// Delete a time entry
     async fn delete_entry(&self, id: uuid::Uuid) -> Result<()>;
+}
+
+/// Trait for persisting proposed time blocks
+#[async_trait]
+pub trait BlockRepository: Send + Sync {
+    /// Save a proposed block
+    async fn save_proposed_block(&self, block: &ProposedBlock) -> Result<()>;
+
+    /// Get proposed blocks for a specific date
+    async fn get_proposed_blocks(&self, date: NaiveDate) -> Result<Vec<ProposedBlock>>;
 }

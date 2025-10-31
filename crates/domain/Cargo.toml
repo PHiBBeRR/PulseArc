@@ -14,3 +14,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+
+[features]
+ts-gen = ["dep:ts-rs"]

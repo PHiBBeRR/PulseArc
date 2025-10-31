@@ -14,11 +14,21 @@
 //! - Pure, testable business logic
 
 pub mod classification;
+pub mod sync;
 pub mod tracking;
 
+// Feature-gated integration modules
+#[cfg(feature = "calendar")]
+pub mod calendar_ports;
+
+#[cfg(feature = "sap")]
+pub mod sap_ports;
+
 // Re-export specific items to avoid ambiguity
-pub use classification::{ClassificationService, Classifier, TimeEntryRepository};
-pub use tracking::{
+pub use classification::ports::{BlockRepository, Classifier, TimeEntryRepository};
+pub use classification::ClassificationService;
+pub use sync::ports::OutboxQueue;
+pub use tracking::ports::{
     ActivityEnricher, ActivityProvider, ActivityRepository, SegmentRepository, SnapshotRepository,
-    TrackingService,
 };
+pub use tracking::TrackingService;

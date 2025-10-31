@@ -14,8 +14,11 @@
 //! - Pure domain models and data structures
 
 pub mod config;
+pub mod constants;
 pub mod errors;
+pub mod macros;
 pub mod types;
+pub mod utils;
 
 // Re-export commonly used items
 pub use config::*;

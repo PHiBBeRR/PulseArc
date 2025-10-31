@@ -90,6 +90,7 @@ urlencoding = "2.1"
 
 # Type generation
 serde_with = "3"
+ts-rs = { version = "11", default-features = false, features = ["serde-compat", "format", "uuid-impl", "chrono-impl"] }
 
 # Platform-specific dependencies (declare here, crates opt-in with target cfg)
 objc2 = "0.6"

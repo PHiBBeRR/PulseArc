@@ -2,21 +2,123 @@
 //!
 //! PHASE-0: Full legacy type contracts ported for compatibility
 
+pub mod classification;
 pub mod database;
+pub mod idle;
+pub mod stats;
 
-use serde::{Deserialize, Serialize};
-
-// Re-export database types for convenience
-pub use database::{ActivitySegment, ActivitySnapshot};
-
-// Forward declaration for TimeEntry that will be fully defined in Phase 1
-// For now, keeping the original stub for backwards compatibility with core services
 use chrono::{DateTime, Utc};
+// Re-export database types for convenience
+pub use database::{
+    AcceptPatch, ActivitySegment, ActivitySnapshot, BatchQueue, BatchStatus, CalendarEventRow,
+    CalendarSyncSettingsRow, CalendarTokenRow, ContextPart, IdMapping, OutboxStatus,
+    PrismaTimeEntryDto, Project, ProjectWithWbs, TimeEntryOutbox,
+};
+pub use idle::{IdlePeriod, IdleSummary};
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts-gen")]
+use ts_rs::TS;
 use uuid::Uuid;
 
-/// Time entry (stub - will be expanded in Phase 1)
+/// Time entry representing classified work ready for persistence
+///
+/// This structure merges the legacy Prisma DTO fields (strings, optional
+/// metadata) with strongly-typed chrono/UUID fields used by the new domain
+/// services.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
 pub struct TimeEntry {
+    #[cfg_attr(feature = "ts-gen", ts(type = "string"))]
+    pub id: Uuid,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub org_id: Option<String>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub user_id: Option<String>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub project_id: Option<String>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub task_id: Option<String>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string"))]
+    pub start_time: DateTime<Utc>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub end_time: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number", optional))]
+    pub duration_seconds: Option<i64>,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number", optional))]
+    pub duration_minutes: Option<i32>,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub billable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-gen", ts(type = "string", optional))]
+    pub entry_date: Option<String>,
+    pub wbs_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_project: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_workstream: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_task: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts-gen", ts(type = "number", optional))]
+    pub confidence: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_breakdown: Option<Vec<database::ContextPart>>,
+}
+
+impl TimeEntry {
+    /// Create a new time entry with the required core fields.
+    ///
+    /// Additional metadata (billable, task_id, etc.) defaults to `None`.
+    #[must_use]
+    pub fn new(params: TimeEntryParams) -> Self {
+        let TimeEntryParams {
+            id,
+            start_time,
+            end_time,
+            duration_seconds,
+            description,
+            project_id,
+            wbs_code,
+        } = params;
+
+        Self {
+            id,
+            org_id: None,
+            user_id: None,
+            project_id,
+            task_id: None,
+            start_time,
+            end_time,
+            duration_seconds,
+            duration_minutes: duration_seconds.map(|secs| (secs / 60) as i32),
+            description,
+            notes: None,
+            billable: None,
+            source: None,
+            status: None,
+            entry_date: Some(start_time.date_naive().to_string()),
+            wbs_code,
+            display_project: None,
+            display_workstream: None,
+            display_task: None,
+            confidence: None,
+            context_breakdown: None,
+        }
+    }
+}
+
+/// Core parameters required to construct a `TimeEntry`.
+#[derive(Debug)]
+pub struct TimeEntryParams {
     pub id: Uuid,
     pub start_time: DateTime<Utc>,
     pub end_time: Option<DateTime<Utc>>,

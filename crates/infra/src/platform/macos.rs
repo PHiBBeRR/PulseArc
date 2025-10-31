@@ -2,10 +2,10 @@
 
 use async_trait::async_trait;
 use pulsearc_core::ActivityProvider;
-use pulsearc_domain::{
-    types::{ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext},
-    ActivityContext, Result,
+use pulsearc_domain::types::{
+    ActivityCategory, ActivityMetadata, ConfidenceEvidence, WindowContext,
 };
+use pulsearc_domain::{ActivityContext, Result};
 
 /// macOS activity provider using Accessibility API
 pub struct MacOsActivityProvider {

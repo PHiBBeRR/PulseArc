@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use pulsearc_core::{ActivityRepository, TimeEntryRepository};
-use pulsearc_domain::{ActivitySnapshot, PulseArcError, Result, TimeEntry};
+use pulsearc_domain::{ActivitySnapshot, PulseArcError, Result, TimeEntry, TimeEntryParams};
 use uuid::Uuid;
 
 use super::manager::DbManager;
@@ -179,7 +179,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
                     let start_time = DateTime::from_timestamp(start_time, 0)?;
                     let end_time = end_time.and_then(|ts| DateTime::from_timestamp(ts, 0));
 
-                    Some(TimeEntry {
+                    Some(TimeEntry::new(TimeEntryParams {
                         id,
                         start_time,
                         end_time,
@@ -187,7 +187,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
                         description,
                         project_id,
                         wbs_code,
-                    })
+                    }))
                 })
                 .collect();
 
