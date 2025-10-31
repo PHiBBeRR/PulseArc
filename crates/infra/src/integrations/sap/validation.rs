@@ -105,16 +105,10 @@ pub enum WbsValidationResult {
     Valid,
 
     /// WBS code has issues but may still be usable
-    Warning {
-        code: WbsValidationCode,
-        message: String,
-    },
+    Warning { code: WbsValidationCode, message: String },
 
     /// WBS code is invalid and cannot be used
-    Error {
-        code: WbsValidationCode,
-        message: String,
-    },
+    Error { code: WbsValidationCode, message: String },
 }
 
 impl WbsValidationResult {
@@ -183,51 +177,51 @@ pub fn normalize_wbs_code(code: &str) -> String {
 pub fn validate_wbs_format(code: &str) -> WbsValidationResult {
     let normalized = normalize_wbs_code(code);
 
-        // Check empty
-        if normalized.is_empty() {
-            return WbsValidationResult::Error {
-                code: WbsValidationCode::Empty,
-                message: "WBS code cannot be empty".to_string(),
-            };
-        }
+    // Check empty
+    if normalized.is_empty() {
+        return WbsValidationResult::Error {
+            code: WbsValidationCode::Empty,
+            message: "WBS code cannot be empty".to_string(),
+        };
+    }
 
-        // Check max length
-        if normalized.len() > 50 {
-            return WbsValidationResult::Error {
-                code: WbsValidationCode::TooLong,
-                message: format!(
-                    "WBS code exceeds maximum length of 50 characters (got {})",
-                    normalized.len()
-                ),
-            };
-        }
+    // Check max length
+    if normalized.len() > 50 {
+        return WbsValidationResult::Error {
+            code: WbsValidationCode::TooLong,
+            message: format!(
+                "WBS code exceeds maximum length of 50 characters (got {})",
+                normalized.len()
+            ),
+        };
+    }
 
-        // Check special characters
-        if normalized.contains(['%', '$', '@']) {
-            return WbsValidationResult::Error {
-                code: WbsValidationCode::InvalidChars,
-                message: "WBS code contains invalid special characters (%, $, or @)".to_string(),
-            };
-        }
+    // Check special characters
+    if normalized.contains(['%', '$', '@']) {
+        return WbsValidationResult::Error {
+            code: WbsValidationCode::InvalidChars,
+            message: "WBS code contains invalid special characters (%, $, or @)".to_string(),
+        };
+    }
 
-        // Must contain at least one letter
-        if !normalized.chars().any(|c| c.is_alphabetic()) {
-            return WbsValidationResult::Error {
-                code: WbsValidationCode::FormatInvalid,
-                message: "WBS code must contain at least one letter".to_string(),
-            };
-        }
+    // Must contain at least one letter
+    if !normalized.chars().any(|c| c.is_alphabetic()) {
+        return WbsValidationResult::Error {
+            code: WbsValidationCode::FormatInvalid,
+            message: "WBS code must contain at least one letter".to_string(),
+        };
+    }
 
-        // Check regex pattern
-        if !wbs_regex().is_match(&normalized) {
-            return WbsValidationResult::Error {
-                code: WbsValidationCode::FormatInvalid,
-                message: "Invalid WBS code format. Expected format: USC0063201.1.1 or P-12345-01-001"
-                    .to_string(),
-            };
-        }
+    // Check regex pattern
+    if !wbs_regex().is_match(&normalized) {
+        return WbsValidationResult::Error {
+            code: WbsValidationCode::FormatInvalid,
+            message: "Invalid WBS code format. Expected format: USC0063201.1.1 or P-12345-01-001"
+                .to_string(),
+        };
+    }
 
-        WbsValidationResult::Valid
+    WbsValidationResult::Valid
 }
 
 /// Validate WBS status
@@ -369,10 +363,7 @@ impl<C: Clock> WbsValidator<C> {
     /// Returns a vector of tuples with normalized code and validation result.
     /// Continues validation even if some codes fail.
     #[allow(clippy::type_complexity)] // Return type is clear: list of (code, validation result)
-    pub fn validate_batch(
-        &self,
-        codes: Vec<String>,
-    ) -> Vec<(String, Result<WbsValidationResult>)> {
+    pub fn validate_batch(&self, codes: Vec<String>) -> Vec<(String, Result<WbsValidationResult>)> {
         codes
             .into_iter()
             .map(|code| {
@@ -403,10 +394,7 @@ mod tests {
 
     impl MockWbsRepository {
         fn new(valid_codes: Vec<String>) -> Self {
-            Self {
-                valid_codes,
-                query_count: Mutex::new(0),
-            }
+            Self { valid_codes, query_count: Mutex::new(0) }
         }
     }
 
@@ -460,22 +448,10 @@ mod tests {
 
     #[test]
     fn test_validate_format_valid_codes() {
-        assert_eq!(
-            validate_wbs_format("USC0063201.1.1"),
-            WbsValidationResult::Valid
-        );
-        assert_eq!(
-            validate_wbs_format("P-12345-01-001"),
-            WbsValidationResult::Valid
-        );
-        assert_eq!(
-            validate_wbs_format("WBS-001-002"),
-            WbsValidationResult::Valid
-        );
-        assert_eq!(
-            validate_wbs_format("A1"),
-            WbsValidationResult::Valid
-        );
+        assert_eq!(validate_wbs_format("USC0063201.1.1"), WbsValidationResult::Valid);
+        assert_eq!(validate_wbs_format("P-12345-01-001"), WbsValidationResult::Valid);
+        assert_eq!(validate_wbs_format("WBS-001-002"), WbsValidationResult::Valid);
+        assert_eq!(validate_wbs_format("A1"), WbsValidationResult::Valid);
     }
 
     #[test]
@@ -517,10 +493,7 @@ mod tests {
     #[test]
     fn test_validate_status() {
         // REL (released) → Valid
-        assert_eq!(
-            validate_wbs_status("REL"),
-            WbsValidationResult::Valid
-        );
+        assert_eq!(validate_wbs_status("REL"), WbsValidationResult::Valid);
 
         // CLSD (closed) → Error
         let result = validate_wbs_status("CLSD");
@@ -543,10 +516,7 @@ mod tests {
         assert_eq!(normalize_wbs_code(" usc001 "), "USC001");
         assert_eq!(normalize_wbs_code("usc001"), "USC001");
         assert_eq!(normalize_wbs_code("USC001"), "USC001");
-        assert_eq!(
-            normalize_wbs_code("  usc0063201.1.1  "),
-            "USC0063201.1.1"
-        );
+        assert_eq!(normalize_wbs_code("  usc0063201.1.1  "), "USC0063201.1.1");
     }
 
     #[test]
@@ -617,17 +587,11 @@ mod tests {
 
         // Third should be not found error
         assert!(results[2].1.as_ref().unwrap().is_err());
-        assert_eq!(
-            results[2].1.as_ref().unwrap().code(),
-            WbsValidationCode::NotFoundInCache
-        );
+        assert_eq!(results[2].1.as_ref().unwrap().code(), WbsValidationCode::NotFoundInCache);
 
         // Fourth should be format error (empty)
         assert!(results[3].1.as_ref().unwrap().is_err());
-        assert_eq!(
-            results[3].1.as_ref().unwrap().code(),
-            WbsValidationCode::Empty
-        );
+        assert_eq!(results[3].1.as_ref().unwrap().code(), WbsValidationCode::Empty);
     }
 
     #[test]
@@ -677,7 +641,11 @@ mod tests {
                 Ok(vec![])
             }
 
-            fn fts5_search_keyword(&self, _keyword: &str, _limit: usize) -> Result<Vec<WbsElement>> {
+            fn fts5_search_keyword(
+                &self,
+                _keyword: &str,
+                _limit: usize,
+            ) -> Result<Vec<WbsElement>> {
                 Ok(vec![])
             }
 
@@ -725,32 +693,17 @@ mod tests {
     #[test]
     fn test_validation_code_as_str() {
         assert_eq!(WbsValidationCode::Valid.as_str(), "VALID");
-        assert_eq!(
-            WbsValidationCode::FormatInvalid.as_str(),
-            "FORMAT_INVALID"
-        );
+        assert_eq!(WbsValidationCode::FormatInvalid.as_str(), "FORMAT_INVALID");
         assert_eq!(WbsValidationCode::Empty.as_str(), "EMPTY");
         assert_eq!(WbsValidationCode::TooLong.as_str(), "TOO_LONG");
-        assert_eq!(
-            WbsValidationCode::InvalidChars.as_str(),
-            "INVALID_CHARS"
-        );
-        assert_eq!(
-            WbsValidationCode::StatusClosed.as_str(),
-            "STATUS_CLOSED"
-        );
+        assert_eq!(WbsValidationCode::InvalidChars.as_str(), "INVALID_CHARS");
+        assert_eq!(WbsValidationCode::StatusClosed.as_str(), "STATUS_CLOSED");
         assert_eq!(
             WbsValidationCode::StatusTechnicallyComplete.as_str(),
             "STATUS_TECHNICALLY_COMPLETE"
         );
-        assert_eq!(
-            WbsValidationCode::StatusUnknown.as_str(),
-            "STATUS_UNKNOWN"
-        );
-        assert_eq!(
-            WbsValidationCode::NotFoundInCache.as_str(),
-            "NOT_FOUND_IN_CACHE"
-        );
+        assert_eq!(WbsValidationCode::StatusUnknown.as_str(), "STATUS_UNKNOWN");
+        assert_eq!(WbsValidationCode::NotFoundInCache.as_str(), "NOT_FOUND_IN_CACHE");
         assert_eq!(WbsValidationCode::CacheStale.as_str(), "CACHE_STALE");
     }
 }

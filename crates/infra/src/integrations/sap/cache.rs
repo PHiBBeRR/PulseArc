@@ -31,7 +31,7 @@ use pulsearc_core::classification::ports::WbsRepository;
 use pulsearc_domain::types::sap::WbsElement;
 use pulsearc_domain::{PulseArcError, Result};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Default TTL for WBS cache entries (5 minutes)
 ///
@@ -73,10 +73,7 @@ impl Default for WbsCacheConfig {
 impl WbsCacheConfig {
     /// Create config with custom TTL (useful for testing)
     pub fn with_ttl(ttl: Duration) -> Self {
-        Self {
-            ttl,
-            max_capacity: DEFAULT_WBS_CACHE_MAX_CAPACITY,
-        }
+        Self { ttl, max_capacity: DEFAULT_WBS_CACHE_MAX_CAPACITY }
     }
 
     /// Log configuration at startup
@@ -118,17 +115,15 @@ pub enum CacheResult {
 /// This ensures transient failures don't get cached and hidden.
 pub struct WbsCache<C: Clock = SystemClock> {
     /// Cache for valid WBS elements
-    positive_cache: Cache<String, WbsElement>,
+    positive_cache: Cache<String, CachedWbsEntry>,
 
     /// Cache for "not found" results (empty value)
-    negative_cache: Cache<String, ()>,
+    negative_cache: Cache<String, CachedNegativeEntry>,
 
     /// Clock for time-based operations (injectable for testing)
-    #[allow(dead_code)]
     clock: Arc<C>,
 
     /// Cache configuration
-    #[allow(dead_code)]
     config: WbsCacheConfig,
 }
 
@@ -144,21 +139,16 @@ impl<C: Clock> WbsCache<C> {
     /// Create a new WBS cache with custom clock (for testing)
     pub fn with_clock(config: WbsCacheConfig, clock: C) -> Self {
         let positive_cache = Cache::builder()
-            .time_to_live(config.ttl)
             .max_capacity(config.max_capacity)
+            .support_invalidation_closures()
             .build();
 
         let negative_cache = Cache::builder()
-            .time_to_live(config.ttl)
             .max_capacity(config.max_capacity)
+            .support_invalidation_closures()
             .build();
 
-        Self {
-            positive_cache,
-            negative_cache,
-            clock: Arc::new(clock),
-            config,
-        }
+        Self { positive_cache, negative_cache, clock: Arc::new(clock), config }
     }
 
     /// Get WBS element from cache (no repository fallback)
@@ -169,17 +159,26 @@ impl<C: Clock> WbsCache<C> {
     /// - `CacheResult::Miss` if not in either cache
     pub fn get(&self, wbs_code: &str) -> CacheResult {
         let normalized = Self::normalize(wbs_code);
+        let now = self.clock.now();
 
         // Check negative cache first (faster than clone)
-        if self.negative_cache.get(&normalized).is_some() {
-            tracing::debug!(wbs_code = %normalized, "WBS negative cache hit");
-            return CacheResult::NotFound;
+        if let Some(entry) = self.negative_cache.get(&normalized) {
+            if entry.is_expired(now) {
+                self.negative_cache.invalidate(&normalized);
+            } else {
+                tracing::debug!(wbs_code = %normalized, "WBS negative cache hit");
+                return CacheResult::NotFound;
+            }
         }
 
         // Check positive cache
-        if let Some(element) = self.positive_cache.get(&normalized) {
-            tracing::debug!(wbs_code = %normalized, "WBS positive cache hit");
-            return CacheResult::Hit(element);
+        if let Some(entry) = self.positive_cache.get(&normalized) {
+            if entry.is_expired(now) {
+                self.positive_cache.invalidate(&normalized);
+            } else {
+                tracing::debug!(wbs_code = %normalized, "WBS positive cache hit");
+                return CacheResult::Hit(entry.value.clone());
+            }
         }
 
         tracing::debug!(wbs_code = %normalized, "WBS cache miss");
@@ -248,7 +247,9 @@ impl<C: Clock> WbsCache<C> {
     /// Insert a WBS element into the positive cache
     pub fn insert(&self, wbs_code: &str, element: WbsElement) {
         let normalized = Self::normalize(wbs_code);
-        self.positive_cache.insert(normalized.clone(), element);
+        let expires_at = self.expiration_deadline();
+        self.positive_cache
+            .insert(normalized.clone(), CachedWbsEntry { value: element, expires_at });
         // Remove from negative cache if present
         self.negative_cache.invalidate(&normalized);
         tracing::trace!(wbs_code = %normalized, "WBS cached (positive)");
@@ -257,7 +258,8 @@ impl<C: Clock> WbsCache<C> {
     /// Cache a "not found" result in the negative cache
     pub fn cache_not_found(&self, wbs_code: &str) {
         let normalized = Self::normalize(wbs_code);
-        self.negative_cache.insert(normalized.clone(), ());
+        let expires_at = self.expiration_deadline();
+        self.negative_cache.insert(normalized.clone(), CachedNegativeEntry { expires_at });
         // Remove from positive cache if present
         self.positive_cache.invalidate(&normalized);
         tracing::trace!(wbs_code = %normalized, "WBS cached (negative)");
@@ -281,8 +283,10 @@ impl<C: Clock> WbsCache<C> {
     /// Get cache statistics
     pub fn stats(&self) -> CacheStats {
         // Run pending tasks to get accurate counts
+        let now = self.clock.now();
         self.positive_cache.run_pending_tasks();
         self.negative_cache.run_pending_tasks();
+        self.purge_expired(now);
 
         CacheStats {
             positive_entry_count: self.positive_cache.entry_count(),
@@ -293,6 +297,49 @@ impl<C: Clock> WbsCache<C> {
     /// Normalize WBS code (uppercase, trim)
     fn normalize(code: &str) -> String {
         code.trim().to_uppercase()
+    }
+
+    fn expiration_deadline(&self) -> Instant {
+        self.clock.now() + self.config.ttl
+    }
+
+    fn purge_expired(&self, now: Instant) {
+        if let Err(error) =
+            self.positive_cache.invalidate_entries_if(move |_, entry| entry.is_expired(now))
+        {
+            tracing::warn!(error = ?error, "Failed to purge expired positive cache entries");
+        }
+
+        if let Err(error) =
+            self.negative_cache.invalidate_entries_if(move |_, entry| entry.is_expired(now))
+        {
+            tracing::warn!(error = ?error, "Failed to purge expired negative cache entries");
+        }
+    }
+}
+
+/// Cached positive entry (WBS element with expiry metadata)
+#[derive(Clone)]
+struct CachedWbsEntry {
+    value: WbsElement,
+    expires_at: Instant,
+}
+
+impl CachedWbsEntry {
+    fn is_expired(&self, now: Instant) -> bool {
+        now >= self.expires_at
+    }
+}
+
+/// Cached negative entry metadata
+#[derive(Clone)]
+struct CachedNegativeEntry {
+    expires_at: Instant,
+}
+
+impl CachedNegativeEntry {
+    fn is_expired(&self, now: Instant) -> bool {
+        now >= self.expires_at
     }
 }
 
@@ -329,10 +376,7 @@ mod tests {
 
     impl MockWbsRepository {
         fn new(valid_codes: Vec<String>) -> Self {
-            Self {
-                valid_codes,
-                query_count: Mutex::new(0),
-            }
+            Self { valid_codes, query_count: Mutex::new(0) }
         }
 
         fn query_count(&self) -> usize {
@@ -450,23 +494,26 @@ mod tests {
         let cache = WbsCache::new(config);
 
         // Add some entries
-        cache.insert("USC001", WbsElement {
-            wbs_code: "USC001".to_string(),
-            project_def: "TEST".to_string(),
-            project_name: None,
-            description: None,
-            status: "REL".to_string(),
-            cached_at: chrono::Utc::now().timestamp(),
-            opportunity_id: None,
-            deal_name: None,
-            target_company_name: None,
-            counterparty: None,
-            industry: None,
-            region: None,
-            amount: None,
-            stage_name: None,
-            project_code: None,
-        });
+        cache.insert(
+            "USC001",
+            WbsElement {
+                wbs_code: "USC001".to_string(),
+                project_def: "TEST".to_string(),
+                project_name: None,
+                description: None,
+                status: "REL".to_string(),
+                cached_at: chrono::Utc::now().timestamp(),
+                opportunity_id: None,
+                deal_name: None,
+                target_company_name: None,
+                counterparty: None,
+                industry: None,
+                region: None,
+                amount: None,
+                stage_name: None,
+                project_code: None,
+            },
+        );
         cache.cache_not_found("USC002");
 
         // Verify entries exist
@@ -499,7 +546,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // moka uses std::time::Instant internally, doesn't respect MockClock
     fn test_ttl_expiration_with_mock_clock() {
         let clock = MockClock::new();
         let config = WbsCacheConfig::with_ttl(Duration::from_secs(300));
@@ -526,16 +572,10 @@ mod tests {
         cache.insert("USC0063201.1.1", wbs);
 
         // Verify it's cached
-        assert!(matches!(
-            cache.get("USC0063201.1.1"),
-            CacheResult::Hit(_)
-        ));
+        assert!(matches!(cache.get("USC0063201.1.1"), CacheResult::Hit(_)));
 
         // Advance clock past TTL
         clock.advance(Duration::from_secs(301));
-
-        // Force eviction by running pending tasks
-        cache.positive_cache.run_pending_tasks();
 
         // Verify it's expired
         assert!(matches!(cache.get("USC0063201.1.1"), CacheResult::Miss));

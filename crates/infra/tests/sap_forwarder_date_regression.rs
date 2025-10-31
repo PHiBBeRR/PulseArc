@@ -69,10 +69,7 @@ async fn test_sap_forwarder_handles_invalid_created_at() {
     let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
 
     let after = Utc::now().format("%Y-%m-%d").to_string();
-    assert!(
-        result.date == before || result.date == after,
-        "Fallback should use current UTC date"
-    );
+    assert!(result.date == before || result.date == after, "Fallback should use current UTC date");
     assert!(
         log_handle.contains(Level::Warn, "invalid created_at"),
         "Invalid timestamp should emit warning"

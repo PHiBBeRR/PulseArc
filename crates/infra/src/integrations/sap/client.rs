@@ -10,9 +10,9 @@ use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::http::HttpClient;
 use super::cache::{WbsCache, WbsCacheConfig};
 use super::validation::WbsValidator;
+use crate::http::HttpClient;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 const HEALTH_CHECK_TIMEOUT_SECS: u64 = 5;
@@ -58,12 +58,7 @@ impl SapClient {
         let cache = Arc::new(WbsCache::new(cache_config));
         let validator = Arc::new(WbsValidator::new(cache, wbs_repository));
 
-        Self::with_validator(
-            base_url,
-            validator,
-            user_id,
-            access_token_provider,
-        )
+        Self::with_validator(base_url, validator, user_id, access_token_provider)
     }
 
     /// Create a new SAP client with custom validator (for testing)
@@ -87,13 +82,7 @@ impl SapClient {
             .max_attempts(3)
             .build()?;
 
-        Ok(Self {
-            base_url,
-            http_client,
-            wbs_validator,
-            user_id,
-            access_token_provider,
-        })
+        Ok(Self { base_url, http_client, wbs_validator, user_id, access_token_provider })
     }
 
     /// Check if SAP connector server is reachable
@@ -131,11 +120,7 @@ impl SapClient {
     ///
     /// # Returns
     /// SAP entry ID (correlation ID)
-    async fn submit_time_entry(
-        &self,
-        entry: &TimeEntry,
-        access_token: &str,
-    ) -> Result<SapEntryId> {
+    async fn submit_time_entry(&self, entry: &TimeEntry, access_token: &str) -> Result<SapEntryId> {
         let correlation_id = uuid::Uuid::new_v4().to_string();
 
         let query = r#"
@@ -160,11 +145,7 @@ impl SapClient {
             date: entry.date.clone(),
             wbs_code: entry.wbs_code.clone(),
             duration: duration_seconds,
-            note: if entry.description.is_empty() {
-                None
-            } else {
-                Some(entry.description.clone())
-            },
+            note: if entry.description.is_empty() { None } else { Some(entry.description.clone()) },
             correlation_id: correlation_id.clone(),
         };
 
@@ -251,18 +232,16 @@ impl SapClient {
         debug!(status = status.as_u16(), "Received SAP GraphQL response");
 
         if !status.is_success() {
-            let error_text =
-                response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             return Err(PulseArcError::Network(format!(
                 "SAP API error (HTTP {}): {}",
                 status, error_text
             )));
         }
 
-        let graphql_response: GraphQLResponse<T> =
-            response.json().await.map_err(|e| {
-                PulseArcError::Internal(format!("Failed to parse GraphQL response: {}", e))
-            })?;
+        let graphql_response: GraphQLResponse<T> = response.json().await.map_err(|e| {
+            PulseArcError::Internal(format!("Failed to parse GraphQL response: {}", e))
+        })?;
 
         if let Some(errors) = graphql_response.errors {
             let error_messages: Vec<String> = errors.iter().map(|e| e.message.clone()).collect();
@@ -449,9 +428,8 @@ mod tests {
         base_url: String,
         provider: Arc<dyn AccessTokenProvider>,
     ) -> SapClient {
-        let wbs_repo = Arc::new(MockWbsRepository {
-            valid_wbs_codes: vec!["USC0063201.1.1".to_string()],
-        });
+        let wbs_repo =
+            Arc::new(MockWbsRepository { valid_wbs_codes: vec!["USC0063201.1.1".to_string()] });
 
         SapClient::new(base_url, wbs_repo, "test-user".to_string(), provider)
             .expect("Failed to create client")
@@ -469,8 +447,7 @@ mod tests {
     async fn rejects_invalid_wbs_code() {
         let client = create_test_client("http://localhost:3000".to_string());
 
-        let is_valid =
-            client.validate_wbs("INVALID-CODE").await.expect("Should check validation");
+        let is_valid = client.validate_wbs("INVALID-CODE").await.expect("Should check validation");
         assert!(!is_valid);
     }
 

@@ -79,7 +79,10 @@ pub use auth::{create_sap_oauth_config, SapAuthService};
 pub use cache::{CacheResult, CacheStats, WbsCache, WbsCacheConfig};
 pub use client::{AccessTokenProvider, SapClient};
 pub use errors::{SapError, SapErrorCategory};
-pub use forwarder::{BatchForwarder, BatchRetryConfig, BatchSubmissionResult, SapForwarder};
+pub use forwarder::{
+    BatchForwarder, BatchRetryConfig, BatchSubmissionResult, EntrySubmissionResult,
+    EntrySubmissionStatus, PreparedEntry, SapForwarder,
+};
 pub use health::{HealthStatus, HealthStatusListener, SapHealthMonitor};
 pub use validation::{
     normalize_wbs_code, validate_wbs_format, validate_wbs_status, WbsValidationCode,
