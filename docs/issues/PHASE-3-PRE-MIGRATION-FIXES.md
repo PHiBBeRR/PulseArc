@@ -53,6 +53,8 @@ async fn test_outbox_retry_filter_uses_pending_status() {
 }
 ```
 
+**Regression status:** Implemented in `crates/infra/tests/outbox_retry_regression.rs` (current `[ignore]` until Phase 3A.1 wiring). The helper harness seeds real rows against the new `SqliteOutboxRepository`.
+
 ---
 
 ## 🔴 Issue 2: SAP Forwarder Hard-Coded Date (CRITICAL - Data Corruption)
@@ -112,6 +114,8 @@ async fn test_sap_forwarder_derives_date_from_created_at() {
 }
 ```
 
+**Regression status:** Implemented in `crates/infra/tests/sap_forwarder_date_regression.rs` behind `#[cfg(feature = "sap")]` and `#[ignore]` until Phase 3C.2 hooks the adapter into the pipeline.
+
 ---
 
 ## 🟡 Issue 3: Outbox Status Parsing Panic (HIGH - System Crash)
@@ -157,6 +161,8 @@ async fn test_outbox_status_parsing_handles_invalid_values() {
     // Verify warning is logged
 }
 ```
+
+**Regression status:** Implemented in `crates/infra/tests/outbox_status_parsing_regression.rs`; the integration cases stay `#[ignore]` pending repository adoption, while the FromStr unit test runs today.
 
 ---
 
@@ -222,6 +228,8 @@ fn test_performance_date_queries_under_10ms() {
 }
 ```
 
+**Regression status:** Implemented in `crates/infra/tests/date_query_performance_regression.rs` with a shared harness that provisions indexed tables. Four heavy tests remain `#[ignore]` until Phase 3A.1 enables real repository usage; the range conversion unit test already passes.
+
 ---
 
 ## ✅ Verification Checklist for Phase 3
@@ -229,7 +237,7 @@ fn test_performance_date_queries_under_10ms() {
 ### Before Starting Phase 3A (Core Infrastructure)
 
 - [ ] Review this document with all Phase 3 contributors
-- [ ] Add all 4 test requirements to `crates/infra/tests/`
+- ✅ Added all 4 regression suites to `crates/infra/tests/` (currently `#[ignore]` guarded where adapters are not yet wired)
 - [ ] Verify `crates/infra` does NOT contain any of these anti-patterns
 - [ ] Run `cargo clippy` and ensure no `unwrap()` in production parsing code
 

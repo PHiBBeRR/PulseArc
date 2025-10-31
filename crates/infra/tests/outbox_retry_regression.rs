@@ -4,57 +4,82 @@
 //! **Impact**: Pending entries never get retried (data loss)
 //! **Reference**: docs/issues/PHASE-3-PRE-MIGRATION-FIXES.md
 
-#![allow(unused_imports)]
 #![allow(dead_code)]
 
-// TODO: Uncomment when OutboxRepository is implemented in Phase 3A.1
-// use pulsearc_infra::database::repository::OutboxRepository;
+#[path = "support.rs"]
+mod support;
+
+use std::collections::HashSet;
+
+use chrono::{Duration, Utc};
+use pulsearc_domain::OutboxStatus;
+use pulsearc_infra::database::SqliteOutboxRepository;
 
 #[tokio::test]
 #[ignore] // Remove this once OutboxRepository is implemented in Phase 3A.1
 async fn test_outbox_retry_filter_uses_pending_status() {
-    // TODO: Phase 3A.1 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Create outbox entries with different statuses:
-    //    - Entry A: status = 'pending', retry_after = NULL
-    //    - Entry B: status = 'pending', retry_after = (now - 1 hour)
-    //    - Entry C: status = 'sent', retry_after = NULL
-    //    - Entry D: status = 'failed', retry_after = NULL
-    //
-    // 2. Call get_pending_entries_ready_for_retry()
-    //
-    // 3. Assert:
-    //    - Returns entries A and B (status = 'pending')
-    //    - Does NOT return entry C (status = 'sent')
-    //    - Does NOT return entry D (status = 'failed')
-    //
-    // 4. Verify SQL query uses:
-    //    WHERE status = 'pending' AND (retry_after IS NULL OR retry_after <= ?1)
-    //
-    // Expected behavior:
-    // - Only 'pending' entries should be eligible for retry
-    // - 'sent' entries should NOT be retried (they're already sent!)
+    let db = support::setup_outbox_db();
+    let repo = SqliteOutboxRepository::new(db.manager.clone());
 
-    todo!("Implement in Phase 3A.1 after OutboxRepository is created")
+    let now = Utc::now().timestamp();
+
+    let mut entry_a = support::make_outbox_entry("entry-a", OutboxStatus::Pending, now - 120);
+    entry_a.retry_after = None;
+    repo.insert_entry(&entry_a).await.expect("entry A should insert");
+
+    let mut entry_b = support::make_outbox_entry("entry-b", OutboxStatus::Pending, now - 110);
+    entry_b.retry_after = Some(now - Duration::hours(1).num_seconds());
+    repo.insert_entry(&entry_b).await.expect("entry B should insert");
+
+    let entry_c = support::make_outbox_entry("entry-c", OutboxStatus::Sent, now - 100);
+    repo.insert_entry(&entry_c).await.expect("entry C should insert");
+
+    let entry_d = support::make_outbox_entry("entry-d", OutboxStatus::Failed, now - 90);
+    repo.insert_entry(&entry_d).await.expect("entry D should insert");
+
+    let results =
+        repo.get_pending_entries_ready_for_retry(now).await.expect("query should succeed");
+
+    let ids: HashSet<_> = results.into_iter().map(|entry| entry.id).collect();
+    assert!(
+        ids.contains("entry-a") && ids.contains("entry-b"),
+        "pending entries should be scheduled for retry"
+    );
+    assert!(
+        !ids.contains("entry-c") && !ids.contains("entry-d"),
+        "non-pending entries must not be retried"
+    );
 }
 
 #[tokio::test]
 #[ignore] // Remove this once OutboxRepository is implemented
 async fn test_outbox_retry_respects_retry_after_timestamp() {
-    // TODO: Phase 3A.1 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Create pending entries with future retry_after:
-    //    - Entry A: retry_after = (now + 1 hour)
-    //    - Entry B: retry_after = (now - 1 hour)
-    //    - Entry C: retry_after = NULL
-    //
-    // 2. Call get_pending_entries_ready_for_retry()
-    //
-    // 3. Assert:
-    //    - Returns entries B and C (ready for retry)
-    //    - Does NOT return entry A (retry_after in future)
+    let db = support::setup_outbox_db();
+    let repo = SqliteOutboxRepository::new(db.manager.clone());
 
-    todo!("Implement in Phase 3A.1")
+    let now = Utc::now().timestamp();
+
+    let mut entry_future =
+        support::make_outbox_entry("entry-future", OutboxStatus::Pending, now - 80);
+    entry_future.retry_after = Some(now + Duration::hours(1).num_seconds());
+    repo.insert_entry(&entry_future).await.expect("future retry entry should insert");
+
+    let mut entry_past = support::make_outbox_entry("entry-past", OutboxStatus::Pending, now - 70);
+    entry_past.retry_after = Some(now - Duration::minutes(30).num_seconds());
+    repo.insert_entry(&entry_past).await.expect("past retry entry should insert");
+
+    let mut entry_immediate =
+        support::make_outbox_entry("entry-immediate", OutboxStatus::Pending, now - 60);
+    entry_immediate.retry_after = None;
+    repo.insert_entry(&entry_immediate).await.expect("immediate entry should insert");
+
+    let results =
+        repo.get_pending_entries_ready_for_retry(now).await.expect("query should succeed");
+
+    let ids: HashSet<_> = results.into_iter().map(|entry| entry.id).collect();
+    assert!(
+        ids.contains("entry-past") && ids.contains("entry-immediate"),
+        "entries with due retry_after should be returned"
+    );
+    assert!(!ids.contains("entry-future"), "entry with future retry_after must not be returned");
 }

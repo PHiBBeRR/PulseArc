@@ -147,6 +147,67 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-features
 
+  infra-feature-matrix:
+    name: Infra Feature Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""
+          - "calendar"
+          - "sap"
+          - "calendar,sap"
+          - "ml"
+          - "graphql"
+          - "tree-classifier"
+          - "sap,ml,graphql"
+          - "calendar,sap,ml"
+          - "calendar,sap,ml,graphql"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.77"
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-feature-matrix-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-target-feature-matrix-
+
+      - name: Check and test feature combination
+        env:
+          FEATURES: ${{ matrix.features }}
+        run: |
+          if [ -z "$FEATURES" ]; then
+            cargo check -p pulsearc-infra
+            cargo test -p pulsearc-infra
+          else
+            cargo check -p pulsearc-infra --features "$FEATURES"
+            cargo test -p pulsearc-infra --features "$FEATURES"
+          fi
+
   build:
     name: Build (Dev - macOS)
     runs-on: [self-hosted, macOS]

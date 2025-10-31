@@ -1,7 +1,7 @@
 # Phase 3 Regression Test Summary for Infra Squad
 
 **Created:** November 1, 2025
-**Status:** ✅ Test stubs ready, awaiting Phase 3 implementation
+**Status:** ✅ Regression suites implemented (guarded with `#[ignore]` until Phase 3 wiring)
 **Location:** `crates/infra/tests/`
 **Reference:** [PHASE-3-PRE-MIGRATION-FIXES.md](PHASE-3-PRE-MIGRATION-FIXES.md)
 
@@ -16,9 +16,11 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 
 ---
 
-## Test Files Created (358 lines, 13 tests)
+## Test Files Created (∼520 lines, 13 tests)
 
-### 1. **outbox_retry_regression.rs** (60 lines, 2 tests)
+> New helper: `crates/infra/tests/support.rs` provisions temp SQLCipher-ish schemas and captures `log::warn!` output so these suites can exercise the real repositories without additional scaffolding.
+
+### 1. **outbox_retry_regression.rs** (109 lines, 2 tests)
 **Issue:** Outbox retry filter uses wrong status predicate
 **Legacy bug:** `WHERE status = 'sent'` instead of `WHERE status = 'pending'`
 **Impact:** 🔴 CRITICAL - Data loss (pending entries never sync)
@@ -27,11 +29,11 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 - `test_outbox_retry_filter_uses_pending_status()` - Verifies correct predicate
 - `test_outbox_retry_respects_retry_after_timestamp()` - Verifies retry timing
 
-**Implement in:** Phase 3A.1 (OutboxRepository)
+**Status:** Implemented, currently `#[ignore]` pending Phase 3A.1 repository wiring
 
 ---
 
-### 2. **sap_forwarder_date_regression.rs** (86 lines, 3 tests)
+### 2. **sap_forwarder_date_regression.rs** (118 lines, 3 tests)
 **Issue:** SAP forwarder uses hard-coded date fallback
 **Legacy bug:** `.unwrap_or("2025-10-22")` when date field missing
 **Impact:** 🔴 CRITICAL - Data corruption in SAP system, idempotency collisions
@@ -41,12 +43,12 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 - `test_sap_forwarder_uses_payload_date_when_present()` - Verifies preference
 - `test_sap_forwarder_handles_invalid_created_at()` - Verifies graceful degradation
 
-**Implement in:** Phase 3C.2 (SapForwarder)
+**Status:** Implemented behind `#[ignore]` (Phase 3C.2 will unskip once the SAP feature flag wiring is complete)
 **Feature flag:** `sap`
 
 ---
 
-### 3. **outbox_status_parsing_regression.rs** (80 lines, 3 tests)
+### 3. **outbox_status_parsing_regression.rs** (150 lines, 3 tests)
 **Issue:** Outbox status parsing panics on invalid data
 **Legacy bug:** `parse().unwrap()` crashes on unexpected status values
 **Impact:** 🟡 HIGH - System crash, one bad row breaks entire pipeline
@@ -56,11 +58,11 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 - `test_outbox_status_parsing_handles_valid_values()` - Verifies correct parsing
 - `test_outbox_status_string_parse_error_handling()` - ✅ PASSING (unit test)
 
-**Implement in:** Phase 3A.1 (OutboxRepository)
+**Status:** Implemented. Two integration-style cases remain `#[ignore]` until the port is active; the string parsing unit test runs today.
 
 ---
 
-### 4. **date_query_performance_regression.rs** (132 lines, 5 tests)
+### 4. **date_query_performance_regression.rs** (180 lines, 5 tests)
 **Issue:** Date queries bypass database indexes
 **Legacy bug:** `WHERE date(timestamp, 'unixepoch') = ?` forces full table scans
 **Impact:** 🟡 MEDIUM-HIGH - O(n) performance, slow with scale
@@ -72,7 +74,7 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 - `test_date_query_correctness_at_day_boundaries()` - Boundary condition test
 - `test_date_to_timestamp_range_conversion()` - ✅ PASSING (unit test)
 
-**Implement in:** Phase 3A.1 (SegmentRepository, SnapshotRepository)
+**Status:** Implemented. Four database-heavy checks stay `#[ignore]` until the segment/snapshot repositories ship; the range conversion unit test runs now.
 
 ---
 
@@ -87,27 +89,24 @@ During Phase 3 readiness review, we identified **4 critical bugs** in the gitign
 | **Total** | **13** | **2** | **11** | - |
 
 **Current status:**
-- ✅ All tests compile cleanly
-- ✅ 2 unit tests passing immediately
-- ⏸️ 11 integration tests marked `#[ignore]` (awaiting Phase 3 implementation)
+- ✅ All suites compile against real infra implementations (outbox/segment/snapshot repositories plus SAP forwarder)
+- ✅ 2 unit tests run in the default test pass
+- ⏸️ 11 integration/perf tests marked `#[ignore]` — remove the attribute once the corresponding adapter is wired and data fixtures are stable
 
 ---
 
 ## Implementation Timeline
 
 ### Phase 3A.1: Database Repositories (Week 1-2)
-**Tests to implement:**
-1. `outbox_retry_regression.rs` (2 tests) - OutboxRepository
-2. `outbox_status_parsing_regression.rs` (2 integration tests) - OutboxRepository
-3. `date_query_performance_regression.rs` (4 integration tests) - SegmentRepository, SnapshotRepository
-
-**Total:** 8 tests
+**Next steps:**
+1. Remove `#[ignore]` on the four outbox tests once `SqliteOutboxRepository` is plugged into the core adapters (Phase 3A.1).
+2. Unskip the segment/snapshot suites when the repositories back the tracking pipeline and realistic data fixtures exist (Phase 3A.1).
+3. Keep the performance benchmark optional locally; wire it into CI once it consistently meets the <10 ms SLA.
 
 ### Phase 3C.2: SAP Integration (Week 4-5)
-**Tests to implement:**
-1. `sap_forwarder_date_regression.rs` (3 tests) - SapForwarder
-
-**Total:** 3 tests
+**Next steps:**
+1. Remove `#[ignore]` after the SAP forwarder is exercised through the integration port.
+2. Ensure the SAP feature matrix job runs these via `cargo test --features sap -- --include-ignored` or equivalent once the adapter is hooked up.
 
 ---
 
@@ -172,6 +171,9 @@ Before approving ANY Phase 3 PR:
 
 ## Running the Tests
 
+- Quick compile matrix: `./scripts/test-features.sh`
+- Full compile + test matrix (matches CI): `cargo xtask test-features`
+
 ### Run all regression tests
 ```bash
 cargo test -p pulsearc-infra --tests
@@ -191,6 +193,8 @@ cargo test -p pulsearc-infra test_outbox_retry_filter_uses_pending_status -- --i
 ```bash
 cargo test -p pulsearc-infra --tests -- --include-ignored
 ```
+
+**CI coverage:** Once the adapters land, extend `infra-feature-matrix` to run ignored suites with `--include-ignored` for the relevant feature sets so the regressions stay active.
 
 ---
 

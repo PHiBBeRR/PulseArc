@@ -4,83 +4,76 @@
 //! **Impact**: Data corruption in SAP system, idempotency collisions
 //! **Reference**: docs/issues/PHASE-3-PRE-MIGRATION-FIXES.md
 
-#![allow(unused_imports)]
 #![allow(dead_code)]
 
-// TODO: Uncomment when SapForwarder is implemented in Phase 3C.2
-// #[cfg(feature = "sap")]
-// use pulsearc_infra::integrations::sap::SapForwarder;
+#[path = "support.rs"]
+mod support;
+
+#[cfg(feature = "sap")]
+use chrono::Utc;
+#[cfg(feature = "sap")]
+use log::Level;
+#[cfg(feature = "sap")]
+use pulsearc_domain::OutboxStatus;
+#[cfg(feature = "sap")]
+use pulsearc_infra::integrations::sap::SapForwarder;
 
 #[tokio::test]
 #[ignore] // Remove this once SAP forwarder is implemented in Phase 3C.2
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_derives_date_from_created_at() {
-    // TODO: Phase 3C.2 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Create TimeEntryOutbox with:
-    //    - created_at = 1730419200 (Nov 1, 2025 00:00:00 UTC)
-    //    - payload_json = {"duration": 3600, "note": "Test"} (NO date field)
-    //
-    // 2. Call forwarder to convert to TimeEntryInput
-    //
-    // 3. Assert:
-    //    - TimeEntryInput.date = "2025-11-01" (derived from created_at)
-    //    - NOT "2025-10-22" (hard-coded fallback)
-    //    - Warning is logged: "Missing date field for entry {id}, deriving from created_at"
-    //
-    // Expected behavior:
-    // - If payload_json lacks "date" field, derive from entry.created_at
-    // - Never use hard-coded date fallbacks
-    // - Log warning for observability
+    let log_handle = support::init_test_logger();
 
-    todo!("Implement in Phase 3C.2 after SapForwarder is created")
+    let mut entry = support::make_outbox_entry("sap-derive", OutboxStatus::Pending, 1_730_419_200);
+    entry.payload_json = r#"{"duration": 3600, "note": "Test entry"}"#.to_string();
+
+    let forwarder = SapForwarder::new();
+    let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
+
+    assert_eq!(result.date, "2025-11-01", "Date should be derived from created_at");
+    assert!(
+        log_handle.contains(Level::Warn, "deriving from created_at"),
+        "Missing date should produce a warning"
+    );
 }
 
 #[tokio::test]
 #[ignore] // Remove this once SAP forwarder is implemented
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_uses_payload_date_when_present() {
-    // TODO: Phase 3C.2 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Create TimeEntryOutbox with:
-    //    - created_at = 1730419200 (Nov 1, 2025)
-    //    - payload_json = {"date": "2025-10-30", "duration": 3600}
-    //
-    // 2. Call forwarder to convert to TimeEntryInput
-    //
-    // 3. Assert:
-    //    - TimeEntryInput.date = "2025-10-30" (from payload, not created_at)
-    //    - No warning logged (date field present)
-    //
-    // Expected behavior:
-    // - Prefer explicit date from payload_json
-    // - Only fall back to created_at if date field missing
+    let log_handle = support::init_test_logger();
 
-    todo!("Implement in Phase 3C.2")
+    let mut entry =
+        support::make_outbox_entry("sap-explicit", OutboxStatus::Pending, 1_730_419_200);
+    entry.payload_json = r#"{"date": "2025-10-30", "duration": 3600}"#.to_string();
+
+    let forwarder = SapForwarder::new();
+    let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
+
+    assert_eq!(result.date, "2025-10-30", "Payload date should take precedence");
+    assert!(
+        !log_handle.contains(Level::Warn, "deriving from created_at"),
+        "Explicit date should not produce a fallback warning"
+    );
 }
 
 #[tokio::test]
 #[ignore] // Remove this once SAP forwarder is implemented
 #[cfg(feature = "sap")]
 async fn test_sap_forwarder_handles_invalid_created_at() {
-    // TODO: Phase 3C.2 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Create TimeEntryOutbox with:
-    //    - created_at = -1 (invalid timestamp)
-    //    - payload_json = {} (no date field)
-    //
-    // 2. Call forwarder to convert to TimeEntryInput
-    //
-    // 3. Assert:
-    //    - Falls back to current UTC time (chrono::Utc::now())
-    //    - Warning is logged with both issues
-    //
-    // Expected behavior:
-    // - Graceful degradation even with corrupt data
-    // - Never panic or use hard-coded dates
+    let log_handle = support::init_test_logger();
 
-    todo!("Implement in Phase 3C.2")
+    let mut entry = support::make_outbox_entry("sap-invalid-ts", OutboxStatus::Pending, -1);
+    entry.payload_json.clear();
+
+    let forwarder = SapForwarder::new();
+    let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
+
+    let before = Utc::now().format("%Y-%m-%d").to_string();
+    let after = Utc::now().format("%Y-%m-%d").to_string();
+    assert!(result.date == before || result.date == after, "Fallback should use current UTC date");
+    assert!(
+        log_handle.contains(Level::Warn, "invalid created_at"),
+        "Invalid timestamp should emit warning"
+    );
 }

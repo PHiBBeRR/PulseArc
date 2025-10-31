@@ -1,13 +1,15 @@
 //! Block builder - consolidates daily snapshots into meaningful time blocks
 //!
 //! REFACTOR-004: Simplified to only consolidate segments (no inference).
-//! Evidence extraction and classification now handled by EvidenceExtractor + OpenAI.
+//! Evidence extraction and classification now handled by EvidenceExtractor +
+//! OpenAI.
 //!
 //! # ADR-003 Migration
 //!
-//! Migrated from legacy/api/src/inference/block_builder.rs to core business logic layer.
-//! This is pure business logic with no infrastructure dependencies - already simplified
-//! by REFACTOR-004 which removed SignalExtractor and ProjectMatcher dependencies.
+//! Migrated from legacy/api/src/inference/block_builder.rs to core business
+//! logic layer. This is pure business logic with no infrastructure dependencies
+//! - already simplified by REFACTOR-004 which removed SignalExtractor and
+//! ProjectMatcher dependencies.
 
 use ahash::AHashMap as HashMap; // Fast non-cryptographic hasher
 use pulsearc_domain::classification::{ActivityBreakdown, BlockConfig, ProposedBlock};
@@ -519,13 +521,7 @@ mod tests {
                 0,
             ),
             // Segment overlapping start (should be included, clipped)
-            create_test_segment(
-                "overlap_start",
-                day_epoch - 100,
-                day_epoch + 200,
-                "Excel",
-                0,
-            ),
+            create_test_segment("overlap_start", day_epoch - 100, day_epoch + 200, "Excel", 0),
         ];
 
         let blocks = builder.build_daily_blocks_from_segments(&segments, day_epoch).unwrap();
@@ -651,8 +647,8 @@ mod tests {
 
     #[test]
     fn test_block_excludes_auto_excluded_idle_segments() {
-        // AC: Segments with user_action="auto_excluded" should not appear in activity breakdown
-        // but still contribute to total_idle_secs
+        // AC: Segments with user_action="auto_excluded" should not appear in activity
+        // breakdown but still contribute to total_idle_secs
         let builder = create_test_builder();
         let day_epoch = 1729728000;
 
@@ -718,7 +714,8 @@ mod tests {
 
     #[test]
     fn test_block_idle_handling_exclude_strategy() {
-        // AC: idle_handling="exclude" when same-app segments have auto-excluded idle time
+        // AC: idle_handling="exclude" when same-app segments have auto-excluded idle
+        // time
         let builder = create_test_builder();
         let day_epoch = 1729728000;
 
@@ -823,7 +820,8 @@ mod tests {
 
     #[test]
     fn test_propose_block_for_selection_partial_overlap() {
-        // AC: Selection should include segments with partial overlap, clipped to selection bounds
+        // AC: Selection should include segments with partial overlap, clipped to
+        // selection bounds
         let builder = create_test_builder();
         let day_epoch = 1609459200; // 2021-01-01 00:00:00 UTC
         let start_10am = day_epoch + 36000; // 10:00 AM
@@ -844,9 +842,8 @@ mod tests {
         // User selects 10:00 - 10:35 (includes partial overlap)
         let selection_start = start_10am;
         let selection_end = start_10am + 2100; // 35 minutes
-        let block = builder
-            .propose_block_for_selection(&segments, selection_start, selection_end)
-            .unwrap();
+        let block =
+            builder.propose_block_for_selection(&segments, selection_start, selection_end).unwrap();
 
         assert!(block.is_some(), "Should create a block");
         let block = block.unwrap();
@@ -863,7 +860,8 @@ mod tests {
 
     #[test]
     fn test_propose_block_for_selection_sorts_segments() {
-        // AC: Unsorted segments should be sorted before processing for deterministic results
+        // AC: Unsorted segments should be sorted before processing for deterministic
+        // results
         let builder = create_test_builder();
         let day_epoch = 1609459200; // 2021-01-01 00:00:00 UTC
         let start_10am = day_epoch + 36000; // 10:00 AM
@@ -882,9 +880,8 @@ mod tests {
 
         let selection_start = start_10am;
         let selection_end = start_10am + 2100;
-        let block = builder
-            .propose_block_for_selection(&segments, selection_start, selection_end)
-            .unwrap();
+        let block =
+            builder.propose_block_for_selection(&segments, selection_start, selection_end).unwrap();
 
         assert!(block.is_some(), "Should create block even with unsorted segments");
         let block = block.unwrap();
@@ -911,9 +908,8 @@ mod tests {
 
         // User's local date: October 24, 2024
         let local_date = NaiveDate::from_ymd_opt(2024, 10, 24).unwrap();
-        let local_midnight = Los_Angeles
-            .from_local_datetime(&local_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
+        let local_midnight =
+            Los_Angeles.from_local_datetime(&local_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
 
         let utc_day_start = local_midnight.timestamp();
         let utc_day_end = utc_day_start + 86400;
@@ -927,9 +923,7 @@ mod tests {
             0,
         );
 
-        let blocks = builder
-            .build_daily_blocks_from_segments(&[segment], utc_day_start)
-            .unwrap();
+        let blocks = builder.build_daily_blocks_from_segments(&[segment], utc_day_start).unwrap();
 
         assert_eq!(blocks.len(), 1, "Should create block for user's local day");
 
@@ -946,22 +940,21 @@ mod tests {
         // PST: 2024-10-24 23:30:00 = UTC: 2024-10-25 06:30:00
         // Should appear on Oct 24 for PST user, but Oct 25 for UTC user
         use chrono::{NaiveDate, TimeZone};
-        use chrono_tz::{America::Los_Angeles, UTC};
+        use chrono_tz::America::Los_Angeles;
+        use chrono_tz::UTC;
 
         let builder = create_test_builder();
 
         // PST user's Oct 24
         let pst_date = NaiveDate::from_ymd_opt(2024, 10, 24).unwrap();
-        let pst_midnight = Los_Angeles
-            .from_local_datetime(&pst_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
+        let pst_midnight =
+            Los_Angeles.from_local_datetime(&pst_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
         let pst_day_start = pst_midnight.timestamp();
 
         // UTC Oct 24
         let utc_date = NaiveDate::from_ymd_opt(2024, 10, 24).unwrap();
-        let utc_midnight = UTC
-            .from_local_datetime(&utc_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
+        let utc_midnight =
+            UTC.from_local_datetime(&utc_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
         let utc_day_start = utc_midnight.timestamp();
 
         // Event at 11:30 PM PST = 6:30 AM UTC next day
@@ -983,11 +976,7 @@ mod tests {
             .unwrap();
 
         // Assert: Event appears on Oct 24 for PST user
-        assert_eq!(
-            pst_blocks.len(),
-            1,
-            "PST user should see event on their Oct 24 (11:30 PM PST)"
-        );
+        assert_eq!(pst_blocks.len(), 1, "PST user should see event on their Oct 24 (11:30 PM PST)");
 
         // Assert: Event does NOT appear on Oct 24 for UTC user (it's Oct 25 06:30 UTC)
         assert_eq!(
@@ -1008,9 +997,8 @@ mod tests {
 
         // March 10, 2024 (DST spring forward day)
         let dst_date = NaiveDate::from_ymd_opt(2024, 3, 10).unwrap();
-        let local_midnight = Los_Angeles
-            .from_local_datetime(&dst_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
+        let local_midnight =
+            Los_Angeles.from_local_datetime(&dst_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
 
         let day_start = local_midnight.timestamp();
         let day_end = day_start + 86400; // Still 24 hours in Unix time
@@ -1023,9 +1011,7 @@ mod tests {
 
         let segment = create_test_segment("seg1", segment_start, segment_start + 10800, "Excel", 0);
 
-        let blocks = builder
-            .build_daily_blocks_from_segments(&[segment], day_start)
-            .unwrap();
+        let blocks = builder.build_daily_blocks_from_segments(&[segment], day_start).unwrap();
 
         // Assert: Block is created despite DST transition
         assert_eq!(blocks.len(), 1, "Should handle DST spring forward (23-hour day)");
@@ -1048,9 +1034,8 @@ mod tests {
 
         // November 3, 2024 (DST fall back day)
         let dst_date = NaiveDate::from_ymd_opt(2024, 11, 3).unwrap();
-        let local_midnight = Los_Angeles
-            .from_local_datetime(&dst_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap();
+        let local_midnight =
+            Los_Angeles.from_local_datetime(&dst_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
 
         let day_start = local_midnight.timestamp();
 
@@ -1063,9 +1048,7 @@ mod tests {
 
         let segment = create_test_segment("seg1", segment_start, segment_start + 3600, "Excel", 0);
 
-        let blocks = builder
-            .build_daily_blocks_from_segments(&[segment], day_start)
-            .unwrap();
+        let blocks = builder.build_daily_blocks_from_segments(&[segment], day_start).unwrap();
 
         // Assert: Block is created despite DST transition
         assert_eq!(blocks.len(), 1, "Should handle DST fall back (25-hour day)");

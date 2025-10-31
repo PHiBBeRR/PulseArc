@@ -4,61 +4,97 @@
 //! **Impact**: One bad row crashes entire outbox pipeline
 //! **Reference**: docs/issues/PHASE-3-PRE-MIGRATION-FIXES.md
 
-#![allow(unused_imports)]
 #![allow(dead_code)]
 
+#[path = "support.rs"]
+mod support;
+
+use chrono::Utc;
+use log::Level;
 use pulsearc_domain::OutboxStatus;
+use pulsearc_infra::database::SqliteOutboxRepository;
 
 #[tokio::test]
 #[ignore] // Remove this once OutboxRepository is implemented in Phase 3A.1
 async fn test_outbox_status_parsing_handles_invalid_values() {
-    // TODO: Phase 3A.1 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Insert outbox entries with invalid status strings:
-    //    - Entry A: status = "unknown"
-    //    - Entry B: status = "retrying"
-    //    - Entry C: status = "PENDING" (wrong case)
-    //    - Entry D: status = "" (empty string)
-    //
-    // 2. Query entries using parse_outbox_row()
-    //
-    // 3. Assert:
-    //    - All entries parse successfully (no panic)
-    //    - Invalid statuses default to OutboxStatus::Pending
-    //    - Warning is logged for each invalid status
-    //
-    // Expected behavior:
-    // - Graceful degradation on bad data
-    // - Default to Pending (safest fallback)
-    // - Log warnings for observability
+    let db = support::setup_outbox_db();
+    let repo = SqliteOutboxRepository::new(db.manager.clone());
+    let log_handle = support::init_test_logger();
 
-    todo!("Implement in Phase 3A.1 after OutboxRepository is created")
+    let now = Utc::now().timestamp();
+
+    for suffix in ['a', 'b', 'c', 'd'] {
+        let entry =
+            support::make_outbox_entry(&format!("entry-{}", suffix), OutboxStatus::Pending, now);
+        repo.insert_entry(&entry).await.expect("seed entry should insert");
+    }
+
+    let conn = db.manager.get_connection().expect("connection should be available");
+    conn.execute("UPDATE time_entry_outbox SET status = 'unknown' WHERE id = 'entry-a'", [])
+        .expect("update should succeed");
+    conn.execute("UPDATE time_entry_outbox SET status = 'retrying' WHERE id = 'entry-b'", [])
+        .expect("update should succeed");
+    conn.execute("UPDATE time_entry_outbox SET status = 'PENDING' WHERE id = 'entry-c'", [])
+        .expect("update should succeed");
+    conn.execute("UPDATE time_entry_outbox SET status = '' WHERE id = 'entry-d'", [])
+        .expect("update should succeed");
+
+    let entries = repo.list_all_entries().await.expect("listing entries should succeed");
+
+    for entry in entries.iter().filter(|entry| entry.id.starts_with("entry-")) {
+        assert_eq!(
+            entry.status,
+            OutboxStatus::Pending,
+            "Invalid statuses should map to Pending: {} => {:?}",
+            entry.id,
+            entry.status
+        );
+    }
+
+    let warnings = log_handle.entries();
+    assert!(
+        warnings.iter().filter(|(level, _)| *level == Level::Warn).count() >= 3,
+        "Invalid statuses should emit warnings ({warnings:?})"
+    );
 }
 
 #[tokio::test]
 #[ignore] // Remove this once OutboxRepository is implemented
 async fn test_outbox_status_parsing_handles_valid_values() {
-    // TODO: Phase 3A.1 - Implement this test
-    //
-    // Test Requirements:
-    // 1. Insert outbox entries with valid status strings:
-    //    - Entry A: status = "pending"
-    //    - Entry B: status = "sent"
-    //    - Entry C: status = "failed"
-    //    - Entry D: status = "dismissed"
-    //
-    // 2. Query entries using parse_outbox_row()
-    //
-    // 3. Assert:
-    //    - All entries parse correctly to expected OutboxStatus enum
-    //    - No warnings logged (valid values)
-    //
-    // Expected behavior:
-    // - Standard status values parse correctly
-    // - No fallback or warnings needed
+    let db = support::setup_outbox_db();
+    let repo = SqliteOutboxRepository::new(db.manager.clone());
+    let log_handle = support::init_test_logger();
 
-    todo!("Implement in Phase 3A.1")
+    let now = Utc::now().timestamp();
+
+    let statuses = [
+        ("entry-pending", OutboxStatus::Pending),
+        ("entry-sent", OutboxStatus::Sent),
+        ("entry-failed", OutboxStatus::Failed),
+        ("entry-dismissed", OutboxStatus::Dismissed),
+    ];
+
+    for (id, status) in statuses {
+        let entry = support::make_outbox_entry(id, status, now);
+        repo.insert_entry(&entry).await.expect("valid entry insert should succeed");
+    }
+
+    let entries = repo.list_all_entries().await.expect("listing entries should succeed");
+
+    for entry in entries.iter().filter(|entry| entry.id.starts_with("entry-")) {
+        match entry.id.as_str() {
+            "entry-pending" => assert_eq!(entry.status, OutboxStatus::Pending),
+            "entry-sent" => assert_eq!(entry.status, OutboxStatus::Sent),
+            "entry-failed" => assert_eq!(entry.status, OutboxStatus::Failed),
+            "entry-dismissed" => assert_eq!(entry.status, OutboxStatus::Dismissed),
+            _ => {}
+        }
+    }
+
+    assert!(
+        !log_handle.contains(Level::Warn, "Invalid outbox status"),
+        "Valid statuses must not emit warnings"
+    );
 }
 
 #[test]

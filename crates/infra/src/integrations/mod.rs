@@ -1,5 +1,7 @@
 //! External service integrations
 
-// Placeholders for integrations
+#[cfg(feature = "sap")]
+pub mod sap;
+
+// Placeholder until calendar integration is implemented
 pub struct CalendarIntegration;
-pub struct SapIntegration;

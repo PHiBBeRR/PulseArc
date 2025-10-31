@@ -6,6 +6,8 @@ members = [
     "crates/infra",
     "crates/api",
     "xtask",
+    "benchmarks/infra-baselines",
+    "legacy/api",
 ]
 resolver = "2"
 

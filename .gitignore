@@ -49,5 +49,8 @@ temp/
 .tokens.json
 *.tokens.json
 
+# MDM test certificates (contains private keys)
+.mdm-certs/
+
 # Legacy/archived code
 legacy/

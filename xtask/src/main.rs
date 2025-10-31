@@ -7,6 +7,8 @@
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
+mod features;
+
 use std::env;
 use std::process::{Command, ExitCode};
 
@@ -21,6 +23,7 @@ fn main() -> ExitCode {
         Some("test") => run_test(),
         Some("deny") => run_deny(),
         Some("audit") => run_audit(),
+        Some("test-features") => features::test_feature_matrix(),
         Some("help") | None => {
             print_help();
             Ok(())
@@ -54,6 +57,7 @@ fn print_help() {
     println!("    prettier  Check frontend code formatting");
     println!("    clippy    Run Clippy lints");
     println!("    test      Run all tests");
+    println!("    test-features  Verify pulsearc-infra feature matrix compiles");
     println!("    deny      Check dependencies with cargo-deny");
     println!("    audit     Audit dependencies for security vulnerabilities");
     println!("    help      Show this help message");

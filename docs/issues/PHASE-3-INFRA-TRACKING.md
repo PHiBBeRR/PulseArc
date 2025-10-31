@@ -1,11 +1,12 @@
 # Phase 3: Infrastructure Adapters - Detailed Tracking
 
-**Status:** 🟢 READY TO START (Phase 2 Complete - November 1, 2025)
+**Status:** 🔄 IN PROGRESS (Started October 31, 2025)
 **Created:** 2025-01-30
-**Updated:** 2025-11-01 (Phase 2 completion)
+**Updated:** 2025-10-31 (Task 3A.1 + MDM infrastructure complete)
 **Owner:** TBD
 **Dependencies:** ✅ Phase 2 (Core Business Logic) COMPLETE
 **Estimated Duration:** 4-6 weeks (23-31 working days)
+**Current Progress:** Phase 3A: 1/10 tasks (Task 3A.1 ✅) + MDM cert infrastructure ✅ (bonus)
 
 ---
 
@@ -230,6 +231,70 @@ HTTP Client (legacy):
 - [ ] Returns clear error for missing/invalid config
 - [ ] Tests cover all branches
 - [ ] `cargo test -p pulsearc-infra config::loader` passes
+
+**Related Completion: MDM Infrastructure & Certificate Setup** (2025-10-31)
+
+As part of configuration infrastructure, also completed MDM remote configuration support:
+
+**Certificate Infrastructure:**
+- ✅ Created `scripts/mdm/generate-test-certs.sh` - Self-signed certificate generator (270 LOC)
+  - Generates CA, server, and client certificates for testing
+  - Supports mutual TLS with client certificates
+  - Includes PKCS#12 bundles for keychain import
+  - Automatic `.gitignore` for private key security
+  - Configurable via environment variables
+- ✅ Created `scripts/mdm/README.md` - Comprehensive certificate documentation (400 LOC)
+  - Rust/reqwest integration examples
+  - CI/CD integration guides (GitHub Actions + self-hosted runner)
+  - Security best practices
+  - Troubleshooting section
+- ✅ Added `.mdm-certs/` to root `.gitignore`
+- ✅ Updated `docs/issues/MDM_EXTRACTION_GUIDE.md` with certificate requirements section
+
+**MDM HTTP Client:**
+- ✅ Created `crates/infra/src/mdm/client.rs` - Remote configuration fetcher (220 LOC)
+  - `MdmClient::new()` - Production mode with default TLS validation
+  - `MdmClient::with_ca_cert()` - Custom CA certificate support
+  - `MdmClient::with_insecure_tls()` - Testing mode (`#[cfg(test)]` only)
+  - `fetch_config()` - HTTPS-based config retrieval with validation
+  - `fetch_and_merge()` - Merge remote with local config
+  - Configurable timeouts via `with_timeout()`
+  - Full tracing/logging support
+  - Added `.no_proxy()` to avoid macOS dynamic store panics in tests
+- ✅ Created `crates/infra/examples/mdm_remote_config.rs` - Complete usage example (130 LOC)
+- ✅ Created `crates/infra/src/mdm/README.md` - Complete MDM documentation (400 LOC)
+  - Architecture diagrams
+  - API reference with examples
+  - Security considerations (test vs production certs)
+  - Troubleshooting guide
+- ✅ All tests passing: 33 tests (27 MDM core + 6 client tests)
+
+**Certificate Decision:**
+- **Self-signed certificates** recommended for:
+  - ✅ Local development and testing
+  - ✅ CI/CD pipelines (self-hosted runner)
+  - ✅ Internal testing environments
+  - ✅ Unit/integration tests
+- **Proper CA certificates** required for:
+  - 🔴 Production deployments
+  - 🔴 Apple Push Notification Service (APNs)
+  - 🔴 Public-facing MDM servers
+  - 🔴 Compliance requirements (SOC2, HIPAA, etc.)
+
+**Files Created:**
+- `scripts/mdm/generate-test-certs.sh` (270 LOC)
+- `scripts/mdm/README.md` (400 LOC)
+- `crates/infra/src/mdm/client.rs` (220 LOC)
+- `crates/infra/src/mdm/README.md` (400 LOC)
+- `crates/infra/examples/mdm_remote_config.rs` (130 LOC)
+- **Total**: ~1,420 LOC of infrastructure + documentation
+
+**Impact:**
+- MDM module now has complete HTTPS support for remote configuration
+- Certificate infrastructure ready for all TLS needs (MDM, HTTP clients, integrations)
+- Self-hosted CI runner can generate and use test certificates automatically
+- Production-ready path with CA certificate support documented
+- Clear guidance on when to use self-signed vs proper certificates
 
 ---
 
@@ -1417,74 +1482,37 @@ cargo test -p pulsearc-infra --test calendar_integration --features calendar
 
 ### Feature Flag Matrix
 
-Test all feature combinations:
+Run the automated matrix before merging Phase 3 work:
 
 | Features | Expected Result |
 |----------|----------------|
-| None (minimal) | Database + core infra only |
-| `platform` | + macOS provider |
-| `sap` | + SAP integration |
-| `calendar` | + Calendar integration |
-| `ml` | + ML classifiers |
-| `sap,calendar` | Both integrations work |
-| `all-features` | Everything compiles and works |
+| `[]` (default) | Database + core infra only |
+| `calendar` | Calendar integration only |
+| `sap` | SAP integration only |
+| `tree-classifier` | Tree classifier only |
+| `ml` | ML stack (pulls in tree-classifier) |
+| `graphql` | GraphQL client only |
+| `calendar,sap` | Both enterprise integrations |
+| `sap,ml,graphql` | SAP + ML + GraphQL |
+| `calendar,sap,ml` | Enterprise build without GraphQL |
+| `calendar,sap,ml,graphql` | All features enabled |
 
-```bash
-# Test each combination
-cargo test -p pulsearc-infra
-cargo test -p pulsearc-infra --features platform
-cargo test -p pulsearc-infra --features sap
-cargo test -p pulsearc-infra --features calendar
-cargo test -p pulsearc-infra --features ml
-cargo test -p pulsearc-infra --features sap,calendar
-cargo test -p pulsearc-infra --all-features
-```
+**Local tooling:**
+- `cargo xtask test-features` — compile + test matrix (identical to CI coverage)
+- `./scripts/test-features.sh` — lightweight compile-only sweep
 
 ### Automated Feature Flag Testing (CI)
 
-**Recommendation:** Add feature matrix testing to `xtask` for CI automation:
+**Status:** ✅ Implemented (`infra-feature-matrix` job in `.github/workflows/ci.yml`)
 
-```rust
-// Add to xtask/src/main.rs
-
-fn test_feature_combinations() -> Result<()> {
-    let combinations = [
-        ("minimal", vec![]),
-        ("platform", vec!["platform"]),
-        ("sap", vec!["sap"]),
-        ("calendar", vec!["calendar"]),
-        ("ml", vec!["ml"]),
-        ("integrations", vec!["sap", "calendar"]),
-        ("all", vec!["--all-features"]),
-    ];
-
-    for (name, features) in combinations {
-        println!("Testing feature combination: {}", name);
-        let mut cmd = std::process::Command::new("cargo");
-        cmd.arg("test").arg("-p").arg("pulsearc-infra");
-
-        if !features.is_empty() && features[0] != "--all-features" {
-            cmd.arg("--features").arg(features.join(","));
-        } else if features.get(0) == Some(&"--all-features") {
-            cmd.arg("--all-features");
-        }
-
-        let status = cmd.status()?;
-        if !status.success() {
-            return Err(anyhow::anyhow!("Feature combination '{}' failed", name));
-        }
-    }
-    Ok(())
-}
-```
-
-**Usage:** `cargo xtask test-features` (add to CI pipeline)
+- Every push/PR runs the 10 combinations above (check + test) on ubuntu.
+- `cargo xtask test-features` mirrors the CI matrix for local verification prior to PRs.
+- Phase 3 PR template includes a feature-flag checklist covering gating, matrix runs, and regression tests.
 
 **Benefits:**
-- Catches feature flag issues early
-- Ensures all combinations compile and test successfully
-- Automates manual testing matrix
-- Can be run locally before pushing
+- Catches feature-flag regressions automatically when optional adapters are toggled.
+- Ensures all combinations compile and test successfully across local and CI runs.
+- Keeps Phase 3 PRs aligned with anti-pattern guardrails from pre-migration fixes.
 
 ### Performance Validation
 

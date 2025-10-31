@@ -111,9 +111,15 @@ cargo clippy -p pulsearc-infra --all-features -- -D warnings
 
 ## Automated Testing with xtask
 
-### Recommended: Add Feature Matrix Testing
+### ✅ Implemented: Feature Matrix Testing
 
-Create `xtask/src/features.rs`:
+`cargo xtask test-features` executes the compile matrix defined in `xtask/src/features.rs`.
+
+```bash
+cargo xtask test-features
+```
+
+Implementation reference:
 
 ```rust
 use anyhow::Result;

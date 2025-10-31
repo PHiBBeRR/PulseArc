@@ -1,9 +1,9 @@
 # Legacy Code Migration Inventory
 
 **Generated**: October 30, 2025
-**Last Updated**: November 1, 2025 (Phase 2 Week 1-2 Complete ✅ - 5 PRs, Core Classification Complete)
+**Last Updated**: October 31, 2025 (Phase 3A Started 🔄 - Task 3A.1 Complete)
 **Purpose**: Classify all `legacy/api/src/` modules by target crate for ADR-003 migration
-**Status**: 🟢 PHASE 2 WEEK 1-2 COMPLETE - 5 PRs merged (~2,610 lines, 41 tests), core classification modules migrated
+**Status**: 🔄 PHASE 3A IN PROGRESS - Configuration loader migrated (600 LOC, 17 tests)
 
 ---
 
@@ -23,9 +23,9 @@
 
 **Migration Progress:**
 - Phase 0: ✅ Complete (Pre-migration refactoring)
-- Phase 1: ✅ Complete (Domain types & core ports) - **October 31, 2025**
-- Phase 2: 🔄 Ready to begin (Core business logic)
-- Phase 3: ⏳ Pending (Infrastructure adapters)
+- Phase 1: ✅ Complete (Domain types & core ports) - October 31, 2025
+- Phase 2: ✅ Complete (Core business logic) - November 1, 2025 (5 PRs, 2,610 lines, 54 tests)
+- Phase 3: 🔄 In Progress (Infrastructure adapters) - **Started October 31, 2025** - Task 3A.1 ✅
 - Phase 4: ⏳ Pending (API layer)
 
 ---
