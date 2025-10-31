@@ -1,8 +1,9 @@
-#![cfg(target_os = "macos")]
-
 use std::sync::Arc;
 
 use macos_ax::{get_active_app_info, get_recent_apps};
+
+pub type ActiveAppInfo = (String, String, Option<String>, i32);
+pub type RecentAppInfo = (String, String, Option<String>);
 
 #[derive(Debug, Clone)]
 pub struct WindowContext {
@@ -84,12 +85,14 @@ impl ActivityProvider for MacOsActivityProvider {
 }
 
 mod macos_ax {
+    use std::env;
+    use std::sync::OnceLock;
+
     use core_foundation::base::{CFTypeRef, TCFType};
     use core_foundation::boolean::CFBoolean;
     use core_foundation::dictionary::CFDictionary;
     use core_foundation::string::{CFString, CFStringRef};
     use objc2_app_kit::{NSApplicationActivationPolicy, NSWorkspace};
-    use std::sync::OnceLock;
 
     #[repr(C)]
     struct __AXUIElement(core::ffi::c_void);
@@ -110,6 +113,10 @@ mod macos_ax {
     static AX_PERMISSION_CACHE: OnceLock<bool> = OnceLock::new();
 
     pub fn check_ax_permission(prompt: bool) -> bool {
+        if env::var_os("PULSARC_FORCE_AX_DENIED").is_some() {
+            return false;
+        }
+
         if let Some(&cached) = AX_PERMISSION_CACHE.get() {
             return cached;
         }
@@ -128,7 +135,7 @@ mod macos_ax {
         }
     }
 
-    pub fn get_active_app_info() -> Option<(String, String, Option<String>, i32)> {
+    pub fn get_active_app_info() -> Option<super::ActiveAppInfo> {
         let workspace = NSWorkspace::sharedWorkspace();
         let active_app = workspace.frontmostApplication()?;
         let bundle_id = active_app.bundleIdentifier()?.to_string();
@@ -141,7 +148,7 @@ mod macos_ax {
     pub fn get_recent_apps(
         current_bundle_id: Option<&str>,
         limit: usize,
-    ) -> Vec<(String, String, Option<String>)> {
+    ) -> Vec<super::RecentAppInfo> {
         let workspace = NSWorkspace::sharedWorkspace();
         let running_apps = workspace.runningApplications();
         let has_permission = crate::macos::macos_ax::check_ax_permission(false);

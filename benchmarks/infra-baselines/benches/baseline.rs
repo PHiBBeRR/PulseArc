@@ -1,30 +1,35 @@
-use std::panic;
+use std::convert::Infallible;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
+use std::{env, panic};
 
 use chrono::Utc;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Response, Server, StatusCode};
 use infra_baselines::init_test_encryption_key;
+use legacy_shim::mdm::{MdmClient, MdmConfig, PolicySetting, PolicyValue};
 #[cfg(target_os = "macos")]
 use legacy_shim::{check_ax_permission, MacOsActivityProvider};
 use legacy_shim::{DbManager as LegacyDbManager, HttpClient};
-use pulsearc_infra::mdm::{MdmClient, MdmConfig, PolicySetting, PolicyValue};
 use rusqlite::params;
 use rustls::{Certificate as RustlsCertificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs as load_pem_certs, pkcs8_private_keys};
-use serde_json::json;
-use std::convert::Infallible;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use rustls_pemfile::{certs as load_pem_certs, pkcs8_private_keys, rsa_private_keys};
 use tempfile::TempDir;
 use tokio::net::TcpListener;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot;
 use tokio_rustls::TlsAcceptor;
 use uuid::Uuid;
+
+#[cfg(target_os = "macos")]
+mod mac_ax;
+
+type LegacyDbManagerInitResult = Result<(TempDir, Arc<LegacyDbManager>), String>;
 
 #[derive(Clone)]
 struct ActivitySnapshot {
@@ -43,6 +48,29 @@ struct ActivitySnapshot {
     idle_duration_secs: Option<i32>,
 }
 
+fn resolve_mdm_cert_dir() -> Option<PathBuf> {
+    if let Ok(custom) = env::var("PULSARC_MDM_CERT_DIR") {
+        let path = PathBuf::from(custom);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+
+    let cwd = PathBuf::from(".mdm-certs");
+    if cwd.exists() {
+        return Some(cwd);
+    }
+
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let candidate = Path::new(&manifest_dir).join("..").join("..").join(".mdm-certs");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
 fn benchmark_legacy_db_manager(c: &mut Criterion) {
     init_test_encryption_key();
 
@@ -51,7 +79,9 @@ fn benchmark_legacy_db_manager(c: &mut Criterion) {
     // ---------------------------------------------------------------------
     let (_single_dir, single_manager) = create_db_manager().expect("legacy DbManager init failed");
     let mut db_group = c.benchmark_group("legacy_db_manager");
-    db_group.sample_size(20);
+    db_group.sample_size(200);
+    db_group.warm_up_time(Duration::from_secs(5));
+    db_group.measurement_time(Duration::from_secs(10));
 
     db_group.bench_function("save_snapshot_single", |b| {
         b.iter(|| {
@@ -183,9 +213,11 @@ fn benchmark_legacy_db_manager(c: &mut Criterion) {
 }
 
 #[cfg(target_os = "macos")]
-fn benchmark_legacy_macos_activity_provider(_c: &mut Criterion) {
-    if !check_ax_permission(false) {
-        println!("⚠️ Skipping macOS activity benchmarks: Accessibility permission not granted.");
+fn benchmark_legacy_macos_activity_provider_ax_on(c: &mut Criterion) {
+    if std::env::var_os("PULSARC_ENABLE_MAC_BENCH").is_none() {
+        eprintln!(
+            "[macOS] PULSARC_ENABLE_MAC_BENCH not set; skipping AX-on benchmark. \n  Hint: run scripts/mac/prepare-ax-bench.sh and re-run with PULSARC_ENABLE_MAC_BENCH=1"
+        );
         return;
     }
 
@@ -195,21 +227,23 @@ fn benchmark_legacy_macos_activity_provider(_c: &mut Criterion) {
     });
 
     if stability_probe.is_err() {
-        println!(
+        eprintln!(
             "⚠️ Skipping macOS activity benchmarks: provider initialization panicked (likely missing permissions)."
         );
         return;
     }
 
-    if std::env::var_os("PULSARC_ENABLE_MAC_BENCH").is_none() {
-        println!(
-            "ℹ️ Skipping macOS activity benchmarks in this automated run. Set PULSARC_ENABLE_MAC_BENCH=1 with Accessibility permission to capture metrics."
+    if !mac_ax::ax_trusted() {
+        eprintln!(
+            "⚠️ Accessibility not granted; skipping AX-on benchmark.\n  Hint: run scripts/mac/prepare-ax-bench.sh to open the correct System Settings pane."
         );
         return;
     }
 
-    let mut group = _c.benchmark_group("legacy_macos_activity_provider");
-    group.sample_size(20);
+    let mut group = c.benchmark_group("legacy_macos_activity_provider_ax_on");
+    group.sample_size(100);
+    group.warm_up_time(Duration::from_secs(3));
+    group.measurement_time(Duration::from_secs(8));
 
     let provider_no_enrichment = MacOsActivityProvider::with_enrichment(false, false);
     group.bench_function("fetch_without_enrichment", |b| {
@@ -230,20 +264,54 @@ fn benchmark_legacy_macos_activity_provider(_c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(not(target_os = "macos"))]
-fn benchmark_legacy_macos_activity_provider(_c: &mut Criterion) {
-    // No-op on non-macOS platforms.
+#[cfg(target_os = "macos")]
+fn benchmark_legacy_macos_activity_provider_ax_off(c: &mut Criterion) {
+    if std::env::var_os("PULSARC_ENABLE_MAC_BENCH").is_none() {
+        println!("ℹ️ Skipping macOS AX-off benchmark (PULSARC_ENABLE_MAC_BENCH=1 required).");
+        return;
+    }
+
+    let previous = std::env::var("PULSARC_FORCE_AX_DENIED").ok();
+    std::env::set_var("PULSARC_FORCE_AX_DENIED", "1");
+
+    let mut group = c.benchmark_group("legacy_macos_activity_provider_ax_off");
+    group.sample_size(50);
+    group.warm_up_time(Duration::from_secs(2));
+    group.measurement_time(Duration::from_secs(5));
+
+    let provider = MacOsActivityProvider::with_enrichment(false, false);
+    group.bench_function("fetch_without_enrichment_ax_off", |b| {
+        b.iter(|| {
+            let result = provider.fetch();
+            let _ = black_box(result);
+        });
+    });
+
+    group.finish();
+
+    match previous {
+        Some(val) => std::env::set_var("PULSARC_FORCE_AX_DENIED", val),
+        None => std::env::remove_var("PULSARC_FORCE_AX_DENIED"),
+    }
 }
 
-fn benchmark_legacy_http_client(c: &mut Criterion) {
+#[cfg(not(target_os = "macos"))]
+fn benchmark_legacy_macos_activity_provider_ax_on(_c: &mut Criterion) {}
+
+#[cfg(not(target_os = "macos"))]
+fn benchmark_legacy_macos_activity_provider_ax_off(_c: &mut Criterion) {}
+
+fn benchmark_legacy_http_client_single(c: &mut Criterion) {
     let rt = Runtime::new().expect("failed to create tokio runtime");
     let http_client = HttpClient::new().expect("failed to create legacy HttpClient");
 
     let success_server =
         rt.block_on(start_success_server()).expect("failed to start success server");
 
-    let mut group = c.benchmark_group("legacy_http_client");
-    group.sample_size(25);
+    let mut group = c.benchmark_group("legacy_http_client_single");
+    group.sample_size(200);
+    group.warm_up_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(10));
 
     group.bench_function("single_request", |b| {
         b.iter(|| {
@@ -255,7 +323,21 @@ fn benchmark_legacy_http_client(c: &mut Criterion) {
         });
     });
 
+    group.finish();
+
+    drop(success_server);
+}
+
+fn benchmark_legacy_http_client_retry(c: &mut Criterion) {
+    let rt = Runtime::new().expect("failed to create tokio runtime");
+    let http_client = HttpClient::new().expect("failed to create legacy HttpClient");
+
     let retry_server = rt.block_on(start_retry_server()).expect("failed to start retry server");
+
+    let mut group = c.benchmark_group("legacy_http_client_retry");
+    group.sample_size(10);
+    group.warm_up_time(Duration::from_secs(3));
+    group.measurement_time(Duration::from_secs(5));
 
     group.bench_function("request_with_retry", |b| {
         b.iter(|| {
@@ -270,14 +352,20 @@ fn benchmark_legacy_http_client(c: &mut Criterion) {
 
     group.finish();
 
-    drop(success_server);
     drop(retry_server);
 }
 
 fn benchmark_legacy_mdm_client(c: &mut Criterion) {
     use std::sync::Arc as StdArc;
 
-    let cert_dir = Path::new(".mdm-certs");
+    let cert_dir = match resolve_mdm_cert_dir() {
+        Some(dir) => dir,
+        None => {
+            println!("⚠️ Skipping MDM benchmarks: .mdm-certs directory not found.");
+            return;
+        }
+    };
+
     if !cert_dir.exists() {
         println!("⚠️ Skipping MDM benchmarks: .mdm-certs directory not found.");
         return;
@@ -285,7 +373,7 @@ fn benchmark_legacy_mdm_client(c: &mut Criterion) {
 
     let rt = Runtime::new().expect("failed to create tokio runtime for MDM benchmarks");
 
-    let server = match rt.block_on(start_mdm_server(cert_dir)) {
+    let server = match rt.block_on(start_mdm_server(&cert_dir)) {
         Ok(server) => server,
         Err(err) => {
             println!("⚠️ Skipping MDM benchmarks: failed to start test server ({err})");
@@ -312,8 +400,10 @@ fn benchmark_legacy_mdm_client(c: &mut Criterion) {
             .expect("local config should validate"),
     );
 
-    let mut group = c.benchmark_group("legacy_mdm_client");
-    group.sample_size(10);
+    let mut group = c.benchmark_group("legacy_mdm_client_warm");
+    group.sample_size(200);
+    group.warm_up_time(Duration::from_secs(5));
+    group.measurement_time(Duration::from_secs(10));
 
     let client_fetch = StdArc::clone(&client);
     group.bench_function("fetch_config", |b| {
@@ -347,10 +437,32 @@ fn benchmark_legacy_mdm_client(c: &mut Criterion) {
 
     group.finish();
 
+    let mut cold_group = c.benchmark_group("legacy_mdm_client_cold");
+    cold_group.sample_size(50);
+    cold_group.warm_up_time(Duration::from_secs(3));
+    cold_group.measurement_time(Duration::from_secs(6));
+
+    cold_group.bench_function("fetch_config_cold", |b| {
+        let url = config_url.clone();
+        let ca = ca_path.clone();
+        b.to_async(&rt).iter(move || {
+            let url = url.clone();
+            let ca = ca.clone();
+            async move {
+                let client =
+                    MdmClient::with_ca_cert(&url, &ca).expect("MDM fetch_config_cold client init");
+                let config = client.fetch_config().await.expect("MDM cold fetch_config");
+                black_box(config);
+            }
+        });
+    });
+
+    cold_group.finish();
+
     drop(server);
 }
 
-fn create_db_manager() -> Result<(TempDir, Arc<LegacyDbManager>), String> {
+fn create_db_manager() -> LegacyDbManagerInitResult {
     let temp_dir = TempDir::new().map_err(|e| format!("tempdir creation failed: {e}"))?;
     let db_path = temp_dir.path().join("legacy.db");
     let manager = LegacyDbManager::new(&db_path).map_err(|e| format!("{e}"))?;
@@ -469,7 +581,7 @@ async fn start_mdm_server(cert_dir: &Path) -> Result<MdmTestServer, String> {
                                                         Response::builder()
                                                             .status(StatusCode::OK)
                                                             .header("content-type", "application/json")
-                                                            .body(Body::from(body.clone()))
+                                                            .body(Body::from((*body).clone()))
                                                             .expect("valid /config response"),
                                                     )
                                                 } else {
@@ -536,12 +648,19 @@ fn load_private_key(path: &Path) -> Result<PrivateKey, String> {
     let mut reader = BufReader::new(file);
     let mut keys = pkcs8_private_keys(&mut reader)
         .map_err(|e| format!("failed to read private key '{}': {e:?}", path.display()))?;
+    if keys.is_empty() {
+        let file = File::open(path)
+            .map_err(|e| format!("failed to reopen private key '{}': {e}", path.display()))?;
+        let mut reader = BufReader::new(file);
+        keys = rsa_private_keys(&mut reader)
+            .map_err(|e| format!("failed to read RSA private key '{}': {e:?}", path.display()))?;
+    }
     let key = keys.pop().ok_or_else(|| format!("no private keys found in '{}'", path.display()))?;
     Ok(PrivateKey(key))
 }
 
 fn sample_mdm_config_body() -> Result<Vec<u8>, String> {
-    let sample_policy = PolicySetting { enabled: true, value: PolicyValue::Boolean(true) };
+    let sample_policy = PolicySetting::new(PolicyValue::Boolean(true));
 
     let config = MdmConfig::builder()
         .policy_enforcement(true)
@@ -679,8 +798,10 @@ async fn start_retry_server() -> Result<HttpTestServer, String> {
 criterion_group!(
     baseline,
     benchmark_legacy_db_manager,
-    benchmark_legacy_http_client,
+    benchmark_legacy_http_client_single,
+    benchmark_legacy_http_client_retry,
     benchmark_legacy_mdm_client,
-    benchmark_legacy_macos_activity_provider
+    benchmark_legacy_macos_activity_provider_ax_on,
+    benchmark_legacy_macos_activity_provider_ax_off
 );
 criterion_main!(baseline);

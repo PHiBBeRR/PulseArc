@@ -1,0 +1,8 @@
+{
+  "legacy_clippy_blockers": [
+    "E0433 unresolved tokio_test::block_on usages in commands/ml_training.rs",
+    "CalendarProvider trait object instantiation errors in integrations/calendar/sync.rs",
+    "unused variable in tracker/idle/types.rs (IdleError stub)",
+    "unused mut hotspots in inference/scheduler.rs (legacy block builder)"
+  ]
+}

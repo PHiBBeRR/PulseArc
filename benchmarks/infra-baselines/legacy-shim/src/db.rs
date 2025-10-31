@@ -1,10 +1,11 @@
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rand::Rng;
 use rusqlite::{params, Connection};
-use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 /// Minimal copy of the legacy DbManager used for baseline benchmarks.
 ///
@@ -19,7 +20,8 @@ pub struct DbManager {
 }
 
 impl DbManager {
-    /// Create a new SQLCipher-backed manager with the same pool settings as the legacy code.
+    /// Create a new SQLCipher-backed manager with the same pool settings as the
+    /// legacy code.
     pub fn new(db_path: &Path) -> Result<Self> {
         let key = get_or_create_encryption_key()?;
 
@@ -48,7 +50,8 @@ impl DbManager {
         self.pool.get().context("failed to get connection from pool")
     }
 
-    /// Convenience accessor used by the benchmarks when generating temp databases.
+    /// Convenience accessor used by the benchmarks when generating temp
+    /// databases.
     pub fn db_path(&self) -> &Path {
         &self.db_path
     }
@@ -70,8 +73,8 @@ fn configure_pragmas(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 fn initialize_schema(conn: &Connection) -> Result<()> {
-    // The baseline benchmarks only touch activity_snapshots, so we recreate the exact
-    // table definition from the legacy schema along with the key indexes.
+    // The baseline benchmarks only touch activity_snapshots, so we recreate the
+    // exact table definition from the legacy schema along with the key indexes.
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS activity_snapshots (
             id TEXT PRIMARY KEY,

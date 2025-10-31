@@ -89,3 +89,9 @@ impl SapForwarder {
         }
     }
 }
+
+impl Default for SapForwarder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

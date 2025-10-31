@@ -9,7 +9,7 @@
 //! Migrated from legacy/api/src/inference/block_builder.rs to core business
 //! logic layer. This is pure business logic with no infrastructure dependencies
 //! - already simplified by REFACTOR-004 which removed SignalExtractor and
-//! ProjectMatcher dependencies.
+//!   ProjectMatcher dependencies.
 
 use ahash::AHashMap as HashMap; // Fast non-cryptographic hasher
 use pulsearc_domain::classification::{ActivityBreakdown, BlockConfig, ProposedBlock};

@@ -5,23 +5,16 @@
 //!
 //! # Setup
 //!
-//! 1. Generate test certificates:
-//!    ```bash
-//!    cd scripts/mdm
-//!    ./generate-test-certs.sh
-//!    ```
+//! 1. Generate test certificates: ```bash cd scripts/mdm
+//!    ./generate-test-certs.sh ```
 //!
-//! 2. Set up environment variables:
-//!    ```bash
-//!    export MDM_CA_CERT=/path/to/.mdm-certs/ca-cert.pem
-//!    ```
+//! 2. Set up environment variables: ```bash export
+//!    MDM_CA_CERT=/path/to/.mdm-certs/ca-cert.pem ```
 //!
 //! 3. Run a test MDM server (or use the mock below)
 //!
-//! 4. Run this example:
-//!    ```bash
-//!    cargo run --example mdm_remote_config --features audit-compliance
-//!    ```
+//! 4. Run this example: ```bash cargo run --example mdm_remote_config
+//!    --features audit-compliance ```
 
 use pulsearc_infra::mdm::{MdmClient, MdmConfig};
 
@@ -47,9 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // match client.fetch_config().await {
         //     Ok(config) => {
         //         println!("✓ Configuration fetched successfully!");
-        //         println!("  Policy enforcement: {}", config.policy_enforcement);
-        //         println!("  Update interval: {}s", config.update_interval_secs);
-        //     }
+        //         println!("  Policy enforcement: {}",
+        // config.policy_enforcement);         println!("  Update
+        // interval: {}s", config.update_interval_secs);     }
         //     Err(e) => {
         //         println!("✗ Failed to fetch configuration: {}", e);
         //     }

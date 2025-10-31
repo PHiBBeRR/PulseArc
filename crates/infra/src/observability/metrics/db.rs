@@ -194,7 +194,7 @@ impl DbMetrics {
 
         // Corrected percentile formula: (len * percentile / 100) rounded up, minus 1
         // for zero-indexing
-        let index = ((sorted.len() * percentile as usize + 99) / 100).saturating_sub(1);
+        let index = (sorted.len() * usize::from(percentile)).div_ceil(100).saturating_sub(1);
         Ok(sorted[index.min(sorted.len() - 1)])
     }
 
@@ -290,7 +290,7 @@ impl DbMetrics {
         sorted.sort_unstable();
 
         // Corrected percentile formula
-        let index = ((sorted.len() * 95 + 99) / 100).saturating_sub(1);
+        let index = (sorted.len() * 95).div_ceil(100).saturating_sub(1);
         Ok(sorted[index.min(sorted.len() - 1)])
     }
 

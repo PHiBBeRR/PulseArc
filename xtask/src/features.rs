@@ -21,28 +21,22 @@ pub fn test_feature_matrix() -> Result<()> {
 
     for (index, features) in FEATURE_COMBINATIONS.iter().enumerate() {
         let joined = features.join(",");
-        let (display_label, feature_arg) = if features.is_empty() {
-            ("default".to_string(), None)
-        } else {
-            (joined.clone(), Some(joined))
-        };
+        let is_default = features.is_empty();
+        let display_label = if is_default { "default".to_string() } else { joined.clone() };
+        let feature_arg = if is_default { None } else { Some(joined) };
 
         println!(
             "\n[{}/{}] cargo check -p pulsearc-infra{}",
             index + 1,
             FEATURE_COMBINATIONS.len(),
-            if feature_arg.is_none() {
-                "".to_string()
-            } else {
-                format!(" --features {}", display_label)
-            }
+            feature_arg.as_ref().map(|arg| format!(" --features {arg}")).unwrap_or_default()
         );
 
         let mut command = Command::new("cargo");
         command.arg("check").arg("-p").arg("pulsearc-infra");
 
-        if let Some(feature_list) = feature_arg {
-            command.arg("--features").arg(feature_list);
+        if let Some(feature_list) = feature_arg.as_ref() {
+            command.arg("--features").arg(feature_list.as_str());
         }
 
         let status = command
@@ -53,7 +47,7 @@ pub fn test_feature_matrix() -> Result<()> {
             anyhow::bail!("Feature combination '{display_label}' failed to compile");
         }
 
-        println!("✅ Features '{}' compiled successfully", display_label);
+        println!("✅ Features '{display_label}' compiled successfully");
     }
 
     println!("\n✅ All {} feature combinations compile successfully!", FEATURE_COMBINATIONS.len());

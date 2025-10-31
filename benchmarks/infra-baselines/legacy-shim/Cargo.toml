@@ -17,6 +17,9 @@ tracing = { workspace = true }
 log = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+url = { workspace = true }
 objc2 = "0.6"
 objc2-app-kit = "0.3"
 objc2-foundation = "0.3"

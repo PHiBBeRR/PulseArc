@@ -1,5 +1,6 @@
-use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use std::time::Duration;
+
+use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use thiserror::Error;
 use tracing::{debug, warn};
 

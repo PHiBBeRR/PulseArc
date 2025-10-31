@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use pulsearc_core::TrackingService;
-// TODO: Re-add KeyManager when encryption is re-enabled
-// use pulsearc_infra::KeyManager;
 use pulsearc_domain::{Config, Result};
-use pulsearc_infra::{DbManager, InstanceLock, MacOsActivityProvider, SqliteActivityRepository};
+use pulsearc_infra::{
+    DbManager, InstanceLock, KeyManager, MacOsActivityProvider, SqliteActivityRepository,
+};
 
 /// Application context - holds all services and dependencies
 pub struct AppContext {
@@ -27,14 +27,17 @@ impl AppContext {
         let lock_dir = std::env::temp_dir();
         let instance_lock = InstanceLock::acquire(&lock_dir)?;
 
-        // Get encryption key from environment variable
-        let encryption_key = std::env::var("DATABASE_ENCRYPTION_KEY").ok();
+        // Resolve encryption key from environment or secure storage
+        let encryption_key = match std::env::var("DATABASE_ENCRYPTION_KEY") {
+            Ok(value) => value,
+            Err(_) => KeyManager::get_or_create_key()?,
+        };
 
         // Initialize database with encryption
         let db = Arc::new(DbManager::new(
             &config.database.path,
             config.database.pool_size,
-            encryption_key.as_deref(),
+            Some(encryption_key.as_str()),
         )?);
 
         // Run migrations

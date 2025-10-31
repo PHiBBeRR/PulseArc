@@ -9,20 +9,14 @@
 //!
 //! ## Design Principles
 //!
-//! 1. **Poison Recovery**: All mutex locks use explicit poison recovery pattern:
-//!    ```rust
-//!    let guard = match mutex.lock() {
-//!        Ok(guard) => guard,
-//!        Err(poison_err) => {
-//!            tracing::warn!("Mutex poisoned, recovering");
-//!            poison_err.into_inner()
-//!        }
-//!    };
-//!    ```
+//! 1. **Poison Recovery**: All mutex locks use explicit poison recovery
+//!    pattern: ```rust let guard = match mutex.lock() { Ok(guard) => guard,
+//!    Err(poison_err) => { tracing::warn!("Mutex poisoned, recovering");
+//!    poison_err.into_inner() } }; ```
 //!
-//! 2. **Future-Proof Returns**: All record methods return `MetricsResult<()>` for
-//!    future extensibility (cardinality limits, quotas, validation), but currently
-//!    always succeed (return `Ok(())`).
+//! 2. **Future-Proof Returns**: All record methods return `MetricsResult<()>`
+//!    for future extensibility (cardinality limits, quotas, validation), but
+//!    currently always succeed (return `Ok(())`).
 //!
 //! 3. **Ring Buffers**: VecDeque for O(1) eviction (not Vec with remove(0))
 //!
@@ -49,15 +43,18 @@ use std::io;
 /// Metrics error type
 ///
 /// All metrics recording methods return `MetricsResult<()>` for consistency
-/// and future extensibility, but **currently always succeed** (return `Ok(())`).
+/// and future extensibility, but **currently always succeed** (return
+/// `Ok(())`).
 ///
 /// ## Current Behavior
-/// - **Poison recovery:** Transparent (logs warning, continues with recovered data)
+/// - **Poison recovery:** Transparent (logs warning, continues with recovered
+///   data)
 /// - **Ring buffer overflow:** Automatic eviction (FIFO, no error)
 /// - **Label cardinality:** LRU eviction (logs warning, no error)
 ///
 /// ## Future Extensions
-/// The `MetricsResult<()>` return type allows future additions without API breakage:
+/// The `MetricsResult<()>` return type allows future additions without API
+/// breakage:
 /// - Hard cardinality limits (return `CardinalityExceeded` instead of evicting)
 /// - Quota enforcement (return `QuotaExceeded` if too many metrics recorded)
 /// - Validation (return `InvalidMetricName` for malformed names)

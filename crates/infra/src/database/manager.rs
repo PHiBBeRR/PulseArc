@@ -1,96 +1,115 @@
-//! Database connection manager with pooling
+//! Database connection manager backed by the shared SQLCipher pool.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use pulsearc_common::storage::sqlcipher::{
+    SqlCipherConnection, SqlCipherPool, SqlCipherPoolConfig,
+};
+use pulsearc_common::storage::StorageError;
 use pulsearc_domain::{PulseArcError, Result};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::params;
+use tracing::info;
 
-/// Database manager with connection pooling
+use super::sqlcipher_pool::create_sqlcipher_pool;
+use crate::errors::InfraError;
+
+const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_SQL: &str = include_str!("schema.sql");
+
+/// Database manager that wraps an [`SqlCipherPool`].
 pub struct DbManager {
-    pool: Pool<SqliteConnectionManager>,
+    pool: Arc<SqlCipherPool>,
+    path: PathBuf,
 }
 
 impl DbManager {
-    /// Create a new database manager with optional encryption
+    /// Create a new manager with the given pool size and SQLCipher key.
     pub fn new<P: AsRef<Path>>(
         db_path: P,
         pool_size: u32,
         encryption_key: Option<&str>,
     ) -> Result<Self> {
-        let path_str = db_path.as_ref().display().to_string();
-        let key = encryption_key.map(|k| k.to_string());
+        let key = encryption_key.map(std::borrow::ToOwned::to_owned).ok_or_else(|| {
+            PulseArcError::Security("database encryption key not provided".into())
+        })?;
 
-        if key.is_some() {
-            log::info!("Creating encrypted database at: {}", path_str);
-        } else {
-            log::info!("Creating unencrypted database at: {}", path_str);
-        }
+        let path = db_path.as_ref().to_path_buf();
 
-        let manager = SqliteConnectionManager::file(db_path).with_init(move |conn| {
-            // Set up SQLCipher encryption if key is provided
-            // MUST be the first thing before any other operation
-            if let Some(ref key) = key {
-                // Set the encryption key - this must be done before any other operations
-                log::debug!("Setting SQLCipher encryption key");
-                conn.pragma_update(None, "key", key)?;
-            }
+        let config =
+            SqlCipherPoolConfig { max_size: pool_size.max(1), ..SqlCipherPoolConfig::default() };
 
-            // Configure database settings after key is set
-            conn.execute_batch(
-                "PRAGMA journal_mode = WAL;
-                     PRAGMA synchronous = NORMAL;
-                     PRAGMA cache_size = -64000;
-                     PRAGMA busy_timeout = 5000;",
-            )?;
-            Ok(())
-        });
+        let pool = create_sqlcipher_pool(&path, key, config)?;
 
-        let pool = Pool::builder()
-            .max_size(pool_size)
-            .build(manager)
-            .map_err(|e| PulseArcError::Database(e.to_string()))?;
+        info!(
+            db_path = %path.display(),
+            max_connections = pool.metrics().max_pool_size(),
+            "sqlcipher pool initialised"
+        );
 
-        Ok(Self { pool })
+        Ok(Self { pool, path })
     }
 
-    /// Get a database connection from the pool
-    pub fn get_connection(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
-        self.pool
-            .get()
-            .map_err(|e| PulseArcError::Database(format!("Failed to get connection: {}", e)))
+    /// Borrow the underlying SQLCipher pool.
+    pub fn pool(&self) -> &Arc<SqlCipherPool> {
+        &self.pool
     }
 
-    /// Run database migrations
+    /// Acquire a SQLCipher connection from the pool.
+    pub fn get_connection(&self) -> Result<SqlCipherConnection> {
+        self.pool.get_sqlcipher_connection().map_err(map_storage_error)
+    }
+
+    /// Ensure the full schema exists on the current database.
     pub fn run_migrations(&self) -> Result<()> {
         let conn = self.get_connection()?;
-
-        // Create tables if they don't exist
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS activity_snapshots (
-                id TEXT PRIMARY KEY,
-                timestamp INTEGER NOT NULL,
-                context TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS time_entries (
-                id TEXT PRIMARY KEY,
-                start_time INTEGER NOT NULL,
-                end_time INTEGER NOT NULL,
-                duration_seconds INTEGER NOT NULL,
-                description TEXT NOT NULL,
-                project TEXT,
-                wbs_code TEXT
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp
-                ON activity_snapshots(timestamp);
-
-            CREATE INDEX IF NOT EXISTS idx_entries_start_time
-                ON time_entries(start_time);",
-        )
-        .map_err(|e| PulseArcError::Database(format!("Migration failed: {}", e)))?;
-
+        create_schema(&conn)?;
         Ok(())
+    }
+
+    /// Return the configured database path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+fn create_schema(conn: &SqlCipherConnection) -> Result<()> {
+    conn.execute_batch(SCHEMA_SQL).map_err(map_sql_error)?;
+    conn.execute(
+        "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, CAST(strftime('%s','now') AS INTEGER))",
+        params![SCHEMA_VERSION],
+    )
+    .map_err(map_sql_error)?;
+    Ok(())
+}
+
+fn map_sql_error(err: rusqlite::Error) -> PulseArcError {
+    PulseArcError::from(InfraError::from(err))
+}
+
+fn map_storage_error(err: StorageError) -> PulseArcError {
+    PulseArcError::Database(err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::*;
+
+    const TEST_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    #[test]
+    fn migrations_create_schema_version() {
+        let temp_dir = TempDir::new().expect("temp dir created");
+        let db_path = temp_dir.path().join("test.db");
+
+        let manager = DbManager::new(&db_path, 4, Some(TEST_KEY)).expect("manager created");
+        manager.run_migrations().expect("migrations run");
+
+        let conn = manager.get_connection().expect("connection acquired");
+        let version: i32 =
+            conn.query_row("SELECT version FROM schema_version", &[], |row| row.get(0)).unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
     }
 }

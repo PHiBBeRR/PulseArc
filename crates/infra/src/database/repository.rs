@@ -38,7 +38,7 @@ impl ActivityRepository for SqliteActivityRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute(
+            conn.inner().execute(
                 "INSERT INTO activity_snapshots (id, timestamp, activity_context_json, detected_activity, primary_app, processed, created_at, is_idle) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 (
                     &snapshot.id,
@@ -67,8 +67,7 @@ impl ActivityRepository for SqliteActivityRepository {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
-            let mut stmt = conn
-                .prepare("SELECT id, timestamp, activity_context_json, detected_activity, work_type, activity_category, primary_app, processed, batch_id, created_at, processed_at, is_idle, idle_duration_secs FROM activity_snapshots WHERE timestamp BETWEEN ?1 AND ?2")
+            let mut stmt = conn.inner().prepare("SELECT id, timestamp, activity_context_json, detected_activity, work_type, activity_category, primary_app, processed, batch_id, created_at, processed_at, is_idle, idle_duration_secs FROM activity_snapshots WHERE timestamp BETWEEN ?1 AND ?2")
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let snapshots = stmt
@@ -104,6 +103,7 @@ impl ActivityRepository for SqliteActivityRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
             let deleted = conn
+                .inner()
                 .execute(
                     "DELETE FROM activity_snapshots WHERE timestamp < ?1",
                     [before.timestamp()],
@@ -135,7 +135,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute(
+            conn.inner().execute(
                 "INSERT INTO time_entries (id, start_time, end_time, duration_seconds, description, project_id, wbs_code)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 (
@@ -164,8 +164,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         let db = self.db.clone();
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
-            let mut stmt = conn
-                .prepare("SELECT id, start_time, end_time, duration_seconds, description, project_id, wbs_code FROM time_entries WHERE start_time BETWEEN ?1 AND ?2")
+            let mut stmt = conn.inner().prepare("SELECT id, start_time, end_time, duration_seconds, description, project_id, wbs_code FROM time_entries WHERE start_time BETWEEN ?1 AND ?2")
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let entries = stmt
@@ -212,7 +211,7 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute(
+            conn.inner().execute(
                 "UPDATE time_entries SET start_time = ?2, end_time = ?3, duration_seconds = ?4, description = ?5, project_id = ?6, wbs_code = ?7 WHERE id = ?1",
                 (
                     entry.id.to_string(),
@@ -237,7 +236,8 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute("DELETE FROM time_entries WHERE id = ?1", [id.to_string()])
+            conn.inner()
+                .execute("DELETE FROM time_entries WHERE id = ?1", [id.to_string()])
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             Ok(())
@@ -278,7 +278,7 @@ impl SqliteOutboxRepository {
         tokio::task::spawn_blocking(move || {
             let conn = db.get_connection()?;
 
-            conn.execute(
+            conn.inner().execute(
                 "INSERT OR REPLACE INTO time_entry_outbox (id, idempotency_key, user_id, payload_json, \
                     backend_cuid, status, attempts, last_error, retry_after, created_at, sent_at, \
                     correlation_id, local_status, remote_status, sap_entry_id, next_attempt_at, error_code, \
@@ -334,11 +334,12 @@ impl SqliteOutboxRepository {
             let conn = db.get_connection()?;
 
             let mut stmt = conn
+                .inner()
                 .prepare(OUTBOX_PENDING_QUERY)
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let entries = stmt
-                .query_map([as_of_timestamp], |row| map_outbox_row(row))
+                .query_map(params![as_of_timestamp], map_outbox_row)
                 .map_err(|e| PulseArcError::Database(e.to_string()))?
                 .collect::<rusqlite::Result<Vec<_>>>()
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
@@ -358,11 +359,12 @@ impl SqliteOutboxRepository {
             let conn = db.get_connection()?;
 
             let mut stmt = conn
+                .inner()
                 .prepare(OUTBOX_ALL_QUERY)
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
             let entries = stmt
-                .query_map([], |row| map_outbox_row(row))
+                .query_map(rusqlite::params![], map_outbox_row)
                 .map_err(|e| PulseArcError::Database(e.to_string()))?
                 .collect::<rusqlite::Result<Vec<_>>>()
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
@@ -465,7 +467,7 @@ impl SegmentRepositoryPort for SqliteSegmentRepository {
         let snapshot_ids = serde_json::to_string(&segment.snapshot_ids)
             .map_err(|e| map_serialization_error("segment_save_snapshot_ids", e))?;
 
-        conn.execute(
+        conn.inner().execute(
             "INSERT OR REPLACE INTO activity_segments (id, start_ts, end_ts, primary_app, \
                 normalized_label, sample_count, dictionary_keys, created_at, processed, \
                 snapshot_ids, work_type, activity_category, detected_activity, extracted_signals_json, \
@@ -503,11 +505,12 @@ impl SegmentRepositoryPort for SqliteSegmentRepository {
 
         let (day_start, day_end) = day_bounds(date);
         let mut stmt = conn
+            .inner()
             .prepare(SEGMENT_BY_DATE_QUERY)
             .map_err(|e| map_sqlite_error("segment_find_prepare", e))?;
 
         let segments = stmt
-            .query_map(params![day_start, day_end], |row| map_activity_segment(row))
+            .query_map(params![day_start, day_end], map_activity_segment)
             .map_err(|e| map_sqlite_error("segment_find_query", e))?
             .collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|e| map_sqlite_error("segment_find_collect", e))?;
@@ -522,11 +525,12 @@ impl SegmentRepositoryPort for SqliteSegmentRepository {
             .map_err(|e| map_db_error("segment_unprocessed_connection", e))?;
 
         let mut stmt = conn
+            .inner()
             .prepare(SEGMENT_UNPROCESSED_QUERY)
             .map_err(|e| map_sqlite_error("segment_unprocessed_prepare", e))?;
 
         let segments = stmt
-            .query_map([limit as i64], |row| map_activity_segment(row))
+            .query_map(params![limit as i64], map_activity_segment)
             .map_err(|e| map_sqlite_error("segment_unprocessed_query", e))?
             .collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|e| map_sqlite_error("segment_unprocessed_collect", e))?;
@@ -538,7 +542,8 @@ impl SegmentRepositoryPort for SqliteSegmentRepository {
         let conn =
             self.db.get_connection().map_err(|e| map_db_error("segment_mark_connection", e))?;
 
-        conn.execute("UPDATE activity_segments SET processed = 1 WHERE id = ?1", [segment_id])
+        conn.inner()
+            .execute("UPDATE activity_segments SET processed = 1 WHERE id = ?1", [segment_id])
             .map_err(|e| map_sqlite_error("segment_mark_execute", e))?;
 
         Ok(())
@@ -567,6 +572,7 @@ impl SnapshotRepositoryPort for SqliteSnapshotRepository {
             self.db.get_connection().map_err(|e| map_db_error("snapshot_range_connection", e))?;
 
         let mut stmt = conn
+            .inner()
             .prepare(SNAPSHOT_RANGE_QUERY)
             .map_err(|e| map_sqlite_error("snapshot_range_prepare", e))?;
 
@@ -588,6 +594,7 @@ impl SnapshotRepositoryPort for SqliteSnapshotRepository {
         let (day_start, day_end) = day_bounds(date);
 
         let mut stmt = conn
+            .inner()
             .prepare(SNAPSHOT_COUNT_BY_DATE_QUERY)
             .map_err(|e| map_sqlite_error("snapshot_count_prepare", e))?;
 

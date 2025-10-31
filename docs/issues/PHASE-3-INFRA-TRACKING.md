@@ -372,6 +372,7 @@ As part of configuration infrastructure, also completed MDM remote configuration
 ---
 
 ### Task 3A.4: Database Manager (Day 3)
+**Deviation (2026-02-07):** Legacy `cargo xtask ci` currently skips clippy for `legacy/api` via `legacy/api/clippy.toml`. See `scripts/ci_legacy_eval.json` for blockers; follow-up issue tracks removing this suppression once legacy lint debt is paid down.
 
 **Source:** `legacy/api/src/db/manager.rs` → `crates/infra/src/database/manager.rs`
 

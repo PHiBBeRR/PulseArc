@@ -2,10 +2,12 @@
 //!
 //! Fetches MDM configuration from remote servers over HTTPS.
 
-use super::{MdmConfig, MdmError, MdmResult};
-use reqwest::Certificate;
 use std::path::Path;
 use std::time::Duration;
+
+use reqwest::Certificate;
+
+use super::{MdmConfig, MdmError, MdmResult};
 
 /// Client for fetching remote MDM configuration
 pub struct MdmClient {
@@ -51,10 +53,9 @@ impl MdmClient {
     /// ```no_run
     /// use pulsearc_infra::mdm::MdmClient;
     ///
-    /// let client = MdmClient::with_ca_cert(
-    ///     "https://mdm.example.com/config",
-    ///     ".mdm-certs/ca-cert.pem"
-    /// ).unwrap();
+    /// let client =
+    ///     MdmClient::with_ca_cert("https://mdm.example.com/config", ".mdm-certs/ca-cert.pem")
+    ///         .unwrap();
     /// ```
     pub fn with_ca_cert(
         config_url: impl Into<String>,

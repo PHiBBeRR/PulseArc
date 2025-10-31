@@ -5,6 +5,8 @@ use pulsearc_domain::{OutboxStatus, TimeEntryOutbox};
 use pulsearc_infra::database::DbManager;
 use tempfile::TempDir;
 
+const TEST_DB_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
 /// Temporary database wrapper that keeps the underlying file alive for the
 /// duration of a test run.
 pub struct TestDatabase {
@@ -18,7 +20,8 @@ impl TestDatabase {
         let temp_dir = TempDir::new().expect("temp dir should be created");
         let db_path = temp_dir.path().join("test.db");
 
-        let manager = DbManager::new(&db_path, 4, None).expect("db manager should be created");
+        let manager =
+            DbManager::new(&db_path, 4, Some(TEST_DB_KEY)).expect("db manager should be created");
 
         Self { manager: Arc::new(manager), _temp_dir: temp_dir }
     }

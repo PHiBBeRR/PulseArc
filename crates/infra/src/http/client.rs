@@ -1,9 +1,10 @@
 use std::time::Duration;
 
-use crate::errors::InfraError;
 use pulsearc_domain::PulseArcError;
 use reqwest::{Client as ReqwestClient, Method, RequestBuilder, Response};
 use tracing::debug;
+
+use crate::errors::InfraError;
 
 /// HTTP client with built-in retry and timeout support.
 #[derive(Clone)]
@@ -198,13 +199,15 @@ fn should_retry_error(err: &reqwest::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use reqwest::{Method, StatusCode};
     use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+
+    use reqwest::{Method, StatusCode};
     use wiremock::matchers::method;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use super::*;
 
     fn client_with_defaults() -> HttpClient {
         HttpClient::builder()

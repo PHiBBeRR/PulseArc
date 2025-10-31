@@ -29,12 +29,13 @@ trait IntoPulseArcError {
 }
 
 /* -------------------------------------------------------------------------- */
-/* rusqlite::Error → PulseArcError                                            */
+/* rusqlite::Error → PulseArcError */
 /* -------------------------------------------------------------------------- */
 
 impl IntoPulseArcError for SqlError {
     fn into_pulsearc(self) -> PulseArcError {
-        use rusqlite::{ffi::ErrorCode, Error as RE};
+        use rusqlite::ffi::ErrorCode;
+        use rusqlite::Error as RE;
 
         fn looks_like_wrong_key(message: &str) -> bool {
             let lower = message.to_ascii_lowercase();
@@ -96,7 +97,7 @@ impl From<SqlError> for InfraError {
 }
 
 /* -------------------------------------------------------------------------- */
-/* keyring::Error → PulseArcError                                            */
+/* keyring::Error → PulseArcError */
 /* -------------------------------------------------------------------------- */
 
 impl IntoPulseArcError for KeyringError {
@@ -138,7 +139,7 @@ impl From<KeyringError> for InfraError {
 }
 
 /* -------------------------------------------------------------------------- */
-/* reqwest::Error → PulseArcError                                            */
+/* reqwest::Error → PulseArcError */
 /* -------------------------------------------------------------------------- */
 
 impl IntoPulseArcError for HttpError {
@@ -178,17 +179,19 @@ impl From<HttpError> for InfraError {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Tests                                                                     */
+/* Tests */
 /* -------------------------------------------------------------------------- */
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use reqwest::{Client, StatusCode};
-    use rusqlite::{ffi::Error as FfiError, ffi::ErrorCode, Error as SqlError};
+    use rusqlite::ffi::{Error as FfiError, ErrorCode};
+    use rusqlite::Error as SqlError;
     use tokio::runtime::Runtime;
     use wiremock::matchers::method;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    use super::*;
 
     #[test]
     fn sqlite_busy_maps_to_database_error() {

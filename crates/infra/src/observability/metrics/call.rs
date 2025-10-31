@@ -1,7 +1,8 @@
 //! Call-related metrics for tracking API call patterns and timing
 //!
 //! This module tracks metrics related to API calls including total call counts,
-//! time to first data (TTFD), and detailed timing statistics for P50/P95/P99 calculations.
+//! time to first data (TTFD), and detailed timing statistics for P50/P95/P99
+//! calculations.
 //!
 //! ## Design
 //! - **VecDeque ring buffer** for O(1) eviction (not Vec with remove(0))
@@ -30,7 +31,8 @@ pub struct CallMetrics {
     pub has_first_call: AtomicBool,
     /// Start time for calculating calls per minute
     pub start_time: Mutex<Option<Instant>>,
-    /// Individual fetch times for percentile calculations (ring buffer, max 1000)
+    /// Individual fetch times for percentile calculations (ring buffer, max
+    /// 1000)
     pub fetch_times: Mutex<VecDeque<u64>>,
 }
 
@@ -54,7 +56,8 @@ impl CallMetrics {
 
     /// Record a call
     ///
-    /// Currently always succeeds. Future versions may enforce quotas or rate limits.
+    /// Currently always succeeds. Future versions may enforce quotas or rate
+    /// limits.
     pub fn record_call(&self) -> MetricsResult<()> {
         // SeqCst for consistency with calls_per_minute calculation
         self.total_calls.fetch_add(1, Ordering::SeqCst);
@@ -73,9 +76,11 @@ impl CallMetrics {
 
     /// Store a fetch time for percentile calculations
     ///
-    /// Maintains ring buffer of last 1000 samples. Uses VecDeque for O(1) eviction.
+    /// Maintains ring buffer of last 1000 samples. Uses VecDeque for O(1)
+    /// eviction.
     ///
-    /// Currently always succeeds. Future versions may enforce cardinality limits.
+    /// Currently always succeeds. Future versions may enforce cardinality
+    /// limits.
     pub fn record_fetch_time(&self, duration: Duration) -> MetricsResult<()> {
         let ms = duration.as_millis() as u64;
 
@@ -284,13 +289,16 @@ mod tests {
             metrics.record_fetch_time(Duration::from_millis(ms)).unwrap();
         }
 
-        // P50 should be 300 (median of 5 values: index = 5 * 0.5 = 2.5 -> 2, sorted[2] = 300)
+        // P50 should be 300 (median of 5 values: index = 5 * 0.5 = 2.5 -> 2, sorted[2]
+        // = 300)
         assert_eq!(metrics.get_p50_fetch_time_ms().unwrap(), 300);
 
-        // P95 should be 500 (95th percentile of 5 values: index = 5 * 0.95 = 4.75 -> 4, sorted[4] = 500)
+        // P95 should be 500 (95th percentile of 5 values: index = 5 * 0.95 = 4.75 -> 4,
+        // sorted[4] = 500)
         assert_eq!(metrics.get_p95_fetch_time_ms().unwrap(), 500);
 
-        // P99 should be 500 (99th percentile of 5 values: index = 5 * 0.99 = 4.95 -> 4, sorted[4] = 500)
+        // P99 should be 500 (99th percentile of 5 values: index = 5 * 0.99 = 4.95 -> 4,
+        // sorted[4] = 500)
         assert_eq!(metrics.get_p99_fetch_time_ms().unwrap(), 500);
     }
 

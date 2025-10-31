@@ -1,9 +1,11 @@
 //! Cache-related metrics for tracking cache performance
 //!
-//! This module tracks cache hit/miss rates and provides cache performance statistics.
+//! This module tracks cache hit/miss rates and provides cache performance
+//! statistics.
 //!
 //! ## Design
-//! - **SeqCst ordering** for atomics used in hit_rate calculation (derived metric)
+//! - **SeqCst ordering** for atomics used in hit_rate calculation (derived
+//!   metric)
 //! - **No locking needed** - simple atomic counters
 //! - **MetricsResult returns** for future extensibility (currently always Ok)
 

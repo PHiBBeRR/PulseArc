@@ -6,39 +6,55 @@ _Collected on 2025-10-31 using the `infra-baselines` Criterion harness._
 - Machine: macOS host (local developer workstation)
 - Database: SQLCipher (via shimmed legacy `DbManager`)
 - HTTP: Legacy retry client hitting local Hyper servers (no proxy)
-- Activity Provider: Skipped in automated run (Accessibility permission required)
-- Command: `cargo bench -p infra-baselines --offline`
+- Activity Provider: macOS AX capture (requires Accessibility permission)
+- MDM: Local HTTPS server backed by `.mdm-certs` self-signed CA
+- Command: `PULSARC_TEST_DB_KEY=… PULSARC_ENABLE_MAC_BENCH=1 cargo bench -p infra-baselines --offline`
 - Test key: `PULSARC_TEST_DB_KEY=test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
 
 ## Results
 
-| Benchmark | p50 | Notes |
-| --- | --- | --- |
-| `legacy_db_manager/save_snapshot_single` | **≈50.2 µs** | Single-row insert into `activity_snapshots` via pooled SQLCipher connection |
-| `legacy_db_manager/time_range_query_day_100_snapshots` | **≈47.3 µs** | 24-hour range scan returning 100 rows |
-| `legacy_db_manager/bulk_insert_1000_snapshots` | **≈3.26 ms** | Transactional bulk insert (1,000 rows) using prepared statement reuse |
-| `legacy_http_client/single_request` | **≈62.8 µs** | One successful request to local HTTP server |
-| `legacy_http_client/request_with_retry` | **≈1.003 s** | Induced 500 → 200 path including retry/backoff sleep |
-| `legacy_macos_activity_provider/*` | _Skipped_ | Run manually with Accessibility permission (`System Settings → Privacy & Security → Accessibility`) |
+| Area | Scenario | p50 | p99 | Notes |
+| --- | --- | ---:| ---:| --- |
+| **Database (legacy)** | Single insert | 56.3 µs | 66.7 µs | Insert one `activity_snapshot` via pooled SQLCipher |
+|  | 1-day range query | 49.8 µs | 51.7 µs | `[start, end)` query returning 100 rows |
+|  | Bulk insert (1 000) | 3.49 ms | 4.11 ms | Transactional batch with prepared statement reuse |
+| **HTTP (legacy)** | Single request | 64.1 µs | 73.1 µs | Warm connection against local Hyper server |
+|  | Retry path (transient 5xx) | 1.003 s | 1.003 s | Includes backoff + retry-after sleep |
+| **MDM (new)** | `MdmClient::fetch_config` (warm) | 61.6 µs | 66.0 µs | TLS session reused (loopback) |
+|  | `MdmClient::fetch_and_merge` (warm) | 62.2 µs | 65.4 µs | Remote fetch merged into baseline config |
+|  | `MdmClient::fetch_config` (cold TLS) | 3.88 ms | 4.23 ms | Fresh client per call (handshake cost) |
+| **macOS Provider (new)** | Fetch (AX granted) | 0.97 ms | 1.22 ms | Window/title capture with Accessibility permission |
+|  | Fetch + enrichment (AX granted) | 0.99 ms | 1.19 ms | Adds synchronous enrichment attempt |
+|  | Fetch (AX forced off) | 0.99 ms | 1.10 ms | `PULSARC_FORCE_AX_DENIED=1` fallback path |
 
 ## Running the Benchmarks
 
 ```bash
-# Ensure SQLCipher uses a deterministic key
+# Ensure SQLCipher uses a deterministic key and enable macOS activity benchmarks
 export PULSARC_TEST_DB_KEY=test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+export PULSARC_ENABLE_MAC_BENCH=1
 
-# Run benches (no network fetches required)
+# Optional: point at your MDM cert bundle (defaults to workspace/.mdm-certs)
+# export PULSARC_MDM_CERT_DIR=/path/to/.mdm-certs
+
 cargo bench -p infra-baselines --offline
+
+# Compare against a saved Criterion baseline (e.g. nightly CI snapshot)
+scripts/bench/compare.sh 20251031
 ```
 
 ### macOS Activity Provider
-1. Grant Accessibility permission to the benchmark binary (\`target/release/deps/baseline-*\`).
-2. Re-run the suite without `--offline` if Accessibility prompts need to surface interactively.
-3. Record p50 latency for:
-   - Fetch without enrichment
-   - Fetch with enrichment
+1. Grant Accessibility permission to the benchmark binary (`target/release/deps/baseline-*`).
+2. Ensure `PULSARC_ENABLE_MAC_BENCH=1` is set so the macOS suite runs.
+3. The harness also executes a fallback run with `PULSARC_FORCE_AX_DENIED=1` to capture the “AX denied” latency profile automatically.
+
+### MDM Client
+1. Generate self-signed certs via `scripts/mdm/generate-test-certs.sh` (creates `.mdm-certs/`).
+2. Trust the `ca-cert.pem` locally if you want to hit the endpoint outside the benches.
+3. The harness spins up a TLS server using `server-fullchain.pem` / `server-key.pem` and exercises `MdmClient::with_ca_cert`.
+4. Two scenarios are measured: warm session reuse and a cold TLS handshake (new client per iteration).
 
 ## Usage Notes
-- The shim crate under `benchmarks/infra-baselines/legacy-shim` re-exports the legacy SQLCipher manager, HTTP client, and macOS provider in isolation so the frozen `legacy/api` tree remains untouched.
+- The shim crate under `benchmarks/infra-baselines/legacy-shim` re-exports the legacy SQLCipher manager, HTTP client, macOS provider, and MDM client/config structures so the frozen `legacy/api` tree remains untouched.
 - HTTP backoff timing (~1 s) reflects the configured retry-after logic; adjust the retry configuration if future comparisons need shorter failure windows.
-- These numbers serve as the baseline for Phase 3A migrations. Capture the same metrics for the new infra implementations and document deltas in this file.
+- These numbers serve as the baseline for Phase 3A migrations. Capture the same metrics for the new infra implementations (including the forthcoming MDM adapter) and document deltas in this file.
