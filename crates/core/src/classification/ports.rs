@@ -6,6 +6,8 @@ use pulsearc_domain::types::classification::{ContextSignals, ProjectMatch, Propo
 use pulsearc_domain::types::sap::WbsElement;
 use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
+pub use crate::tracking::ports::CalendarEventRepository;
+
 /// Trait for classifying activities into time entries
 #[async_trait]
 pub trait Classifier: Send + Sync {

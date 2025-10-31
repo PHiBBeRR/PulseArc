@@ -8,7 +8,7 @@ use pulsearc_domain::ActivitySnapshot;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::tracking::ports::CalendarEventRepository;
+use crate::classification::ports::CalendarEventRepository;
 
 /// Activity context structure (matches JSON in activity_context_json field)
 #[derive(Debug, Clone, Deserialize, Default)]

@@ -565,3 +565,89 @@ mod refactor_003_tests {
         assert_eq!(parsed["confidence"].as_f64().unwrap(), 0.75);
     }
 }
+
+// ============================================================================
+// REFACTOR-004: Evidence Extraction Types
+// ============================================================================
+
+/// Evidence package for a single block
+///
+/// Contains all contextual signals needed for OpenAI classification.
+/// This replaces internal ML-like heuristics with pure evidence collection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct BlockEvidence {
+    /// Block ID (external identifier sent to OpenAI)
+    pub block_id: String,
+
+    /// Start timestamp (Unix epoch seconds)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub start_ts: i64,
+
+    /// End timestamp (Unix epoch seconds)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub end_ts: i64,
+
+    /// Duration in seconds
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub duration_secs: i64,
+
+    /// Activity breakdown (app names and durations)
+    pub activities: Vec<ActivityBreakdownEvidence>,
+
+    /// Extracted signals (keywords, domains, VDR providers, etc.)
+    pub signals: EvidenceSignals,
+}
+
+/// Activity breakdown for evidence (simplified)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct ActivityBreakdownEvidence {
+    pub name: String,
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub duration_secs: i64,
+    pub percentage: f32,
+}
+
+/// Structured signals extracted from snapshots
+///
+/// These are facts/evidence, not inferences. Used for OpenAI classification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct EvidenceSignals {
+    /// Unique apps used (e.g., ["Excel", "Chrome", "VSCode"])
+    pub apps: Vec<String>,
+
+    /// Window titles (PII-redacted, e.g., "[EMAIL] - Gmail", "Model.xlsx - Excel")
+    pub window_titles: Vec<String>,
+
+    /// Keywords extracted from titles (>3 chars, lowercase)
+    pub keywords: Vec<String>,
+
+    /// URL domains (e.g., ["datasite.com", "github.com"])
+    pub url_domains: Vec<String>,
+
+    /// File paths (if available)
+    pub file_paths: Vec<String>,
+
+    /// Calendar event titles (if available)
+    pub calendar_event_titles: Vec<String>,
+
+    /// Attendee email domains (e.g., ["clientfirm.com", "company.com"])
+    pub attendee_domains: Vec<String>,
+
+    /// VDR providers detected (e.g., ["datasite", "intralinks"])
+    pub vdr_providers: Vec<String>,
+
+    /// Meeting platforms detected (e.g., ["zoom", "google_meet", "teams"])
+    pub meeting_platforms: Vec<String>,
+
+    /// True if any calendar events in this block are part of recurring series
+    pub has_recurring_meeting: bool,
+
+    /// True if any calendar events in this block have online meeting links
+    pub has_online_meeting: bool,
+}
