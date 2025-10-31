@@ -37,7 +37,13 @@ What other options were evaluated?
 
 ## Index
 
-- [ADR-001: Architecture Overview](./001-architecture-overview.md) - Comprehensive system architecture documentation
+### Active ADRs
+
+- [ADR-002: Production Architecture (2025)](./002-production-architecture.md) - **Current** production-ready architecture with tiered infrastructure, resilience patterns, and operational excellence
+
+### Deprecated ADRs
+
+- [ADR-001: Architecture Overview](./001-architecture-overview.md) - **DEPRECATED** - Initial architecture blueprint (superseded by ADR-002 on October 30, 2025)
 
 ## Creating a New ADR
 

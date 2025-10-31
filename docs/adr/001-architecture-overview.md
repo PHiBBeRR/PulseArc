@@ -1,11 +1,34 @@
 # ADR-001: PulseArc Architecture Overview
 
 ## Status
-**Accepted** (Current Implementation)
+**DEPRECATED** - Superseded by [ADR-002: Production Architecture](./002-production-architecture.md)
 
-**Last Updated:** October 2025
+**Superseded by:** [ADR-002](./002-production-architecture.md) on October 30, 2025
+
+**Last Updated:** October 2025 (Deprecated October 30, 2025)
 
 ---
+
+## ⚠️ DEPRECATION NOTICE
+
+**This ADR has been superseded by [ADR-002: Production Architecture](./002-production-architecture.md).**
+
+ADR-001 served as the initial architectural blueprint for PulseArc. However, significant evolution has occurred since its creation:
+
+- **Common crate reorganization** → Tiered feature system (foundation/runtime/platform)
+- **Enhanced resilience patterns** → Circuit breakers, retry logic, comprehensive error classification
+- **Security hardening** → RBAC, audit logging, compliance infrastructure
+- **Observability maturity** → Structured metrics, distributed tracing readiness
+- **Developer tooling** → Comprehensive Makefile, xtask automation, pre-commit hooks
+- **Documentation depth** → API guides, troubleshooting, migration paths
+
+**For the current, production-ready architecture, please refer to [ADR-002](./002-production-architecture.md).**
+
+This document is preserved for historical context and understanding the architectural evolution.
+
+---
+
+## Historical Context (Original ADR-001)
 
 ## Context
 
