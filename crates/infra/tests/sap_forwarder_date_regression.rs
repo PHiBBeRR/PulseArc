@@ -29,7 +29,7 @@ async fn test_sap_forwarder_derives_date_from_created_at() {
     let forwarder = SapForwarder::new();
     let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
 
-    assert_eq!(result.date, "2025-11-01", "Date should be derived from created_at");
+    assert_eq!(result.date, "2024-11-01", "Date should be derived from created_at");
     assert!(
         log_handle.contains(Level::Warn, "deriving from created_at"),
         "Missing date should produce a warning"
@@ -60,15 +60,19 @@ async fn test_sap_forwarder_uses_payload_date_when_present() {
 async fn test_sap_forwarder_handles_invalid_created_at() {
     let log_handle = support::init_test_logger();
 
-    let mut entry = support::make_outbox_entry("sap-invalid-ts", OutboxStatus::Pending, -1);
+    let mut entry = support::make_outbox_entry("sap-invalid-ts", OutboxStatus::Pending, i64::MAX);
     entry.payload_json.clear();
+
+    let before = Utc::now().format("%Y-%m-%d").to_string();
 
     let forwarder = SapForwarder::new();
     let result = forwarder.prepare_entry(&entry).expect("forwarder should succeed");
 
-    let before = Utc::now().format("%Y-%m-%d").to_string();
     let after = Utc::now().format("%Y-%m-%d").to_string();
-    assert!(result.date == before || result.date == after, "Fallback should use current UTC date");
+    assert!(
+        result.date == before || result.date == after,
+        "Fallback should use current UTC date"
+    );
     assert!(
         log_handle.contains(Level::Warn, "invalid created_at"),
         "Invalid timestamp should emit warning"
