@@ -138,7 +138,7 @@ This inventory classifies ~150+ modules from `legacy/api/src/` into target crate
 | `tracker/idle/types.rs` | `domain` | `domain/src/types/idle.rs` | ✅ Priority 1 | Idle-related types |
 | `tracker/idle/lock_detection.rs` | `infra` | `infra/src/platform/macos/lock_detection.rs` | ✅ Priority 2 | Platform-specific lock detection |
 | **Preprocessing** |
-| `preprocess/segmenter.rs` | ❌ **BLOCKED** | **REFACTOR REQUIRED** | ⚠️ Refactor | Currently uses `LocalDatabase` + raw rusqlite; needs `SegmentRepository` port first |
+| `preprocess/segmenter.rs` | `core` | `core/src/tracking/segmenter.rs` | ✅ Priority 2 | Refactored to use `SegmentRepository` + `SnapshotRepository` ports |
 | `preprocess/trigger.rs` | `core` | `core/src/tracking/trigger.rs` | ✅ Priority 2 | Trigger logic |
 | `preprocess/redact.rs` | `core` | `core/src/privacy/redactor.rs` | ✅ Priority 2 | PII redaction logic |
 | **Inference & Classification** |
@@ -344,36 +344,28 @@ impl SegmentRepository for SqlCipherSegmentRepository {
 
 ## Feature Flag Alignment
 
-### Current State (Cargo.toml)
+### Current State (crates/api/Cargo.toml)
 ```toml
 [features]
-default = ["tree-classifier"]
-tree-classifier = ["dep:linfa", "dep:linfa-trees", "dep:linfa-logistic", "dep:ndarray"]
-graphql = ["dep:graphql_client"]
+default = ["sqlcipher"]
+custom-protocol = ["tauri/custom-protocol"]
+sqlcipher = []
+ts-gen = ["dep:ts-rs"]
+calendar = ["pulsearc-infra/calendar"]
+sap = ["pulsearc-infra/sap"]
+tree-classifier = ["pulsearc-infra/tree-classifier"]
+ml = ["tree-classifier", "pulsearc-infra/ml"]
+graphql = ["pulsearc-infra/graphql"]
 ```
 
-### Documented Features (This Inventory)
-- `calendar` (not in Cargo.toml)
-- `sap` (not in Cargo.toml)
-- `ml` (not in Cargo.toml)
+### Inventory Coverage
+- `calendar` ✅
+- `sap` ✅
+- `ml` ✅ (alias for `tree-classifier`)
 - `tree-classifier` ✅
 - `graphql` ✅
 
-### Required Action
-**Option A:** Add missing features to `Cargo.toml`
-```toml
-[features]
-calendar = []
-sap = []
-ml = ["tree-classifier"]  # Alias for ML features
-```
-
-**Option B:** Update inventory to match existing features
-- Replace `calendar` → document as "future feature"
-- Replace `sap` → document as "future feature"
-- Replace `ml` → use `tree-classifier` instead
-
-**Recommendation:** Option A (add features to Cargo) for explicit gating.
+**Status:** ✅ Feature flags now align with documented targets.
 
 ---
 
@@ -733,6 +725,5 @@ pub trait OutboxQueue: Send + Sync {
 
 ---
 
-**Document Status**: ⚠️ PARTIALLY BLOCKED - Phase 0 refactoring 14% complete (1/7 tasks done)
-**Latest**: Segmenter refactored to use repository ports (October 31, 2025)
-
+**Document Status**: 🟢 READY - Phase 0 refactoring complete
+**Latest**: All seven blockers closed; Phase 1 migration can proceed (October 31, 2025)
