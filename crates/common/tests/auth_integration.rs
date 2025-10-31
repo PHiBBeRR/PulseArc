@@ -4,13 +4,18 @@
 
 #![cfg(feature = "platform")]
 
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 
 use pulsearc_common::auth::{
     generate_code_challenge, generate_code_verifier, generate_state, validate_state, OAuthClient,
     OAuthConfig, PKCEChallenge, TokenSet,
 };
 use pulsearc_common::testing::{MockKeychainProvider, MockOAuthClient};
+
+fn disable_proxy() {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| std::env::set_var("PULSEARC_DISABLE_PROXY", "1"));
+}
 
 /// Validates PKCE (Proof Key for Code Exchange) challenge generation and
 /// format.
@@ -316,6 +321,7 @@ async fn test_token_expiration() {
 /// 5. Verify parameters are properly URL-encoded
 #[tokio::test(flavor = "multi_thread")]
 async fn test_oauth_client_authorization_url() {
+    disable_proxy();
     let config = OAuthConfig::new(
         "dev-test.auth0.com".to_string(),
         "test_client_id".to_string(),

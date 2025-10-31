@@ -338,8 +338,9 @@ impl OAuthClientTrait for OAuthClient {
 #[cfg(test)]
 mod tests {
     //! Unit tests for auth::client.
-    use super::*;
     use std::sync::Once;
+
+    use super::*;
 
     fn disable_proxy() {
         static INIT: Once = Once::new();

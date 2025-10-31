@@ -247,8 +247,10 @@ impl<C: OAuthClientTrait + 'static, K: KeychainTrait + 'static> TokenManager<C, 
     ///
     /// # Example
     /// ```no_run
-    /// # use pulsearc_common::auth::TokenManager;
-    /// # async fn example(token_manager: std::sync::Arc<TokenManager>) {
+    /// # use pulsearc_common::auth::{TokenManager, OAuthClientTrait, KeychainTrait};
+    /// # async fn example<C: OAuthClientTrait, K: KeychainTrait>(
+    /// #     token_manager: std::sync::Arc<TokenManager<C, K>>
+    /// # ) {
     /// tokio::spawn(async move {
     ///     token_manager.start_auto_refresh().await;
     /// });
@@ -340,10 +342,11 @@ impl<C: OAuthClientTrait + 'static, K: KeychainTrait + 'static> TokenManager<C, 
 #[cfg(all(test, feature = "platform"))]
 mod tests {
     //! Unit tests for auth::token_manager.
+    use std::sync::Once;
+
     use super::*;
     use crate::auth::{OAuthClient, OAuthConfig};
     use crate::testing::MockKeychainProvider;
-    use std::sync::Once;
 
     fn disable_proxy() {
         static INIT: Once = Once::new();

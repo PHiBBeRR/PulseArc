@@ -327,9 +327,10 @@ impl std::fmt::Debug for OAuthService {
 #[cfg(all(test, feature = "platform"))]
 mod tests {
     //! Unit tests for auth::service.
+    use std::sync::Once;
+
     use super::*;
     use crate::testing::MockKeychainProvider;
-    use std::sync::Once;
 
     fn disable_proxy() {
         static INIT: Once = Once::new();
