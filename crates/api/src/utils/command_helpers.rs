@@ -9,7 +9,9 @@ use std::time::Instant;
 use pulsearc_domain::{PulseArcError, Result as DomainResult};
 
 use crate::context::AppContext;
-use crate::utils::logging::{error_label, log_command_execution, record_command_metric};
+use crate::utils::logging::{
+    error_label, log_command_execution, record_command_metric, MetricRecord,
+};
 
 /// Execute a command with automatic metrics recording and logging
 ///
@@ -60,7 +62,17 @@ where
 
     // Log to tracing and record metrics to database
     log_command_execution(command_name, implementation, elapsed, success);
-    record_command_metric(ctx, command_name, implementation, elapsed, success, error_type).await;
+    record_command_metric(
+        ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success,
+            error_type,
+        },
+    )
+    .await;
 
     result
 }

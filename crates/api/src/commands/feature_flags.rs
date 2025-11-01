@@ -6,7 +6,12 @@ use std::time::Instant;
 use tauri::State;
 use tracing::info;
 
-use crate::utils::logging::{log_command_execution, log_feature_flag_check, record_command_metric};
+use crate::utils::logging::{
+    log_command_execution,
+    log_feature_flag_check,
+    record_command_metric,
+    MetricRecord,
+};
 use crate::AppContext;
 
 #[tauri::command]
@@ -38,8 +43,17 @@ pub async fn is_feature_enabled(
     let result = evaluation.map(|eval| eval.enabled);
     let error_type = if success { None } else { Some("feature_flag_error") };
 
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, success, error_type)
-        .await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success,
+            error_type,
+        },
+    )
+    .await;
 
     result
 }
@@ -73,8 +87,17 @@ pub async fn toggle_feature_flag(
     let error_type = if success { None } else { Some("feature_flag_error") };
 
     log_command_execution(command_name, implementation, elapsed, success);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, success, error_type)
-        .await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success,
+            error_type,
+        },
+    )
+    .await;
 
     result
 }
@@ -112,8 +135,17 @@ pub async fn list_feature_flags(
     let error_type = if success { None } else { Some("feature_flag_error") };
 
     log_command_execution(command_name, implementation, elapsed, success);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, success, error_type)
-        .await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success,
+            error_type,
+        },
+    )
+    .await;
 
     result
 }
