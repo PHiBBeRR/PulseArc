@@ -251,7 +251,7 @@ mod tests {
             .transform(|s| {
                 // Extract just the number from the string (first word)
                 let num = s.split_whitespace().next().unwrap_or(s);
-                format!("Reviewing PR #{}", num)
+                format!("Reviewing PR #{num}")
             })
             .build();
 
@@ -265,7 +265,7 @@ mod tests {
     fn test_transform_with_truncation() {
         let extractor = PatternExtractor::builder()
             .delimiter(" - ")
-            .transform(|s| s.to_uppercase())
+            .transform(str::to_uppercase)
             .max_length(5)
             .build();
 
@@ -277,7 +277,7 @@ mod tests {
         let extractor = PatternExtractor::builder()
             .delimiter(":")
             .filter(|s| s.contains('/'))
-            .transform(|s| s.trim().to_string())
+            .transform(|s| s.trim().to_owned())
             .build();
 
         assert_eq!(extractor.extract("user/repo: Pull Request"), Some("user/repo".to_string()));

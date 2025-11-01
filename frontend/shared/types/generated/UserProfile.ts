@@ -7,6 +7,10 @@ export type UserProfile = {
   id: string;
   auth0_id: string;
   email: string;
+  /**
+   * Organization ID from Auth0 (org_id claim or app_metadata)
+   */
+  org_id: string;
   name: string | null;
   first_name: string | null;
   last_name: string | null;

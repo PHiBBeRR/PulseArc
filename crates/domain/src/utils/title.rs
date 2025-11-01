@@ -1,6 +1,8 @@
 //! Pure string utility functions for title extraction and manipulation
 
-use crate::constants::*;
+use crate::constants::{
+    MAX_PROJECT_NAME_LENGTH, MAX_TITLE_LENGTH, TITLE_TRUNCATE_SUFFIX,
+};
 
 /// Extract text by splitting on a delimiter and taking a specific part.
 ///
@@ -28,13 +30,14 @@ use crate::constants::*;
 /// assert_eq!(extract_by_delimiter(title, " | ", 1), Some("Part2".to_string()));
 /// assert_eq!(extract_by_delimiter(title, " | ", 99), None);
 /// ```
+#[must_use]
 pub fn extract_by_delimiter(title: &str, delimiter: &str, position: usize) -> Option<String> {
     title
         .split(delimiter)
         .nth(position)
-        .map(|s| s.trim())
+        .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
 }
 
 /// Extract text by splitting and filtering with a predicate.
@@ -102,6 +105,7 @@ where
 /// assert_eq!(extract_filename("/path/to/file.rs"), "file.rs");
 /// assert_eq!(extract_filename("C:\\path\\to\\file.rs"), "file.rs");
 /// ```
+#[must_use]
 pub fn extract_filename(title: &str) -> String {
     // Try em dash first, then regular dash
     if title.contains(" — ") {
@@ -145,6 +149,7 @@ pub fn extract_filename(title: &str) -> String {
 /// let result = truncate_title(&long);
 /// assert!(result.len() <= 100); // Assuming MAX_TITLE_LENGTH is 100
 /// ```
+#[must_use]
 pub fn truncate_title(title: &str) -> String {
     if title.len() > MAX_TITLE_LENGTH {
         format!(
@@ -187,6 +192,7 @@ pub fn truncate_title(title: &str) -> String {
 /// let title = "just a file";
 /// assert_eq!(extract_project_context(title), None);
 /// ```
+#[must_use]
 pub fn extract_project_context(title: &str) -> Option<String> {
     // Common patterns: "file.rs - project [~/path]" or "file.rs - project"
     // Handle both em dash " — " and regular dash " - "
@@ -234,6 +240,7 @@ pub fn extract_project_context(title: &str) -> Option<String> {
 /// assert_eq!(clean_browser_title("My Site - Safari"), "My Site");
 /// assert_eq!(clean_browser_title("Plain Title"), "Plain Title");
 /// ```
+#[must_use]
 pub fn clean_browser_title(title: &str) -> String {
     // Remove common browser suffixes
     let suffixes = [" - Google Chrome", " - Mozilla Firefox", " - Safari", " - Arc"];

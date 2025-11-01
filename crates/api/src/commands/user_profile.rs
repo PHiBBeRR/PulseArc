@@ -230,14 +230,15 @@ pub async fn legacy_upsert_user_profile(
         // Use INSERT ... ON CONFLICT(auth0_id) DO UPDATE (matches legacy exactly)
         conn.execute(
             "INSERT INTO user_profiles (
-                id, auth0_id, email, name, first_name, last_name, display_name,
+                id, auth0_id, email, org_id, name, first_name, last_name, display_name,
                 avatar_url, phone_number, title, department, location, bio,
                 timezone, language, locale, date_format, is_active, email_verified,
                 two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
              ON CONFLICT(auth0_id) DO UPDATE SET
                 id = excluded.id,
                 email = excluded.email,
+                org_id = excluded.org_id,
                 name = excluded.name,
                 first_name = excluded.first_name,
                 last_name = excluded.last_name,
@@ -262,6 +263,7 @@ pub async fn legacy_upsert_user_profile(
                 &profile.id,
                 &profile.auth0_id,
                 &profile.email,
+                &profile.org_id,
                 &profile.name,
                 &profile.first_name,
                 &profile.last_name,

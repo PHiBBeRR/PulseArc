@@ -428,7 +428,6 @@ async fn test_auth_with_cache() {
     let cache: AsyncCache<String, String> =
         AsyncCache::new(CacheConfig::ttl(Duration::from_secs(300)));
     let keychain = Arc::new(MockKeychainProvider::new("PulseArcTest".to_string()));
-    let service_name = unique_test_id("test_auth_cache");
 
     // Create OAuth client for token manager
     let oauth_config = OAuthConfig::new(
@@ -440,13 +439,8 @@ async fn test_auth_with_cache() {
     );
     let oauth_client = OAuthClient::new(oauth_config);
 
-    let token_manager = TokenManager::new(
-        oauth_client,
-        keychain.clone(),
-        service_name.clone(),
-        "test_user".to_string(),
-        300,
-    );
+    let token_manager =
+        TokenManager::new(oauth_client, keychain.clone(), "test_user".to_string(), 300);
 
     // Save tokens to keychain
     let token_set = TokenSet {

@@ -41,6 +41,7 @@ pub struct CalendarEvent {
     pub attendee_count: Option<i32>,
     #[cfg_attr(feature = "ts-gen", ts(type = "number", optional))]
     pub external_attendee_count: Option<i32>,
+    pub attendees: Vec<String>,
 }
 
 /// Calendar sync settings

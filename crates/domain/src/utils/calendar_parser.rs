@@ -609,7 +609,7 @@ mod tests {
         assert_eq!(result.project, Some(String::from("General")));
         assert_eq!(result.workstream, None);
         assert_eq!(result.task, Some(String::from("team catch up")));
-        assert_eq!(result.confidence, 0.5);
+        assert!((result.confidence - 0.5).abs() <= f32::EPSILON);
     }
 
     #[test]

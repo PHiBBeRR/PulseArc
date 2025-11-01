@@ -71,8 +71,6 @@ impl From<String> for TokenManagerError {
 pub struct TokenManager<C: OAuthClientTrait + 'static, K: KeychainTrait + 'static> {
     oauth_client: Arc<C>,
     keychain: Arc<K>,
-    #[allow(dead_code)] // Reserved for future keychain namespacing
-    service_name: String,
     account_name: String,
     current_tokens: Arc<RwLock<Option<TokenSet>>>,
     refresh_threshold_seconds: i64,
@@ -84,7 +82,6 @@ impl<C: OAuthClientTrait + 'static, K: KeychainTrait + 'static> TokenManager<C, 
     /// # Arguments
     /// * `oauth_client` - OAuth client for token refresh
     /// * `keychain` - Keychain provider for persistence
-    /// * `service_name` - Keychain service name (e.g., "PulseArc.api")
     /// * `account_name` - Keychain account name (e.g., "main" or token
     ///   reference ID)
     /// * `refresh_threshold_seconds` - Refresh tokens this many seconds before
@@ -93,14 +90,12 @@ impl<C: OAuthClientTrait + 'static, K: KeychainTrait + 'static> TokenManager<C, 
     pub fn new(
         oauth_client: C,
         keychain: Arc<K>,
-        service_name: String,
         account_name: String,
         refresh_threshold_seconds: i64,
     ) -> Self {
         Self {
             oauth_client: Arc::new(oauth_client),
             keychain,
-            service_name,
             account_name,
             current_tokens: Arc::new(RwLock::new(None)),
             refresh_threshold_seconds,
@@ -372,13 +367,7 @@ mod tests {
         let test_service = format!("PulseArcTest.oauth.{}", uuid::Uuid::new_v4());
         let keychain = Arc::new(MockKeychainProvider::new(test_service));
 
-        TokenManager::new(
-            oauth_client,
-            keychain,
-            "test.service".to_string(),
-            "test.account".to_string(),
-            300,
-        )
+        TokenManager::new(oauth_client, keychain, "test.account".to_string(), 300)
     }
 
     /// Validates the token manager creation scenario.
