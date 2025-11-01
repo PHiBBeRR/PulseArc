@@ -374,6 +374,100 @@ pub struct CircuitBreakerMetrics {
     pub total_calls: u64,
     pub last_failure_time: Option<Instant>,
     pub state_change_time: Instant,
+    pub poisoned_lock_count: u64,
+}
+
+impl CircuitBreakerMetrics {
+    /// Calculate the success rate as a percentage (0.0 to 1.0).
+    ///
+    /// Returns 0.0 if no calls have been made.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use pulsearc_common::resilience::CircuitBreaker;
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let breaker = CircuitBreaker::with_defaults();
+    /// let _ = breaker.call(|| Ok::<_, std::io::Error>(42))?;
+    /// let _ = breaker.call(|| Ok::<_, std::io::Error>(42))?;
+    ///
+    /// let metrics = breaker.metrics();
+    /// assert_eq!(metrics.success_rate(), 1.0); // 100% success rate
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn success_rate(&self) -> f64 {
+        if self.total_calls == 0 {
+            return 0.0;
+        }
+        self.success_count as f64 / self.total_calls as f64
+    }
+
+    /// Calculate the failure rate as a percentage (0.0 to 1.0).
+    ///
+    /// Returns 0.0 if no calls have been made.
+    pub fn failure_rate(&self) -> f64 {
+        if self.total_calls == 0 {
+            return 0.0;
+        }
+        self.failure_count as f64 / self.total_calls as f64
+    }
+
+    /// Get the duration since the circuit breaker last changed state.
+    ///
+    /// This is useful for tracking how long the circuit has been in the current
+    /// state.
+    pub fn time_in_current_state(&self) -> Duration {
+        self.state_change_time.elapsed()
+    }
+
+    /// Get the duration since the last failure occurred.
+    ///
+    /// Returns `None` if no failures have been recorded.
+    pub fn time_since_last_failure(&self) -> Option<Duration> {
+        self.last_failure_time.map(|t| t.elapsed())
+    }
+
+    /// Check if the circuit breaker is healthy (closed state with low failure
+    /// rate).
+    ///
+    /// A circuit breaker is considered healthy if:
+    /// - It's in the Closed state
+    /// - The failure rate is below the specified threshold (default 0.1 = 10%)
+    pub fn is_healthy(&self, failure_rate_threshold: f64) -> bool {
+        self.state == CircuitState::Closed && self.failure_rate() < failure_rate_threshold
+    }
+
+    /// Get a human-readable status message describing the current state.
+    pub fn status_message(&self) -> String {
+        match self.state {
+            CircuitState::Closed => {
+                format!(
+                    "CLOSED - {} total calls ({} successes, {} failures, {:.1}% success rate)",
+                    self.total_calls,
+                    self.success_count,
+                    self.failure_count,
+                    self.success_rate() * 100.0
+                )
+            }
+            CircuitState::Open => {
+                let time_since_failure = self
+                    .time_since_last_failure()
+                    .map(|d| format!("{:.1}s ago", d.as_secs_f64()))
+                    .unwrap_or_else(|| "unknown".to_string());
+                format!(
+                    "OPEN - Last failure {}, {} failures accumulated",
+                    time_since_failure, self.failure_count
+                )
+            }
+            CircuitState::HalfOpen => {
+                format!(
+                    "HALF_OPEN - Testing recovery ({}/{} test calls)",
+                    self.half_open_calls, self.success_count
+                )
+            }
+        }
+    }
 }
 
 /// Generic circuit breaker implementation
@@ -390,6 +484,7 @@ pub struct CircuitBreaker<C: Clock = SystemClock> {
     success_count: Arc<AtomicU64>,
     half_open_calls: Arc<AtomicU64>,
     total_calls: Arc<AtomicU64>,
+    poisoned_lock_count: Arc<AtomicU64>,
     last_failure_time: Arc<RwLock<Option<Instant>>>,
     state_change_time: Arc<RwLock<Instant>>,
     clock: Arc<C>,
@@ -415,6 +510,7 @@ impl<C: Clock> Clone for CircuitBreaker<C> {
             success_count: Arc::clone(&self.success_count),
             half_open_calls: Arc::clone(&self.half_open_calls),
             total_calls: Arc::clone(&self.total_calls),
+            poisoned_lock_count: Arc::clone(&self.poisoned_lock_count),
             last_failure_time: Arc::clone(&self.last_failure_time),
             state_change_time: Arc::clone(&self.state_change_time),
             clock: Arc::clone(&self.clock),
@@ -423,6 +519,24 @@ impl<C: Clock> Clone for CircuitBreaker<C> {
 }
 
 // Type aliases for common use cases
+
+/// Type alias for a circuit breaker using the real system clock.
+///
+/// This is the most common circuit breaker type for production use.
+/// For testing with deterministic time control, use
+/// `CircuitBreaker<MockClock>`.
+///
+/// # Examples
+///
+/// ```rust
+/// use pulsearc_common::resilience::SyncCircuitBreaker;
+///
+/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let breaker = SyncCircuitBreaker::with_defaults();
+/// let result = breaker.call(|| Ok::<_, std::io::Error>(42))?;
+/// # Ok(())
+/// # }
+/// ```
 pub type SyncCircuitBreaker = CircuitBreaker<SystemClock>;
 
 impl CircuitBreaker<SystemClock> {
@@ -455,6 +569,7 @@ impl<C: Clock> CircuitBreaker<C> {
             success_count: Arc::new(AtomicU64::new(0)),
             half_open_calls: Arc::new(AtomicU64::new(0)),
             total_calls: Arc::new(AtomicU64::new(0)),
+            poisoned_lock_count: Arc::new(AtomicU64::new(0)),
             last_failure_time: Arc::new(RwLock::new(None)),
             state_change_time: Arc::new(RwLock::new(clock.now())),
             clock: Arc::new(clock),
@@ -470,6 +585,7 @@ impl<C: Clock> CircuitBreaker<C> {
             Ok(guard) => *guard != CircuitState::Open,
             Err(poisoned) => {
                 warn!("Circuit breaker state lock poisoned in is_available");
+                self.poisoned_lock_count.fetch_add(1, Ordering::Relaxed);
                 *poisoned.into_inner() != CircuitState::Open
             }
         }
@@ -487,6 +603,7 @@ impl<C: Clock> CircuitBreaker<C> {
             Err(poisoned) => {
                 // If the lock is poisoned, we still want to try to recover
                 warn!("Circuit breaker state lock poisoned: {}", poisoned);
+                self.poisoned_lock_count.fetch_add(1, Ordering::Relaxed);
                 // Clear the poison and return the data
                 *poisoned.into_inner()
             }
@@ -672,6 +789,7 @@ impl<C: Clock> CircuitBreaker<C> {
             Ok(guard) => *guard,
             Err(poisoned) => {
                 warn!("Circuit breaker state lock poisoned during get_state");
+                self.poisoned_lock_count.fetch_add(1, Ordering::Relaxed);
                 *poisoned.into_inner()
             }
         }
@@ -685,6 +803,7 @@ impl<C: Clock> CircuitBreaker<C> {
             success_count: self.success_count.load(Ordering::Acquire),
             half_open_calls: self.half_open_calls.load(Ordering::Acquire),
             total_calls: self.total_calls.load(Ordering::Acquire),
+            poisoned_lock_count: self.poisoned_lock_count.load(Ordering::Acquire),
             last_failure_time: self.last_failure_time.read().ok().and_then(|guard| *guard),
             state_change_time: self
                 .state_change_time

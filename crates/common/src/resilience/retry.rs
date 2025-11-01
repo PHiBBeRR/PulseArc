@@ -43,12 +43,28 @@ pub struct RetryOutcome<T, E> {
     pub attempts: u32,
     pub total_delay: Duration,
     pub timed_out: bool,
+    pub first_attempt_time: Instant,
+    pub last_error: Option<E>,
 }
 
 impl<T, E> RetryOutcome<T, E> {
     /// Consume the outcome and return only the result.
     pub fn into_result(self) -> RetryResult<T, E> {
         self.result
+    }
+
+    /// Get the total elapsed time from first attempt to completion.
+    pub fn total_elapsed(&self) -> Duration {
+        self.first_attempt_time.elapsed()
+    }
+
+    /// Get the average delay between attempts (excludes operation execution
+    /// time).
+    pub fn average_delay(&self) -> Duration {
+        if self.attempts <= 1 {
+            return Duration::ZERO;
+        }
+        self.total_delay / (self.attempts - 1) as u32
     }
 }
 
@@ -366,7 +382,7 @@ impl<P> RetryExecutor<P> {
     pub async fn execute<F, Fut, T, E>(&self, operation: F) -> RetryResult<T, E>
     where
         P: RetryPolicy<E>,
-        E: fmt::Debug,
+        E: fmt::Debug + Clone,
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
@@ -377,11 +393,13 @@ impl<P> RetryExecutor<P> {
     pub async fn execute_with_outcome<F, Fut, T, E>(&self, mut operation: F) -> RetryOutcome<T, E>
     where
         P: RetryPolicy<E>,
-        E: fmt::Debug,
+        E: fmt::Debug + Clone,
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, E>>,
     {
         let mut context = RetryContext::new();
+        let first_attempt_time = Instant::now();
+        let mut last_error: Option<E> = None;
 
         loop {
             context.elapsed = context.start_time.elapsed();
@@ -399,6 +417,8 @@ impl<P> RetryExecutor<P> {
                         attempts: attempt_number,
                         total_delay: context.total_delay,
                         timed_out: true,
+                        first_attempt_time,
+                        last_error,
                     };
                 }
             }
@@ -417,9 +437,13 @@ impl<P> RetryExecutor<P> {
                         attempts: attempt_number,
                         total_delay: context.total_delay,
                         timed_out: false,
+                        first_attempt_time,
+                        last_error,
                     };
                 }
                 Err(error) => {
+                    last_error = Some(error.clone());
+
                     if context.attempt >= self.config.max_attempts - 1 {
                         warn!(
                             "All retry attempts exhausted after {} tries, last error: {:?}",
@@ -430,6 +454,8 @@ impl<P> RetryExecutor<P> {
                             attempts: attempt_number,
                             total_delay: context.total_delay,
                             timed_out: false,
+                            first_attempt_time,
+                            last_error,
                         };
                     }
 
@@ -442,6 +468,8 @@ impl<P> RetryExecutor<P> {
                                 attempts: attempt_number,
                                 total_delay: context.total_delay,
                                 timed_out: false,
+                                first_attempt_time,
+                                last_error,
                             };
                         }
                         RetryDecision::Retry => {
@@ -478,7 +506,7 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T, E>>,
     P: RetryPolicy<E>,
-    E: fmt::Debug,
+    E: fmt::Debug + Clone,
 {
     let executor = RetryExecutor::new(config, policy);
     executor.execute(operation).await
@@ -490,7 +518,7 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T, E>>,
     P: RetryPolicy<E>,
-    E: fmt::Debug,
+    E: fmt::Debug + Clone,
 {
     retry_with_policy(RetryConfig::default(), policy, operation).await
 }
