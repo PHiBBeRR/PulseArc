@@ -28,9 +28,9 @@ describe('adminService', () => {
   });
 
   describe('clearSnapshots', () => {
-    it('should call clear_local_activities command', async () => {
+    it('should call clear_snapshots command', async () => {
       await adminService.clearSnapshots();
-      expect(invoke).toHaveBeenCalledWith('clear_local_activities');
+      expect(invoke).toHaveBeenCalledWith('clear_snapshots');
     });
 
     it('should propagate errors', async () => {
@@ -42,9 +42,9 @@ describe('adminService', () => {
   });
 
   describe('clearOutbox', () => {
-    it('should call clear_outbox command', async () => {
+    it('should call clear_suggestions command', async () => {
       await adminService.clearOutbox();
-      expect(invoke).toHaveBeenCalledWith('clear_outbox');
+      expect(invoke).toHaveBeenCalledWith('clear_suggestions');
     });
 
     it('should propagate errors', async () => {
@@ -60,8 +60,8 @@ describe('adminService', () => {
       await adminService.clearAllData();
 
       expect(invoke).toHaveBeenCalledTimes(2);
-      expect(invoke).toHaveBeenNthCalledWith(1, 'clear_local_activities');
-      expect(invoke).toHaveBeenNthCalledWith(2, 'clear_outbox');
+      expect(invoke).toHaveBeenNthCalledWith(1, 'clear_snapshots');
+      expect(invoke).toHaveBeenNthCalledWith(2, 'clear_suggestions');
     });
 
     it('should propagate errors from snapshots', async () => {

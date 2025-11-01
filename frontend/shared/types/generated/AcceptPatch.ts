@@ -2,7 +2,6 @@
 
 /**
  * AcceptPatch - Partial update for editing time entry suggestions
- * Used when user edits a suggestion before accepting it
  */
 export type AcceptPatch = {
   title: string | null;

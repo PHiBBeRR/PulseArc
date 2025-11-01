@@ -11,9 +11,11 @@ use chrono::{DateTime, Duration, NaiveDate, NaiveTime, Utc};
 use pulsearc_common::storage::error::{StorageError, StorageResult};
 use pulsearc_common::storage::sqlcipher::SqlCipherConnection;
 use pulsearc_core::classification::ports::BlockRepository as BlockRepositoryPort;
-use pulsearc_domain::types::classification::{ActivityBreakdown, ProposedBlock, WorkLocation};
+use pulsearc_domain::types::classification::{
+    ActivityBreakdown, BlockConfig, ProposedBlock, WorkLocation,
+};
 use pulsearc_domain::{PulseArcError, Result as DomainResult};
-use rusqlite::{params, Row, ToSql};
+use rusqlite::{params, OptionalExtension, Row, ToSql};
 use tokio::task;
 use tracing::warn;
 
@@ -120,6 +122,50 @@ impl BlockRepositoryPort for SqlCipherBlockRepository {
         .await
         .map_err(map_join_error)?
     }
+
+    async fn get_proposed_block(&self, block_id: &str) -> DomainResult<Option<ProposedBlock>> {
+        let db = Arc::clone(&self.db);
+        let block_id = block_id.to_owned();
+
+        task::spawn_blocking(move || -> DomainResult<Option<ProposedBlock>> {
+            let conn = db.get_connection()?;
+            let params: [&dyn ToSql; 1] = [&block_id];
+            let rows =
+                query_blocks(&conn, BLOCK_SELECT_BY_ID, &params).map_err(map_storage_error)?;
+            Ok(rows.into_iter().next())
+        })
+        .await
+        .map_err(map_join_error)?
+    }
+
+    async fn approve_block(&self, block_id: &str, reviewed_at: DateTime<Utc>) -> DomainResult<()> {
+        SqlCipherBlockRepository::approve_block(self, block_id, reviewed_at).await
+    }
+
+    async fn reject_block(&self, block_id: &str, reviewed_at: DateTime<Utc>) -> DomainResult<()> {
+        SqlCipherBlockRepository::reject_block(self, block_id, reviewed_at).await
+    }
+
+    async fn get_block_history(&self, snapshot_id: &str) -> DomainResult<Vec<ProposedBlock>> {
+        SqlCipherBlockRepository::get_block_history(self, snapshot_id).await
+    }
+
+    async fn get_block_config(&self) -> DomainResult<BlockConfig> {
+        let db = Arc::clone(&self.db);
+
+        task::spawn_blocking(move || -> DomainResult<BlockConfig> {
+            let conn = db.get_connection()?;
+            let config = conn
+                .inner()
+                .query_row(BLOCK_CONFIG_SELECT, rusqlite::params![], map_block_config)
+                .optional()
+                .map_err(StorageError::from)
+                .map_err(map_storage_error)?;
+            Ok(config.unwrap_or_default())
+        })
+        .await
+        .map_err(map_join_error)?
+    }
 }
 
 const INSERT_BLOCK_SQL: &str = "INSERT OR REPLACE INTO proposed_time_blocks (
@@ -167,6 +213,26 @@ const BLOCK_SELECT_BY_SNAPSHOT: &str = "SELECT
     FROM proposed_time_blocks
     WHERE snapshot_ids_json LIKE ?1
     ORDER BY created_at DESC";
+
+const BLOCK_SELECT_BY_ID: &str = "SELECT
+        id, start_ts, end_ts, duration_secs,
+        inferred_project_id, inferred_wbs_code, inferred_deal_name, inferred_workstream,
+        billable, confidence,
+        activities_json, snapshot_ids_json, segment_ids, reasons_json,
+        status, created_at, reviewed_at,
+        total_idle_secs, idle_handling,
+        has_calendar_overlap, overlapping_event_ids, is_double_booked,
+        timezone, work_location, is_travel, is_weekend, is_after_hours
+    FROM proposed_time_blocks
+    WHERE id = ?1";
+
+const BLOCK_CONFIG_SELECT: &str = "SELECT
+        min_block_duration_secs,
+        max_gap_for_merge_secs,
+        consolidation_window_secs,
+        min_billing_increment_secs
+    FROM block_config
+    WHERE id = 1";
 
 fn insert_block(conn: &SqlCipherConnection, block: &ProposedBlock) -> StorageResult<()> {
     let activities_json = serialize_json(&block.activities)?;
@@ -286,6 +352,15 @@ fn map_block_row(row: &Row<'_>) -> rusqlite::Result<ProposedBlock> {
     })
 }
 
+fn map_block_config(row: &Row<'_>) -> rusqlite::Result<BlockConfig> {
+    Ok(BlockConfig {
+        min_block_duration_secs: row.get(0)?,
+        max_gap_for_merge_secs: row.get(1)?,
+        consolidation_window_secs: row.get(2)?,
+        min_billing_increment_secs: row.get(3)?,
+    })
+}
+
 fn day_bounds(date: NaiveDate) -> (UtcDateTime, UtcDateTime) {
     let start = date.and_time(NaiveTime::MIN).and_utc();
     let end = start + Duration::days(1);
@@ -354,7 +429,7 @@ fn map_join_error(err: task::JoinError) -> PulseArcError {
 
 #[cfg(test)]
 mod tests {
-    use pulsearc_domain::types::classification::ActivityBreakdown;
+    use pulsearc_domain::types::classification::{ActivityBreakdown, BlockConfig};
     use tempfile::TempDir;
 
     use super::*;
@@ -412,6 +487,18 @@ mod tests {
         assert_eq!(history.len(), 2);
         assert_eq!(history[0].id, "history-c");
         assert_eq!(history[1].id, "history-a");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn get_block_config_returns_defaults() {
+        let (repo, _manager, _dir) = setup_repository().await;
+        let config = repo.get_block_config().await.expect("config fetched");
+
+        let defaults = BlockConfig::default();
+        assert_eq!(config.min_block_duration_secs, defaults.min_block_duration_secs);
+        assert_eq!(config.max_gap_for_merge_secs, defaults.max_gap_for_merge_secs);
+        assert_eq!(config.consolidation_window_secs, defaults.consolidation_window_secs);
+        assert_eq!(config.min_billing_increment_secs, defaults.min_billing_increment_secs);
     }
 
     async fn setup_repository() -> (SqlCipherBlockRepository, Arc<DbManager>, TempDir) {

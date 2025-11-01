@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use pulsearc_common::error::CommonResult;
 use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot, CalendarEventParams};
-use pulsearc_domain::{ActivityContext, CalendarEventRow, IdlePeriod, Result};
+use pulsearc_domain::{ActivityContext, CalendarEventRow, IdlePeriod, IdleSummary, Result};
 
 /// Trait for capturing activity from the operating system
 #[async_trait]
@@ -74,7 +74,7 @@ pub trait SegmentRepository: Send + Sync {
     fn mark_processed(&self, segment_id: &str) -> CommonResult<()>;
 }
 
-/// Port for snapshot retrieval (read-only for segmenter)
+/// Port for snapshot retrieval and persistence
 ///
 /// This trait uses synchronous methods because SqlCipherPool is synchronous.
 /// No async/await needed or supported.
@@ -88,6 +88,39 @@ pub trait SnapshotRepository: Send + Sync {
 
     /// Count snapshots for a given date
     fn count_snapshots_by_date(&self, date: NaiveDate) -> CommonResult<usize>;
+
+    /// Store a single snapshot to storage (sync version)
+    ///
+    /// Uses INSERT OR REPLACE to handle duplicate IDs gracefully.
+    ///
+    /// # Note
+    /// This is the synchronous writer for SnapshotRepository.
+    /// For async writes, see ActivityRepository::save_snapshot.
+    fn store_snapshot(&self, snapshot: &ActivitySnapshot) -> CommonResult<()>;
+
+    /// Store multiple snapshots in a single transaction (sync version)
+    ///
+    /// More efficient than calling store_snapshot repeatedly.
+    /// Uses INSERT OR REPLACE to handle duplicate IDs gracefully.
+    fn store_snapshots_batch(&self, snapshots: &[ActivitySnapshot]) -> CommonResult<()>;
+
+    /// Count active snapshots (is_idle = 0) within a time range
+    ///
+    /// Used for calculating total active time in idle summaries.
+    /// Each active snapshot represents 30 seconds of active time.
+    ///
+    /// # Arguments
+    /// * `start` - Start of time range (UTC)
+    /// * `end` - End of time range (UTC)
+    ///
+    /// # Returns
+    /// Number of active snapshots (where is_idle = 0)
+    ///
+    /// # Note
+    /// Returns i64 to match SQLite COUNT(*) return type and support
+    /// arithmetic operations (e.g., count × 30 seconds)
+    fn count_active_snapshots(&self, start: DateTime<Utc>, end: DateTime<Utc>)
+        -> CommonResult<i64>;
 }
 
 /// Repository for querying calendar events
@@ -221,4 +254,28 @@ pub trait IdlePeriodsRepository: Send + Sync {
     /// # Returns
     /// Number of periods deleted
     async fn delete_idle_periods_before(&self, before_ts: i64) -> Result<usize>;
+
+    /// Get idle time summary for a time range
+    ///
+    /// Calculates aggregated statistics for idle periods within the specified
+    /// range:
+    /// - Total active time (from activity_snapshots where is_idle = 0)
+    /// - Total idle time (sum of idle period durations)
+    /// - Count of idle periods
+    /// - Idle time by user action (kept, discarded, pending)
+    ///
+    /// # Arguments
+    /// * `start_ts` - Start of time range (Unix epoch seconds)
+    /// * `end_ts` - End of time range (Unix epoch seconds)
+    ///
+    /// # Returns
+    /// `IdleSummary` containing aggregated idle time statistics
+    ///
+    /// # Note
+    /// This method executes multiple queries to aggregate:
+    /// - Active snapshot count (× 30 seconds per snapshot)
+    /// - Total idle duration
+    /// - Idle period count
+    /// - Idle duration by user_action (kept, discarded, pending/NULL)
+    async fn get_idle_summary(&self, start_ts: i64, end_ts: i64) -> Result<IdleSummary>;
 }

@@ -133,6 +133,65 @@ impl SnapshotRepositoryPort for SqlCipherActivityRepository {
 
         Ok(count as usize)
     }
+
+    fn store_snapshot(&self, snapshot: &ActivitySnapshot) -> CommonResult<()> {
+        let conn = self
+            .db
+            .get_connection()
+            .map_err(|err| map_to_common_error("activity_snapshots.store_connection", err))?;
+
+        insert_or_replace_snapshot(&conn, snapshot)
+            .map_err(|err| map_storage_to_common("activity_snapshots.store", err))
+    }
+
+    fn store_snapshots_batch(&self, snapshots: &[ActivitySnapshot]) -> CommonResult<()> {
+        let conn = self
+            .db
+            .get_connection()
+            .map_err(|err| map_to_common_error("activity_snapshots.batch_connection", err))?;
+
+        // Use a transaction for batch insert
+        conn.execute("BEGIN TRANSACTION", []).map_err(|err| {
+            map_storage_to_common("activity_snapshots.batch_begin", StorageError::from(err))
+        })?;
+
+        for snapshot in snapshots {
+            if let Err(err) = insert_or_replace_snapshot(&conn, snapshot) {
+                // Rollback on error
+                let _ = conn.execute("ROLLBACK", []);
+                return Err(map_storage_to_common("activity_snapshots.batch_insert", err));
+            }
+        }
+
+        conn.execute("COMMIT", []).map_err(|err| {
+            let _ = conn.execute("ROLLBACK", []);
+            map_storage_to_common("activity_snapshots.batch_commit", StorageError::from(err))
+        })?;
+
+        Ok(())
+    }
+
+    fn count_active_snapshots(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> CommonResult<i64> {
+        let conn = self
+            .db
+            .get_connection()
+            .map_err(|err| map_to_common_error("activity_snapshots.count_active", err))?;
+
+        let params: [&dyn ToSql; 2] = [&start.timestamp(), &end.timestamp()];
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM activity_snapshots WHERE timestamp >= ?1 AND timestamp < ?2 AND is_idle = 0",
+                &params,
+                |row| row.get(0),
+            )
+            .map_err(|err| map_storage_to_common("activity_snapshots.count_active", err))?;
+
+        Ok(count)
+    }
 }
 
 const INSERT_SNAPSHOT_SQL: &str = "INSERT INTO activity_snapshots (
@@ -170,6 +229,39 @@ const DELETE_OLD_SNAPSHOTS_SQL: &str = "DELETE FROM activity_snapshots WHERE tim
 
 const SNAPSHOT_COUNT_BY_DATE_QUERY: &str =
     "SELECT COUNT(*) FROM activity_snapshots WHERE timestamp >= ?1 AND timestamp < ?2";
+
+const INSERT_OR_REPLACE_SNAPSHOT_SQL: &str = "INSERT OR REPLACE INTO activity_snapshots (
+        id, timestamp, activity_context_json, detected_activity,
+        work_type, activity_category, primary_app, processed,
+        batch_id, created_at, processed_at, is_idle, idle_duration_secs
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)";
+
+fn insert_or_replace_snapshot(
+    conn: &SqlCipherConnection,
+    snapshot: &ActivitySnapshot,
+) -> StorageResult<()> {
+    let processed = bool_to_int(snapshot.processed);
+    let is_idle = bool_to_int(snapshot.is_idle);
+
+    let params: [&dyn ToSql; 13] = [
+        &snapshot.id,
+        &snapshot.timestamp,
+        &snapshot.activity_context_json,
+        &snapshot.detected_activity,
+        &snapshot.work_type,
+        &snapshot.activity_category,
+        &snapshot.primary_app,
+        &processed,
+        &snapshot.batch_id,
+        &snapshot.created_at,
+        &snapshot.processed_at,
+        &is_idle,
+        &snapshot.idle_duration_secs,
+    ];
+
+    conn.execute(INSERT_OR_REPLACE_SNAPSHOT_SQL, params.as_slice())?;
+    Ok(())
+}
 
 fn insert_snapshot(conn: &SqlCipherConnection, snapshot: &ActivitySnapshot) -> StorageResult<()> {
     let processed = bool_to_int(snapshot.processed);

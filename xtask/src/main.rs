@@ -7,10 +7,12 @@
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use std::env;
+use std::fmt::Write as _;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::{env, fs};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 mod features;
 
@@ -25,6 +27,7 @@ fn main() -> ExitCode {
         Some("test") => run_test(),
         Some("deny") => run_deny(),
         Some("audit") => run_audit(),
+        Some("codegen") => run_codegen(),
         Some("test-features") => features::test_feature_matrix(),
         Some("help") | None => {
             print_help();
@@ -59,6 +62,7 @@ fn print_help() {
     println!("    prettier  Check frontend code formatting");
     println!("    clippy    Run Clippy lints");
     println!("    test      Run all tests");
+    println!("    codegen   Generate TypeScript types from Rust and sync to frontend");
     println!("    test-features  Verify pulsearc-infra feature matrix compiles");
     println!("    deny      Check dependencies with cargo-deny");
     println!("    audit     Audit dependencies for security vulnerabilities");
@@ -205,6 +209,138 @@ fn run_audit() -> anyhow::Result<()> {
     if !status.success() {
         anyhow::bail!("cargo-audit found vulnerabilities");
     }
+
+    Ok(())
+}
+
+/// Generate TypeScript types from Rust and sync to frontend
+fn run_codegen() -> anyhow::Result<()> {
+    println!("==> Generating TypeScript types from Rust...\n");
+
+    // Step 1: Run domain tests with ts-gen feature to generate bindings
+    println!("Step 1/3: Running ts-gen tests to generate TypeScript files...");
+    let status = Command::new("cargo")
+        .args(["test", "-p", "pulsearc-domain", "--features", "ts-gen", "--lib"])
+        .status()
+        .context("Failed to run cargo test")?;
+
+    if !status.success() {
+        anyhow::bail!("TypeScript generation tests failed");
+    }
+
+    // Step 2: Verify bindings directory exists
+    let bindings_dir = PathBuf::from("crates/domain/bindings");
+    if !bindings_dir.exists() {
+        anyhow::bail!(
+            "Bindings directory not found at {}. TypeScript generation may have failed.",
+            bindings_dir.display()
+        );
+    }
+
+    // Step 3: Sync bindings to frontend
+    let frontend_types_dir = PathBuf::from("frontend/shared/types/generated");
+    println!(
+        "\nStep 2/3: Syncing {} TypeScript files to {}...",
+        count_ts_files(&bindings_dir)?,
+        frontend_types_dir.display()
+    );
+
+    sync_bindings(&bindings_dir, &frontend_types_dir)?;
+
+    // Step 4: Generate index.ts
+    println!("\nStep 3/3: Generating index.ts...");
+    generate_index_ts(&frontend_types_dir)?;
+
+    println!("\n✓ TypeScript type generation complete!");
+    println!("  Generated files: {}", frontend_types_dir.display());
+
+    Ok(())
+}
+
+/// Count TypeScript files in a directory
+fn count_ts_files(dir: &Path) -> anyhow::Result<usize> {
+    let entries = fs::read_dir(dir).context("Failed to read bindings directory")?;
+
+    Ok(entries
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().and_then(std::ffi::OsStr::to_str) == Some("ts"))
+        .count())
+}
+
+/// Sync TypeScript bindings from source to destination
+fn sync_bindings(src: &Path, dest: &Path) -> anyhow::Result<()> {
+    // Create destination directory if it doesn't exist
+    fs::create_dir_all(dest).context("Failed to create frontend types directory")?;
+
+    // Read all .ts files from source
+    let entries = fs::read_dir(src).context("Failed to read bindings directory")?;
+
+    let mut synced = 0;
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.extension().and_then(std::ffi::OsStr::to_str) == Some("ts") {
+            let file_name = path.file_name().ok_or_else(|| anyhow!("Invalid file name"))?;
+            let dest_path = dest.join(file_name);
+
+            fs::copy(&path, &dest_path).with_context(|| {
+                format!("Failed to copy {} to {}", path.display(), dest_path.display())
+            })?;
+
+            synced += 1;
+        }
+    }
+
+    println!("  Synced {synced} files");
+    Ok(())
+}
+
+/// Generate index.ts that exports all types
+fn generate_index_ts(types_dir: &Path) -> anyhow::Result<()> {
+    let index_path = types_dir.join("index.ts");
+
+    // Read all .ts files (excluding index.ts itself)
+    let entries = fs::read_dir(types_dir).context("Failed to read types directory")?;
+
+    let mut type_files: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let path = e.path();
+            let file_name = path.file_name()?.to_str()?;
+
+            // Skip index.ts, .gitkeep, and test files
+            if file_name == "index.ts" || file_name == ".gitkeep" || file_name.ends_with(".test.ts")
+            {
+                return None;
+            }
+
+            // Only include .ts files
+            if path.extension()?.to_str()? == "ts" {
+                // Remove .ts extension to get the module name
+                Some(file_name[..file_name.len() - 3].to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Sort alphabetically for consistent output
+    type_files.sort();
+
+    // Generate index.ts content
+    let mut content = String::from(
+        "// Auto-generated types from Rust backend\n\
+         // Generated by ts-rs via: cargo xtask codegen\n\
+         // DO NOT EDIT MANUALLY - changes will be overwritten\n\n",
+    );
+
+    for type_name in &type_files {
+        let _ = writeln!(content, "export type {{ {type_name} }} from './{type_name}';");
+    }
+
+    fs::write(&index_path, content)
+        .with_context(|| format!("Failed to write {}", index_path.display()))?;
+
+    println!("  Generated index.ts with {} exports", type_files.len());
 
     Ok(())
 }

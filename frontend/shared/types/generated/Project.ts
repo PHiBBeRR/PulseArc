@@ -2,6 +2,5 @@
 
 /**
  * Project - Minimal project info for frontend display
- * Used by get_user_projects command to resolve project IDs to names
  */
 export type Project = { id: string; name: string };

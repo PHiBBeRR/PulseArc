@@ -273,7 +273,7 @@ impl HistogramSnapshot {
     /// let p99 = snapshot.percentile(0.99); // 99th percentile
     /// ```
     pub fn percentile(&self, p: f64) -> Option<Duration> {
-        if self.count == 0 || p < 0.0 || p > 1.0 {
+        if self.count == 0 || !(0.0..=1.0).contains(&p) {
             return None;
         }
 
@@ -540,9 +540,8 @@ mod tests {
         assert!(p50 >= Duration::from_millis(100));
         let p99 = snapshot.percentile(0.99).unwrap();
         assert!(p99 >= Duration::from_millis(100));
-
     }
-    
+
     #[test]
     fn test_concurrent_recording() {
         use std::sync::Arc;
@@ -585,7 +584,8 @@ mod tests {
         let snapshot = histogram.snapshot();
         let stddev = snapshot.stddev().unwrap();
 
-        // With identical values, stddev should be very low (accounting for bucket approximation)
+        // With identical values, stddev should be very low (accounting for bucket
+        // approximation)
         assert!(
             stddev < Duration::from_millis(20),
             "Expected low stddev for uniform values, got {:?}",
@@ -687,11 +687,7 @@ mod tests {
 
         // Should be clamped to MAX_MICROS
         let max = snapshot.max().unwrap();
-        assert!(
-            max <= Duration::from_secs(3700),
-            "Duration should be clamped, got {:?}",
-            max
-        );
+        assert!(max <= Duration::from_secs(3700), "Duration should be clamped, got {:?}", max);
     }
 
     /// Test mixed boundary values
@@ -814,7 +810,7 @@ mod tests {
             // Should be within same order of magnitude (logarithmic bucketing)
             let ratio = recovered as f64 / micros as f64;
             assert!(
-                ratio >= 0.5 && ratio <= 2.0,
+                (0.5..=2.0).contains(&ratio),
                 "Bucket conversion too inaccurate for {}µs: got bucket {}, recovered {}µs (ratio: {:.2})",
                 micros,
                 bucket,
@@ -912,10 +908,7 @@ mod tests {
         let snapshot = histogram.snapshot();
         let summary = snapshot.summary();
 
-        assert!(
-            summary.contains("No measurements"),
-            "Empty histogram should have special message"
-        );
+        assert!(summary.contains("No measurements"), "Empty histogram should have special message");
     }
 
     /// Test mean calculation accuracy

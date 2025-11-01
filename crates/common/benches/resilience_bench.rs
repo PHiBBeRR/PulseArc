@@ -7,6 +7,8 @@
 //! Run with: `cargo bench --bench resilience_bench -p pulsearc-common
 //! --features runtime`
 
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -128,6 +130,17 @@ fn build_runtime() -> tokio::runtime::Runtime {
         .expect("tokio runtime should build for benchmarks")
 }
 
+#[derive(Debug, Clone)]
+struct BenchError(&'static str);
+
+impl Display for BenchError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for BenchError {}
+
 fn bench_retry_executor_outcomes(c: &mut Criterion) {
     let mut group = c.benchmark_group("retry_executor_outcomes");
     let runtime = build_runtime();
@@ -143,8 +156,7 @@ fn bench_retry_executor_outcomes(c: &mut Criterion) {
                 .expect("retry config should build for immediate success");
             let executor = RetryExecutor::new(config, policies::AlwaysRetry);
 
-            let result: Result<_, _> =
-                executor.execute(|| async { Ok::<_, std::io::Error>(()) }).await;
+            let result: Result<_, _> = executor.execute(|| async { Ok::<_, BenchError>(()) }).await;
             if let Err(err) = result {
                 panic!("retry immediate success failed: {err:?}");
             }
@@ -171,9 +183,9 @@ fn bench_retry_executor_outcomes(c: &mut Criterion) {
                     }
                     async move {
                         if fail_now {
-                            Err::<(), _>(std::io::Error::other("transient failure"))
+                            Err::<(), _>(BenchError("transient failure"))
                         } else {
-                            Ok::<_, std::io::Error>(())
+                            Ok::<_, BenchError>(())
                         }
                     }
                 })
@@ -196,9 +208,8 @@ fn bench_retry_executor_outcomes(c: &mut Criterion) {
                 .expect("retry config should build for always fail case");
             let executor = RetryExecutor::new(config, policies::AlwaysRetry);
 
-            let result: Result<(), _> = executor
-                .execute(|| async { Err::<(), _>(std::io::Error::other("permanent failure")) })
-                .await;
+            let result: Result<(), _> =
+                executor.execute(|| async { Err::<(), _>(BenchError("permanent failure")) }).await;
             let _result = black_box(result);
         });
     });

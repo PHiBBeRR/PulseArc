@@ -10,7 +10,6 @@ use chrono::Utc;
 use pulsearc_common::testing::TempDir;
 use pulsearc_domain::{Config, DatabaseConfig, UserProfile};
 use pulsearc_lib::AppContext;
-use tauri::State;
 
 const TEST_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
@@ -18,7 +17,7 @@ const TEST_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ///
 /// Uses `TempDir` from common testing utilities for automatic cleanup.
 /// Returns both the context and temp directory to keep temp_dir alive.
-async fn create_test_context() -> (AppContext, TempDir) {
+async fn create_test_context() -> (Arc<AppContext>, TempDir) {
     // Set test encryption key to avoid keychain access
     std::env::set_var("TEST_DATABASE_ENCRYPTION_KEY", TEST_KEY);
 
@@ -43,7 +42,7 @@ async fn create_test_context() -> (AppContext, TempDir) {
         .await
         .expect("failed to create test context");
 
-    (ctx, temp_dir)
+    (Arc::new(ctx), temp_dir)
 }
 
 /// Helper to create a test profile
@@ -390,7 +389,7 @@ async fn test_get_user_profile_command_new_path_returns_profile() {
         .await
         .expect("failed to enable feature flag");
 
-    let result = pulsearc_lib::get_user_profile(State::from(&ctx)).await;
+    let result = pulsearc_lib::commands::user_profile::new_get_user_profile(ctx.as_ref()).await;
     assert!(result.is_ok(), "get_user_profile command failed: {:?}", result);
 
     let retrieved = result.unwrap();
@@ -413,7 +412,7 @@ async fn test_get_user_profile_command_legacy_path_returns_profile() {
         .await
         .expect("failed to disable feature flag");
 
-    let result = pulsearc_lib::get_user_profile(State::from(&ctx)).await;
+    let result = pulsearc_lib::commands::user_profile::legacy_get_user_profile(ctx.as_ref()).await;
     assert!(result.is_ok(), "get_user_profile command failed: {:?}", result);
 
     let retrieved = result.unwrap();
@@ -434,13 +433,21 @@ async fn test_upsert_user_profile_command_new_path_updates_in_place() {
         .expect("failed to enable feature flag");
 
     // Insert via command
-    let insert_result = pulsearc_lib::upsert_user_profile(State::from(&ctx), profile.clone()).await;
+    let insert_result = pulsearc_lib::commands::user_profile::new_upsert_user_profile(
+        ctx.as_ref(),
+        profile.clone(),
+    )
+    .await;
     assert!(insert_result.is_ok(), "upsert_user_profile (insert) failed: {:?}", insert_result);
 
     // Update via command
     profile.name = Some("Updated via command".to_string());
     profile.email = "updated-command@pulsearc.com".to_string();
-    let update_result = pulsearc_lib::upsert_user_profile(State::from(&ctx), profile.clone()).await;
+    let update_result = pulsearc_lib::commands::user_profile::new_upsert_user_profile(
+        ctx.as_ref(),
+        profile.clone(),
+    )
+    .await;
     assert!(update_result.is_ok(), "upsert_user_profile (update) failed: {:?}", update_result);
 
     let stored = ctx
@@ -464,7 +471,11 @@ async fn test_upsert_user_profile_command_legacy_path_updates_in_place() {
         .expect("failed to disable feature flag");
 
     // Insert via command (legacy path)
-    let insert_result = pulsearc_lib::upsert_user_profile(State::from(&ctx), profile.clone()).await;
+    let insert_result = pulsearc_lib::commands::user_profile::legacy_upsert_user_profile(
+        ctx.as_ref(),
+        profile.clone(),
+    )
+    .await;
     assert!(
         insert_result.is_ok(),
         "upsert_user_profile (legacy insert) failed: {:?}",
@@ -474,7 +485,11 @@ async fn test_upsert_user_profile_command_legacy_path_updates_in_place() {
     // Update via command (legacy path)
     profile.name = Some("Updated via legacy command".to_string());
     profile.email = "updated-legacy-command@pulsearc.com".to_string();
-    let update_result = pulsearc_lib::upsert_user_profile(State::from(&ctx), profile.clone()).await;
+    let update_result = pulsearc_lib::commands::user_profile::legacy_upsert_user_profile(
+        ctx.as_ref(),
+        profile.clone(),
+    )
+    .await;
     assert!(
         update_result.is_ok(),
         "upsert_user_profile (legacy update) failed: {:?}",

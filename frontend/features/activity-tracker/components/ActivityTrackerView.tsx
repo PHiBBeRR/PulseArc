@@ -688,10 +688,10 @@ export function ActivityTrackerView() {
 
     // Save the manual activity entry to the database
     try {
-      await invoke('save_manual_activity', { description: activityText });
-      console.log(`💾 Manual activity saved: ${activityText}`);
+      await invoke('save_time_entry', { description: activityText });
+      console.log(`💾 Manual time entry saved: ${activityText}`);
     } catch (err) {
-      console.error('❌ Failed to save manual activity:', err);
+      console.error('❌ Failed to save manual time entry:', err);
     }
 
     // Resume tracker with the selected activity

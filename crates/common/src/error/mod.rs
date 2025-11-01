@@ -550,6 +550,16 @@ impl CommonError {
         Self::Internal { message: message.into(), context: None }
     }
 
+    /// Create a simple storage error
+    pub fn storage<S: Into<String>>(message: S) -> Self {
+        Self::Storage { message: message.into(), operation: None }
+    }
+
+    /// Create a storage error for a specific operation
+    pub fn storage_op<S: Into<String>, O: Into<String>>(operation: O, message: S) -> Self {
+        Self::Storage { message: message.into(), operation: Some(operation.into()) }
+    }
+
     /// Create an internal error with context
     pub fn internal_with_context<S: Into<String>, C: Into<String>>(message: S, context: C) -> Self {
         Self::Internal { message: message.into(), context: Some(context.into()) }

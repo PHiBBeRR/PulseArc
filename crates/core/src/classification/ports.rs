@@ -1,8 +1,10 @@
 //! Port interfaces for activity classification
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
-use pulsearc_domain::types::classification::{ContextSignals, ProjectMatch, ProposedBlock};
+use chrono::{DateTime, NaiveDate, Utc};
+use pulsearc_domain::types::classification::{
+    BlockConfig, ContextSignals, ProjectMatch, ProposedBlock,
+};
 use pulsearc_domain::types::sap::WbsElement;
 use pulsearc_domain::{ActivitySnapshot, Result, TimeEntry};
 
@@ -43,6 +45,21 @@ pub trait BlockRepository: Send + Sync {
 
     /// Get proposed blocks for a specific date
     async fn get_proposed_blocks(&self, date: NaiveDate) -> Result<Vec<ProposedBlock>>;
+
+    /// Get a proposed block by identifier
+    async fn get_proposed_block(&self, block_id: &str) -> Result<Option<ProposedBlock>>;
+
+    /// Mark a proposed block as accepted
+    async fn approve_block(&self, block_id: &str, reviewed_at: DateTime<Utc>) -> Result<()>;
+
+    /// Mark a proposed block as rejected
+    async fn reject_block(&self, block_id: &str, reviewed_at: DateTime<Utc>) -> Result<()>;
+
+    /// Retrieve historical versions of blocks that reference the given snapshot
+    async fn get_block_history(&self, snapshot_id: &str) -> Result<Vec<ProposedBlock>>;
+
+    /// Fetch configuration used for block building.
+    async fn get_block_config(&self) -> Result<BlockConfig>;
 }
 
 /// Trait for matching activity signals to projects

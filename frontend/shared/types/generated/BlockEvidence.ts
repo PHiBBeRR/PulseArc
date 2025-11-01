@@ -4,7 +4,9 @@ import type { EvidenceSignals } from "./EvidenceSignals";
 
 /**
  * Evidence package for a single block
- * Contains all contextual signals needed for OpenAI classification
+ *
+ * Contains all contextual signals needed for OpenAI classification.
+ * This replaces internal ML-like heuristics with pure evidence collection.
  */
 export type BlockEvidence = {
   /**

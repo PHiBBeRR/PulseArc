@@ -18,7 +18,7 @@ export type PrismaTimeEntryDto = {
   status: string | null;
   startTime: string | null;
   endTime: string | null;
-  durationSec: number | null;
+  durationSec?: number;
   _displayProject: string | null;
   _displayWorkstream: string | null;
   _displayTask: string | null;

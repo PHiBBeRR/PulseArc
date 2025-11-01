@@ -61,19 +61,36 @@ pub fn run() {
             pulsearc_lib::get_activity,
             pulsearc_lib::pause_tracker,
             pulsearc_lib::resume_tracker,
+            pulsearc_lib::save_time_entry,
             // Projects
             pulsearc_lib::get_user_projects,
             // Suggestions & proposed blocks
             pulsearc_lib::get_dismissed_suggestions,
             pulsearc_lib::get_proposed_blocks,
             pulsearc_lib::get_outbox_status,
-            // Calendar integration
+            pulsearc_lib::clear_suggestions,
+            pulsearc_lib::delete_suggestion,
+            pulsearc_lib::dismiss_suggestion,
+            pulsearc_lib::restore_suggestion,
+            pulsearc_lib::update_suggestion,
+            // Block management (Phase 4B.1)
+            pulsearc_lib::build_my_day,
+            pulsearc_lib::accept_proposed_block,
+            pulsearc_lib::dismiss_proposed_block,
+            // Calendar integration (Phase 4B.2)
+            pulsearc_lib::initiate_calendar_auth,
+            pulsearc_lib::disconnect_calendar,
+            pulsearc_lib::get_calendar_connection_status,
+            pulsearc_lib::sync_calendar_events,
             pulsearc_lib::get_calendar_events_for_timeline,
+            pulsearc_lib::get_calendar_sync_settings,
+            pulsearc_lib::update_calendar_sync_settings,
             // Database commands (Phase 4A.1)
             pulsearc_lib::get_database_stats,
             pulsearc_lib::get_recent_snapshots,
             pulsearc_lib::vacuum_database,
             pulsearc_lib::get_database_health,
+            pulsearc_lib::clear_snapshots,
             // Feature flags (Phase 4)
             pulsearc_lib::is_feature_enabled,
             pulsearc_lib::toggle_feature_flag,
@@ -85,6 +102,25 @@ pub fn run() {
             pulsearc_lib::upsert_user_profile,
             // Window commands (Phase 4A.3)
             pulsearc_lib::animate_window_resize,
+            // Idle period management (Phase 4B.3)
+            pulsearc_lib::get_idle_periods,
+            pulsearc_lib::update_idle_period_action,
+            pulsearc_lib::get_idle_summary,
+            // Idle settings (Configuration)
+            pulsearc_lib::get_idle_settings,
+            pulsearc_lib::set_idle_enabled,
+            pulsearc_lib::set_idle_threshold,
+            // Idle sync telemetry (Phase 4C.2)
+            pulsearc_lib::record_idle_detection,
+            pulsearc_lib::record_activity_wake,
+            pulsearc_lib::record_timer_event_emission,
+            pulsearc_lib::record_timer_event_reception,
+            pulsearc_lib::record_invalid_payload,
+            pulsearc_lib::record_state_transition,
+            pulsearc_lib::record_auto_start_tracker_rule,
+            // Debug commands (Phase 4E.1)
+            #[cfg(debug_assertions)]
+            pulsearc_lib::seed_activity_snapshots,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

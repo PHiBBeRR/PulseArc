@@ -624,7 +624,7 @@ export function SuggestedEntries({
       isOptimisticUpdateRef.current = true;
 
       // Mark as accepted in backend (optimistic - sync worker will process it)
-      await invoke('accept_suggestion', { id: entry.id });
+      await invoke('accept_proposed_block', { blockId: entry.id });
 
       // Update local state
       const newEntries = suggestedEntries.filter((e) => e.id !== entry.id);
@@ -758,7 +758,7 @@ export function SuggestedEntries({
       isOptimisticUpdateRef.current = true;
 
       // Permanently delete from outbox (feedback modal now used for deletion only)
-      await invoke('delete_outbox_entry', { id: entry.id });
+      await invoke('delete_suggestion', { id: entry.id });
 
       // Remove from dismissed list
       setDismissedEntries((prev) => prev.filter((e) => e.id !== entry.id));

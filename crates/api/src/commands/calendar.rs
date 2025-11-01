@@ -4,42 +4,70 @@
 //! infrastructure
 
 use std::sync::Arc;
+#[cfg(feature = "calendar")]
+use std::time::Duration;
 use std::time::Instant;
 
 #[cfg(feature = "calendar")]
-use std::time::Duration;
-
-#[cfg(feature = "calendar")]
-use chrono::{DateTime, Utc};
-
+use chrono::{DateTime, Local, TimeZone, Utc};
+use pulsearc_domain::Result;
 #[cfg(feature = "calendar")]
 use pulsearc_domain::{CalendarEventParams, CalendarEventRow, PulseArcError};
-
-use pulsearc_domain::Result;
+#[cfg(feature = "calendar")]
+use pulsearc_infra::integrations::calendar::TimelineCalendarEvent;
 use serde::{Deserialize, Serialize};
-use tauri::State;
-
 #[cfg(feature = "calendar")]
 use tauri::Emitter;
-
-#[cfg(feature = "calendar")]
-use tracing::{error, info, warn};
-
+use tauri::State;
 #[cfg(not(feature = "calendar"))]
 use tracing::info;
+#[cfg(feature = "calendar")]
+use tracing::{error, info, warn};
 
 use crate::utils::logging::{log_command_execution, record_command_metric, MetricRecord};
 use crate::AppContext;
 
-/// Calendar event for timeline display
+// Stub type for when calendar feature is disabled
+#[cfg(not(feature = "calendar"))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimelineCalendarEvent {
     pub id: String,
-    pub title: String,
-    pub start_time: i64,
-    pub end_time: i64,
+    pub project: String,
+    pub task: String,
+    pub start_time: String,
+    pub start_epoch: i64,
+    pub duration: i64,
+    pub status: String,
+    pub is_calendar_event: bool,
     pub is_all_day: bool,
+    pub original_summary: String,
+}
+
+/// Calendar connection status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarConnectionStatus {
+    pub provider: String,
+    pub connected: bool,
+    pub email: Option<String>,
+    pub last_sync: Option<i64>,
+    pub sync_enabled: bool,
+}
+
+/// Calendar sync settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarSyncSettings {
+    pub enabled: bool,
+    pub sync_interval_minutes: u32,
+    pub include_all_day_events: bool,
+    pub min_event_duration_minutes: u32,
+    pub lookback_hours: u32,
+    pub lookahead_hours: u32,
+    pub excluded_calendar_ids: Vec<String>,
+    pub sync_token: Option<String>,
+    pub last_sync_epoch: Option<i64>,
 }
 
 /// Initiate Google Calendar OAuth flow
@@ -495,12 +523,26 @@ async fn new_get_calendar_events_for_timeline(
     // 4. Map to timeline format
     Ok(all_events
         .into_iter()
-        .map(|e| TimelineCalendarEvent {
-            id: e.id,
-            title: e.summary,
-            start_time: e.start_ts,
-            end_time: e.end_ts,
-            is_all_day: e.is_all_day,
+        .map(|e| {
+            // Format start_time as human-readable string (local time)
+            let start_time_formatted = Local
+                .timestamp_opt(e.start_ts, 0)
+                .single()
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            TimelineCalendarEvent {
+                id: e.id,
+                project: e.parsed_project.unwrap_or_default(),
+                task: e.parsed_task.unwrap_or_default(),
+                start_time: start_time_formatted,
+                start_epoch: e.start_ts,
+                duration: e.end_ts - e.start_ts,
+                status: "active".to_string(), // Calendar events are always active
+                is_calendar_event: true,      // This is a calendar event
+                is_all_day: e.is_all_day,
+                original_summary: e.summary,
+            }
         })
         .collect())
 }
@@ -526,12 +568,447 @@ async fn get_connected_user_emails(ctx: &Arc<AppContext>) -> Result<Vec<String>>
             .prepare("SELECT DISTINCT user_email FROM calendar_tokens WHERE expires_at > ?1")
             .map_err(|e| PulseArcError::Database(format!("Failed to prepare statement: {}", e)))?;
 
-        let emails =
-            stmt.query_map(&[&now as &dyn rusqlite::ToSql], |row| row.get::<_, String>(0))
-                .map_err(|e| PulseArcError::Database(format!("Failed to query tokens: {}", e)))?;
+        let emails = stmt
+            .query_map(&[&now as &dyn rusqlite::ToSql], |row| row.get::<_, String>(0))
+            .map_err(|e| PulseArcError::Database(format!("Failed to query tokens: {}", e)))?;
 
         Ok(emails)
     })
     .await
     .map_err(|e| PulseArcError::Internal(format!("Task join error: {}", e)))?
+}
+
+/// Disconnect calendar integration
+///
+/// Phase 4B.2: Revokes tokens and removes from database
+#[tauri::command]
+pub async fn disconnect_calendar(
+    ctx: State<'_, Arc<AppContext>>,
+    email: String,
+) -> std::result::Result<(), String> {
+    let command_name = "calendar::disconnect_calendar";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, email, "Disconnecting calendar");
+
+    // Check feature flag
+    let use_new =
+        ctx.feature_flags.is_enabled("new_calendar_commands", true).await.unwrap_or(false);
+
+    let result = if use_new {
+        new_disconnect_calendar(Arc::clone(ctx.inner()), &email).await
+    } else {
+        Err("Legacy calendar commands not available in new crate".to_string())
+    };
+
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+
+    log_command_execution(command_name, "new", elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation: "new",
+            elapsed,
+            success,
+            error_type: if !success { Some("disconnect_failed") } else { None },
+        },
+    )
+    .await;
+
+    result
+}
+
+#[cfg(feature = "calendar")]
+async fn new_disconnect_calendar(
+    ctx: Arc<AppContext>,
+    email: &str,
+) -> std::result::Result<(), String> {
+    // 1. Logout (revoke tokens) via OAuth manager
+    if let Err(e) = ctx.calendar_oauth.logout(email).await {
+        warn!(error = %e, email, "Failed to logout tokens (may already be logged out)");
+    }
+
+    // 2. Delete from database (calendar_tokens and calendar_sync_settings)
+    let db = ctx.db.clone();
+    let email_clone = email.to_string();
+
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        let conn = db.get_connection()?;
+
+        // Delete calendar tokens
+        conn.execute(
+            "DELETE FROM calendar_tokens WHERE user_email = ?1",
+            rusqlite::params![&email_clone],
+        )
+        .map_err(|e| PulseArcError::Database(format!("Failed to delete tokens: {}", e)))?;
+
+        // Delete sync settings (optional, may not exist)
+        let _ = conn.execute(
+            "DELETE FROM calendar_sync_settings WHERE user_email = ?1",
+            rusqlite::params![&email_clone],
+        );
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    info!(email, "Calendar disconnected successfully");
+    Ok(())
+}
+
+#[cfg(not(feature = "calendar"))]
+async fn new_disconnect_calendar(
+    _ctx: Arc<AppContext>,
+    _email: &str,
+) -> std::result::Result<(), String> {
+    Err("Calendar feature not enabled".to_string())
+}
+
+/// Get calendar connection status
+///
+/// Phase 4B.2: Returns connection status for all providers
+#[tauri::command]
+pub async fn get_calendar_connection_status(
+    ctx: State<'_, Arc<AppContext>>,
+) -> std::result::Result<Vec<CalendarConnectionStatus>, String> {
+    let command_name = "calendar::get_calendar_connection_status";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, "Getting calendar connection status");
+
+    // Check feature flag
+    let use_new =
+        ctx.feature_flags.is_enabled("new_calendar_commands", true).await.unwrap_or(false);
+
+    let result = if use_new {
+        new_get_calendar_connection_status(Arc::clone(ctx.inner())).await
+    } else {
+        Err("Legacy calendar commands not available in new crate".to_string())
+    };
+
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+
+    log_command_execution(command_name, "new", elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation: "new",
+            elapsed,
+            success,
+            error_type: if !success { Some("query_failed") } else { None },
+        },
+    )
+    .await;
+
+    result
+}
+
+#[cfg(feature = "calendar")]
+async fn new_get_calendar_connection_status(
+    ctx: Arc<AppContext>,
+) -> std::result::Result<Vec<CalendarConnectionStatus>, String> {
+    let db = ctx.db.clone();
+    let now = Utc::now().timestamp();
+
+    let statuses = tokio::task::spawn_blocking(move || -> Result<Vec<CalendarConnectionStatus>> {
+        let conn = db.get_connection()?;
+
+        let mut all_statuses = Vec::new();
+
+        // Check Google provider
+        let google_result = conn.query_row(
+            "SELECT t.user_email, s.last_sync_epoch, s.enabled
+             FROM calendar_tokens t
+             LEFT JOIN calendar_sync_settings s ON t.user_email = s.user_email
+             WHERE t.provider = 'google' AND t.expires_at > ?1",
+            rusqlite::params![now],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                    row.get::<_, Option<bool>>(2)?,
+                ))
+            },
+        );
+
+        if let Ok((user_email, last_sync, sync_enabled)) = google_result {
+            all_statuses.push(CalendarConnectionStatus {
+                provider: "google".to_string(),
+                connected: true,
+                email: Some(user_email),
+                last_sync,
+                sync_enabled: sync_enabled.unwrap_or(false),
+            });
+        }
+
+        // Check Microsoft provider (future)
+        let microsoft_result = conn.query_row(
+            "SELECT t.user_email, s.last_sync_epoch, s.enabled
+             FROM calendar_tokens t
+             LEFT JOIN calendar_sync_settings s ON t.user_email = s.user_email
+             WHERE t.provider = 'microsoft' AND t.expires_at > ?1",
+            rusqlite::params![now],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                    row.get::<_, Option<bool>>(2)?,
+                ))
+            },
+        );
+
+        if let Ok((user_email, last_sync, sync_enabled)) = microsoft_result {
+            all_statuses.push(CalendarConnectionStatus {
+                provider: "microsoft".to_string(),
+                connected: true,
+                email: Some(user_email),
+                last_sync,
+                sync_enabled: sync_enabled.unwrap_or(false),
+            });
+        }
+
+        Ok(all_statuses)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(statuses)
+}
+
+#[cfg(not(feature = "calendar"))]
+async fn new_get_calendar_connection_status(
+    _ctx: Arc<AppContext>,
+) -> std::result::Result<Vec<CalendarConnectionStatus>, String> {
+    Ok(vec![])
+}
+
+/// Get calendar sync settings
+///
+/// Phase 4B.2: Returns sync settings for a user
+#[tauri::command]
+pub async fn get_calendar_sync_settings(
+    ctx: State<'_, Arc<AppContext>>,
+    email: String,
+) -> std::result::Result<CalendarSyncSettings, String> {
+    let command_name = "calendar::get_calendar_sync_settings";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, email, "Getting calendar sync settings");
+
+    // Check feature flag
+    let use_new =
+        ctx.feature_flags.is_enabled("new_calendar_commands", true).await.unwrap_or(false);
+
+    let result = if use_new {
+        new_get_calendar_sync_settings(Arc::clone(ctx.inner()), &email).await
+    } else {
+        Err("Legacy calendar commands not available in new crate".to_string())
+    };
+
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+
+    log_command_execution(command_name, "new", elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation: "new",
+            elapsed,
+            success,
+            error_type: if !success { Some("query_failed") } else { None },
+        },
+    )
+    .await;
+
+    result
+}
+
+#[cfg(feature = "calendar")]
+async fn new_get_calendar_sync_settings(
+    ctx: Arc<AppContext>,
+    email: &str,
+) -> std::result::Result<CalendarSyncSettings, String> {
+    let db = ctx.db.clone();
+    let email_clone = email.to_string();
+
+    let settings = tokio::task::spawn_blocking(move || -> Result<CalendarSyncSettings> {
+        let conn = db.get_connection()?;
+
+        let settings = conn
+            .query_row(
+                "SELECT enabled, sync_interval_minutes, include_all_day_events,
+                        min_event_duration_minutes, lookback_hours, lookahead_hours,
+                        excluded_calendar_ids, sync_token, last_sync_epoch
+                 FROM calendar_sync_settings
+                 WHERE user_email = ?1",
+                rusqlite::params![&email_clone],
+                |row| {
+                    Ok(CalendarSyncSettings {
+                        enabled: row.get(0)?,
+                        sync_interval_minutes: row.get(1)?,
+                        include_all_day_events: row.get(2)?,
+                        min_event_duration_minutes: row.get(3)?,
+                        lookback_hours: row.get(4)?,
+                        lookahead_hours: row.get(5)?,
+                        excluded_calendar_ids: row
+                            .get::<_, String>(6)?
+                            .split(',')
+                            .filter(|s| !s.is_empty())
+                            .map(String::from)
+                            .collect(),
+                        sync_token: row.get(7)?,
+                        last_sync_epoch: row.get(8)?,
+                    })
+                },
+            )
+            .map_err(|e| {
+                if matches!(e, pulsearc_common::storage::StorageError::Rusqlite(ref inner) if matches!(inner, rusqlite::Error::QueryReturnedNoRows)) {
+                    PulseArcError::NotFound("Calendar sync settings not found".to_string())
+                } else {
+                    PulseArcError::Database(format!("Failed to query settings: {}", e))
+                }
+            })?;
+
+        Ok(settings)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("{}", e))?;
+
+    Ok(settings)
+}
+
+#[cfg(not(feature = "calendar"))]
+async fn new_get_calendar_sync_settings(
+    _ctx: Arc<AppContext>,
+    _email: &str,
+) -> std::result::Result<CalendarSyncSettings, String> {
+    Err("Calendar feature not enabled".to_string())
+}
+
+/// Update calendar sync settings
+///
+/// Phase 4B.2: Updates sync settings for a user
+#[tauri::command]
+pub async fn update_calendar_sync_settings(
+    ctx: State<'_, Arc<AppContext>>,
+    email: String,
+    settings: CalendarSyncSettings,
+) -> std::result::Result<(), String> {
+    let command_name = "calendar::update_calendar_sync_settings";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, email, "Updating calendar sync settings");
+
+    // Check feature flag
+    let use_new =
+        ctx.feature_flags.is_enabled("new_calendar_commands", true).await.unwrap_or(false);
+
+    let result = if use_new {
+        new_update_calendar_sync_settings(Arc::clone(ctx.inner()), &email, settings).await
+    } else {
+        Err("Legacy calendar commands not available in new crate".to_string())
+    };
+
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+
+    log_command_execution(command_name, "new", elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation: "new",
+            elapsed,
+            success,
+            error_type: if !success { Some("update_failed") } else { None },
+        },
+    )
+    .await;
+
+    result
+}
+
+#[cfg(feature = "calendar")]
+async fn new_update_calendar_sync_settings(
+    ctx: Arc<AppContext>,
+    email: &str,
+    settings: CalendarSyncSettings,
+) -> std::result::Result<(), String> {
+    let db = ctx.db.clone();
+    let email_clone = email.to_string();
+
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        let conn = db.get_connection()?;
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let idempotency_key = format!("calendar_sync_settings:{}", email_clone);
+        let excluded_ids = settings.excluded_calendar_ids.join(",");
+        let now = Utc::now().timestamp();
+
+        conn.execute(
+            "INSERT INTO calendar_sync_settings (
+                id, user_email, enabled, sync_interval_minutes, include_all_day_events,
+                min_event_duration_minutes, lookback_hours, lookahead_hours,
+                excluded_calendar_ids, sync_token, last_sync_epoch, created_at, updated_at,
+                idempotency_key
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)
+            ON CONFLICT(idempotency_key) DO UPDATE SET
+                enabled = excluded.enabled,
+                sync_interval_minutes = excluded.sync_interval_minutes,
+                include_all_day_events = excluded.include_all_day_events,
+                min_event_duration_minutes = excluded.min_event_duration_minutes,
+                lookback_hours = excluded.lookback_hours,
+                lookahead_hours = excluded.lookahead_hours,
+                excluded_calendar_ids = excluded.excluded_calendar_ids,
+                sync_token = excluded.sync_token,
+                last_sync_epoch = excluded.last_sync_epoch,
+                updated_at = excluded.updated_at",
+            rusqlite::params![
+                &id,
+                &email_clone,
+                settings.enabled,
+                settings.sync_interval_minutes,
+                settings.include_all_day_events,
+                settings.min_event_duration_minutes,
+                settings.lookback_hours,
+                settings.lookahead_hours,
+                &excluded_ids,
+                settings.sync_token,
+                settings.last_sync_epoch,
+                now,
+                &idempotency_key,
+            ],
+        )
+        .map_err(|e| PulseArcError::Database(format!("Failed to update settings: {}", e)))?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| format!("{}", e))?;
+
+    info!(email, "Calendar sync settings updated successfully");
+    Ok(())
+}
+
+#[cfg(not(feature = "calendar"))]
+async fn new_update_calendar_sync_settings(
+    _ctx: Arc<AppContext>,
+    _email: &str,
+    _settings: CalendarSyncSettings,
+) -> std::result::Result<(), String> {
+    Err("Calendar feature not enabled".to_string())
 }

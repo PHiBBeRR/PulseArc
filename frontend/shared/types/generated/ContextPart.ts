@@ -2,7 +2,6 @@
 
 /**
  * ContextPart - Per-app activity contribution for a time entry suggestion
- * Used to show detailed breakdown in confidence tooltips
  */
 export type ContextPart = {
   app: string;

@@ -237,7 +237,7 @@ impl RetryStrategy {
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, E>>,
-        E: std::error::Error + Send + Sync + 'static + Clone,
+        E: std::error::Error + Send + Sync + 'static,
     {
         let tracer = RetryTracer::new();
         let span = tracer.start_retry_span(operation_name, self.max_attempts);
@@ -283,7 +283,7 @@ impl RetryStrategy {
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, E>>,
-        E: std::error::Error + Send + Sync + 'static + Clone,
+        E: std::error::Error + Send + Sync + 'static,
     {
         let (result, _) = self.execute_with_metrics("unnamed", operation).await;
         result

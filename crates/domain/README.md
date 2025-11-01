@@ -442,14 +442,28 @@ pulsearc-domain = { workspace = true, features = ["ts-gen"] }
 
 ## TypeScript Generation
 
-When the `ts-gen` feature is enabled, TypeScript type definitions are automatically generated for all domain types:
+When the `ts-gen` feature is enabled, TypeScript type definitions are automatically generated for all domain types marked with `#[ts(export)]`.
+
+**Workflow:**
 
 ```bash
-# Generate TypeScript types
-cargo build -p pulsearc-domain --features ts-gen
+# Generate and sync types to frontend (recommended)
+cargo xtask codegen
+# or
+make codegen
 ```
 
-This creates `.ts` files in the `frontend/src/types/` directory:
+**What happens:**
+1. Runs tests with `ts-gen` feature enabled
+2. ts-rs generates `.ts` files to `crates/domain/bindings/`
+3. Files are synced to `frontend/shared/types/generated/`
+4. An `index.ts` is generated with all exports
+
+**Output locations:**
+- **Temporary:** `crates/domain/bindings/` (gitignored)
+- **Committed:** `frontend/shared/types/generated/` (tracked in git)
+
+**Example generated types:**
 
 ```typescript
 // Generated TypeScript types

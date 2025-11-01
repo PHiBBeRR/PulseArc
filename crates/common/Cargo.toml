@@ -119,6 +119,9 @@ tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }  # For test code only
 wiremock = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+uuid = { workspace = true }
 
 [[bench]]
 name = "security_bench"

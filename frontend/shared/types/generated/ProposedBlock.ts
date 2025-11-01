@@ -116,7 +116,8 @@ export type ProposedBlock = {
    */
   overlapping_event_ids: Array<string>;
   /**
-   * Whether multiple calendar events overlap at the same time (double-booked)
+   * Whether multiple calendar events overlap at the same time
+   * (double-booked)
    */
   is_double_booked: boolean;
 };

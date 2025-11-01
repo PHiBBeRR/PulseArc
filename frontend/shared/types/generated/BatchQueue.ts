@@ -2,7 +2,7 @@
 import type { BatchStatus } from "./BatchStatus";
 
 /**
- * BatchQueue - Batch processing queue with leases
+ * Batch queue entry for AI processing
  */
 export type BatchQueue = {
   batch_id: string;

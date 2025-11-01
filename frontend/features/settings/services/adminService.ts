@@ -13,23 +13,23 @@ export const adminService = {
    * WARNING: This is irreversible
    */
   clearSnapshots: async (): Promise<void> => {
-    await invoke('clear_local_activities');
+    await invoke('clear_snapshots');
   },
 
   /**
-   * Clear all outbox entries
+   * Clear all outbox entries (suggestions)
    * WARNING: This is irreversible
    */
   clearOutbox: async (): Promise<void> => {
-    await invoke('clear_outbox');
+    await invoke('clear_suggestions');
   },
 
   /**
-   * Clear all local data (snapshots + outbox)
+   * Clear all local data (snapshots + suggestions)
    * WARNING: This is irreversible
    */
   clearAllData: async (): Promise<void> => {
-    await invoke('clear_local_activities');
-    await invoke('clear_outbox');
+    await invoke('clear_snapshots');
+    await invoke('clear_suggestions');
   },
 };

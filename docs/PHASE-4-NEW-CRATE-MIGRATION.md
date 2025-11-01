@@ -1399,47 +1399,53 @@ Ensure frontend works seamlessly with new crate and update documentation.
 - [ ] Verify all return types match legacy
 
 ##### TypeScript Type Generation & Synchronization
-- [ ] **Verify current ts-gen setup:** Check if `ts-gen` feature is still the active approach
-  - Review `crates/api/Cargo.toml` for `ts-rs` dependency and feature flag
-  - Check if bindings are generated to `crates/api/bindings/` or another location
-  - **Implementation Note:** Confirm `ts-gen` is the correct feature switch before wiring into CI. The type generation strategy may have evolved since ADR-002.
+✅ **COMPLETED** - Automated type generation system implemented.
 
-- [ ] Generate TypeScript types from new crate:
-  ```bash
-  cargo build -p pulsearc-app --features ts-gen
-  # Bindings generated to: crates/api/bindings/ (verify location)
-  ```
+**Current Setup:**
+- **Library:** `ts-rs` v11 with feature flag `ts-gen`
+- **Source:** `crates/domain` (domain types are the source of truth)
+- **Generated Location:** `crates/domain/bindings/` (gitignored, not committed)
+- **Frontend Location:** `frontend/shared/types/generated/` (committed to git)
+- **Automation:** `cargo xtask codegen` syncs bindings → frontend
 
-- [ ] Compare generated types vs legacy types:
-  ```bash
-  # If legacy bindings exist:
-  diff -r legacy/api/bindings/ crates/api/bindings/
-  # Document any differences
-  ```
+**Workflow:**
 
-- [ ] **BLOCKER if types changed:** Decide on mitigation strategy
-  - **Option A:** Update frontend to use new types (requires frontend changes)
-  - **Option B:** Fix type generation to match legacy (adjust `#[ts(type = "...")]` attributes)
-  - **Option C:** Accept breaking change (requires coordinated frontend PR)
-  - Document choice in decision log
+1. **Generate and sync types:**
+   ```bash
+   # Any of these commands work:
+   cargo xtask codegen
+   make codegen
+   pnpm run codegen
+   ```
 
-- [ ] Update frontend imports (if binding path changed):
-  ```typescript
-  // Old: import { DatabaseStats } from '../bindings/legacy/api/...'
-  // New: import { DatabaseStats } from '../bindings/crates/api/...'
-  ```
+2. **Verify types are up-to-date:**
+   ```bash
+   make codegen-check
+   ```
 
-- [ ] **CI Integration:** Add type generation check to CI
-  ```yaml
-  # .github/workflows/ci.yml or equivalent
-  - name: Verify TypeScript Types
-    run: |
-      cargo build -p pulsearc-app --features ts-gen
-      # Fail if bindings directory is dirty (types changed unexpectedly)
-      git diff --exit-code crates/api/bindings/
-  ```
+3. **What happens during generation:**
+   - Runs `cargo test -p pulsearc-domain --features ts-gen --lib`
+   - ts-rs exports 45 TypeScript files to `crates/domain/bindings/`
+   - Syncs files to `frontend/shared/types/generated/`
+   - Generates `index.ts` with all exports
 
-**Implementation Note:** Double-check that the `ts-gen` feature is still the right switch for type generation. If the project has moved to a different approach (e.g., `specta`, manual types, or different `ts-rs` configuration), update this step accordingly before wiring into CI.
+**CI Integration:** ✅ Implemented in `.github/workflows/ci.yml`
+- Job: `typescript-types` runs after format check
+- Regenerates types and fails if committed versions don't match
+- Provides clear error message with diff
+- Prevents deploying with stale types
+
+**Frontend Usage:**
+```typescript
+// Import from central index
+import { DatabaseStats, ActivitySnapshot } from '@/shared/types/generated';
+```
+
+**Important Notes:**
+- Always run `cargo xtask codegen` after modifying Rust domain types
+- Commit the generated files in `frontend/shared/types/generated/`
+- CI will catch if you forget to regenerate types
+- The `crates/domain/bindings/` directory is gitignored
 
 **Risk:** Frontend may break if response types changed (field added/removed/renamed).
 

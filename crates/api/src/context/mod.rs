@@ -6,12 +6,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use pulsearc_core::tracking::ports::SnapshotRepository as SnapshotRepositoryPort;
+use pulsearc_core::classification::ports::BlockRepository as BlockRepositoryPort;
+use pulsearc_core::sync::ports::OutboxQueue as OutboxQueuePort;
+use pulsearc_core::tracking::ports::{
+    IdlePeriodsRepository as IdlePeriodsRepositoryPort, SegmentRepository as SegmentRepositoryPort,
+    SnapshotRepository as SnapshotRepositoryPort,
+};
 use pulsearc_core::user::ports::UserProfileRepository as UserProfileRepositoryPort;
 use pulsearc_core::{CommandMetricsPort, DatabaseStatsPort, FeatureFlagsPort, TrackingService};
 use pulsearc_domain::types::{ActivitySegment, ActivitySnapshot};
 use pulsearc_domain::{Config, PulseArcError, Result};
 use pulsearc_infra::api::{AccessTokenProvider, ApiClientConfig, ApiError, ForwarderConfig};
+#[cfg(feature = "calendar")]
+use pulsearc_infra::calendar::{
+    CalendarClient, CalendarOAuthManager, CalendarOAuthSettings, CalendarSyncWorker,
+};
+#[cfg(feature = "calendar")]
+use pulsearc_infra::database::SqlCipherCalendarEventRepository;
 use pulsearc_infra::observability::metrics::PerformanceMetrics;
 use pulsearc_infra::scheduling::block_scheduler::BlockJob;
 use pulsearc_infra::scheduling::classification_scheduler::ClassificationJob;
@@ -24,7 +35,8 @@ use pulsearc_infra::{
     ApiClient, ApiCommands, ApiForwarder, BlockScheduler, BlockSchedulerConfig,
     ClassificationScheduler, ClassificationSchedulerConfig, DbManager, FeatureFlagService,
     InfraError, InstanceLock, KeyManager, MacOsActivityProvider, SqlCipherActivityRepository,
-    SqlCipherCommandMetricsRepository, SqlCipherDatabaseStatsRepository,
+    SqlCipherBlockRepository, SqlCipherCommandMetricsRepository, SqlCipherDatabaseStatsRepository,
+    SqlCipherIdlePeriodsRepository, SqlCipherOutboxRepository, SqlCipherSegmentRepository,
     SqlCipherUserProfileRepository, SyncScheduler, SyncSchedulerConfig,
 };
 
@@ -43,6 +55,18 @@ type DynSnapshotRepositoryPort = dyn SnapshotRepositoryPort + Send + Sync + 'sta
 /// Type alias for user profile repository port trait object
 type DynUserProfileRepositoryPort = dyn UserProfileRepositoryPort + Send + Sync + 'static;
 
+/// Type alias for block repository port trait object
+type DynBlockRepositoryPort = dyn BlockRepositoryPort + Send + Sync + 'static;
+
+/// Type alias for segment repository port trait object
+type DynSegmentRepositoryPort = dyn SegmentRepositoryPort + Send + Sync + 'static;
+
+/// Type alias for outbox queue port trait object
+type DynOutboxQueuePort = dyn OutboxQueuePort + Send + Sync + 'static;
+
+/// Type alias for idle periods repository port trait object
+type DynIdlePeriodsRepositoryPort = dyn IdlePeriodsRepositoryPort + Send + Sync + 'static;
+
 /// Application context - holds all services and dependencies
 pub struct AppContext {
     // Core services
@@ -54,6 +78,10 @@ pub struct AppContext {
     pub command_metrics: Arc<DynCommandMetricsPort>,
     pub snapshots: Arc<DynSnapshotRepositoryPort>,
     pub user_profile: Arc<DynUserProfileRepositoryPort>,
+    pub block_repository: Arc<DynBlockRepositoryPort>,
+    pub segment_repository: Arc<DynSegmentRepositoryPort>,
+    pub outbox_queue: Arc<DynOutboxQueuePort>,
+    pub idle_periods: Arc<DynIdlePeriodsRepositoryPort>,
 
     // Schedulers (Phase 4.1.2: Added for command migration)
     pub block_scheduler: Arc<BlockScheduler>,
@@ -63,11 +91,21 @@ pub struct AppContext {
     #[cfg(feature = "calendar")]
     pub calendar_scheduler: Arc<CalendarScheduler>,
 
+    // Calendar integration (Phase 4B.2)
+    #[cfg(feature = "calendar")]
+    pub calendar_oauth: Arc<CalendarOAuthManager>,
+
+    #[cfg(feature = "calendar")]
+    pub calendar_events: Arc<dyn pulsearc_core::tracking::ports::CalendarEventRepository>,
+
     // TODO(Phase 4): Add ML infrastructure when Phase 3E is completed
     // #[cfg(feature = "tree-classifier")]
     // pub hybrid_classifier: Arc<HybridClassifier>,
     // #[cfg(feature = "tree-classifier")]
     // pub metrics_tracker: Arc<MetricsTracker>,
+
+    // Telemetry metrics for idle sync (Phase 4C.2)
+    pub idle_sync_metrics: Arc<crate::utils::idle_sync_metrics::IdleSyncMetrics>,
 
     // Keep instance lock alive for the lifetime of the app
     _instance_lock: InstanceLock,
@@ -161,123 +199,39 @@ async fn create_sync_scheduler(config: &Config) -> Result<Arc<SyncScheduler>> {
 }
 
 #[cfg(feature = "calendar")]
-async fn create_calendar_scheduler() -> Result<Arc<CalendarScheduler>> {
-    use pulsearc_core::OutboxQueue;
-    use pulsearc_domain::types::OutboxEntry;
-    use pulsearc_infra::calendar::{CalendarClient, CalendarSyncWorker};
-
-    // Placeholder calendar scheduler until full wiring lands in Phase 4.1.3
-    // Uses empty repositories and stub client to avoid errors during initialization
-
-    let client = CalendarClient::new_with_settings(Default::default(), "stub-token".to_string());
-    let calendar_repo: Arc<dyn pulsearc_core::CalendarEventRepository> =
-        Arc::new(EmptyCalendarEventRepository);
-    let outbox_queue: Arc<dyn OutboxQueue> = Arc::new(EmptyOutboxQueue);
-
-    // Create a temporary in-memory pool for the placeholder worker
-    // This is fine since we're not actually using the calendar sync yet
-    let pool = Arc::new(
-        pulsearc_common::storage::SqlCipherPool::new_in_memory()
-            .map_err(|e| PulseArcError::Internal(format!("Failed to create temp pool: {}", e)))?,
-    );
-
-    let sync_worker = Arc::new(CalendarSyncWorker::new(client, calendar_repo, outbox_queue, pool));
-
+async fn create_calendar_scheduler(
+    db: Arc<DbManager>,
+    outbox_queue: Arc<DynOutboxQueuePort>,
+) -> Result<Arc<CalendarScheduler>> {
     let metrics = Arc::new(PerformanceMetrics::new());
     let cron_expression = "0 0 * * *".to_string(); // Daily at midnight (placeholder)
     let user_emails = Vec::new(); // Empty list until user management is wired
+
+    let oauth_settings = CalendarOAuthSettings::google("stub-client-id", None);
+    let oauth_manager = Arc::new(CalendarOAuthManager::new(oauth_settings));
+    let client = CalendarClient::new(
+        "stub-user@pulsearc.local".to_string(),
+        "google".to_string(),
+        oauth_manager,
+    )
+    .map_err(|err| {
+        PulseArcError::Internal(format!("failed to construct placeholder CalendarClient: {err}"))
+    })?;
+
+    let calendar_repo: Arc<dyn pulsearc_core::CalendarEventRepository> =
+        Arc::new(SqlCipherCalendarEventRepository::new(Arc::clone(db.pool())));
+    let sync_worker = Arc::new(CalendarSyncWorker::new(
+        client,
+        calendar_repo,
+        outbox_queue,
+        Arc::clone(db.pool()),
+    ));
 
     CalendarScheduler::new(cron_expression, user_emails, sync_worker, metrics)
         .map(Arc::new)
         .map_err(|err| {
             PulseArcError::Internal(format!("failed to construct CalendarScheduler: {}", err))
         })
-}
-
-#[cfg(feature = "calendar")]
-#[derive(Default)]
-struct EmptyCalendarEventRepository;
-
-#[cfg(feature = "calendar")]
-#[async_trait]
-impl pulsearc_core::CalendarEventRepository for EmptyCalendarEventRepository {
-    async fn find_event_by_timestamp(
-        &self,
-        timestamp: i64,
-        window_secs: i64,
-    ) -> pulsearc_domain::Result<Option<pulsearc_domain::types::CalendarEventRow>> {
-        tracing::debug!(
-            timestamp,
-            window_secs,
-            "EmptyCalendarEventRepository::find_event_by_timestamp (placeholder, returns None)"
-        );
-        Ok(None)
-    }
-
-    async fn insert_calendar_event(
-        &self,
-        params: pulsearc_domain::types::CalendarEventParams,
-    ) -> pulsearc_domain::Result<String> {
-        tracing::debug!(
-            summary = ?params.summary,
-            "EmptyCalendarEventRepository::insert_calendar_event (placeholder, returns stub-event-id)"
-        );
-        Ok("stub-event-id".to_string())
-    }
-
-    async fn upsert_calendar_event(
-        &self,
-        external_id: &str,
-        params: pulsearc_domain::types::CalendarEventParams,
-    ) -> pulsearc_domain::Result<String> {
-        tracing::debug!(
-            external_id,
-            summary = ?params.summary,
-            "EmptyCalendarEventRepository::upsert_calendar_event (placeholder, returns stub-event-id)"
-        );
-        Ok("stub-event-id".to_string())
-    }
-}
-
-#[cfg(feature = "calendar")]
-#[derive(Default)]
-struct EmptyOutboxQueue;
-
-#[cfg(feature = "calendar")]
-#[async_trait]
-impl pulsearc_core::OutboxQueue for EmptyOutboxQueue {
-    async fn enqueue(
-        &self,
-        entry: pulsearc_domain::types::OutboxEntry,
-    ) -> pulsearc_domain::Result<()> {
-        tracing::debug!(
-            entry_id = ?entry.id,
-            "EmptyOutboxQueue::enqueue (placeholder, no-op)"
-        );
-        Ok(())
-    }
-
-    async fn dequeue_batch(
-        &self,
-        limit: usize,
-    ) -> pulsearc_domain::Result<Vec<pulsearc_domain::types::OutboxEntry>> {
-        tracing::debug!(limit, "EmptyOutboxQueue::dequeue_batch (placeholder, returns empty)");
-        Ok(Vec::new())
-    }
-
-    async fn mark_delivered(&self, ids: &[String]) -> pulsearc_domain::Result<()> {
-        tracing::debug!(count = ids.len(), "EmptyOutboxQueue::mark_delivered (placeholder, no-op)");
-        Ok(())
-    }
-
-    async fn requeue_failed(&self, id: &str, retry_after_secs: i64) -> pulsearc_domain::Result<()> {
-        tracing::debug!(
-            id,
-            retry_after_secs,
-            "EmptyOutboxQueue::requeue_failed (placeholder, no-op)"
-        );
-        Ok(())
-    }
 }
 
 fn build_api_forwarder() -> Result<Arc<ApiForwarder>> {
@@ -459,7 +413,7 @@ impl AppContext {
         db.run_migrations()?;
 
         // Initialize activity provider
-        let provider = Arc::new(MacOsActivityProvider::new());
+        let provider = MacOsActivityProvider::new();
 
         // Initialize activity repository
         let repository = Arc::new(SqlCipherActivityRepository::new(db.clone()));
@@ -484,13 +438,49 @@ impl AppContext {
         let user_profile: Arc<DynUserProfileRepositoryPort> =
             Arc::new(SqlCipherUserProfileRepository::new(db.clone()));
 
+        // Create block repository (Phase 4B.1 preparation)
+        let block_repository: Arc<DynBlockRepositoryPort> =
+            Arc::new(SqlCipherBlockRepository::new(db.clone()));
+
+        // Create segment repository for read access (Phase 4B.1 preparation)
+        let segment_repository: Arc<DynSegmentRepositoryPort> =
+            Arc::new(SqlCipherSegmentRepository::new(db.clone()));
+
+        // Create outbox queue (replaces placeholder EmptyOutboxQueue)
+        let outbox_queue: Arc<DynOutboxQueuePort> =
+            Arc::new(SqlCipherOutboxRepository::new(db.clone()));
+
+        // Create idle periods repository (Phase 4B.3 preparation)
+        let idle_periods: Arc<DynIdlePeriodsRepositoryPort> =
+            Arc::new(SqlCipherIdlePeriodsRepository::new(db.clone()));
+
         // Initialize and start schedulers (fail-fast)
         let block_scheduler = create_block_scheduler().await?;
         let classification_scheduler = create_classification_scheduler().await?;
         let sync_scheduler = create_sync_scheduler(&config).await?;
 
         #[cfg(feature = "calendar")]
-        let calendar_scheduler = create_calendar_scheduler().await?;
+        let calendar_scheduler =
+            create_calendar_scheduler(Arc::clone(&db), Arc::clone(&outbox_queue)).await?;
+
+        // Initialize calendar OAuth manager (Phase 4B.2)
+        #[cfg(feature = "calendar")]
+        let calendar_oauth = {
+            let client_id = std::env::var("GOOGLE_CALENDAR_CLIENT_ID")
+                .unwrap_or_else(|_| "stub-client-id".to_string());
+            let client_secret = std::env::var("GOOGLE_CALENDAR_CLIENT_SECRET").ok();
+            let settings = CalendarOAuthSettings::google(client_id, client_secret);
+            Arc::new(CalendarOAuthManager::new(settings))
+        };
+
+        // Initialize calendar events repository (Phase 4B.2)
+        #[cfg(feature = "calendar")]
+        let calendar_events: Arc<
+            dyn pulsearc_core::tracking::ports::CalendarEventRepository,
+        > = Arc::new(SqlCipherCalendarEventRepository::new(Arc::clone(db.pool())));
+
+        // Initialize idle sync metrics (Phase 4C.2)
+        let idle_sync_metrics = Arc::new(crate::utils::idle_sync_metrics::IdleSyncMetrics::new());
 
         Ok(Self {
             config,
@@ -501,11 +491,20 @@ impl AppContext {
             command_metrics,
             snapshots,
             user_profile,
+            block_repository,
+            segment_repository,
+            outbox_queue,
+            idle_periods,
             block_scheduler,
             classification_scheduler,
             sync_scheduler,
             #[cfg(feature = "calendar")]
             calendar_scheduler,
+            #[cfg(feature = "calendar")]
+            calendar_oauth,
+            #[cfg(feature = "calendar")]
+            calendar_events,
+            idle_sync_metrics,
             _instance_lock: instance_lock,
         })
     }

@@ -699,7 +699,7 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === 'get_outbox_status') return Promise.resolve([entry]);
         if (cmd === 'get_dismissed_suggestions') return Promise.resolve([]);
-        if (cmd === 'accept_suggestion') return Promise.resolve(undefined);
+        if (cmd === 'accept_proposed_block') return Promise.resolve(undefined);
         return Promise.resolve([]);
       });
 
@@ -713,7 +713,7 @@ describe('SuggestedEntries', () => {
       await user.click(acceptButton);
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledWith('accept_suggestion', { id: 'accept-1' });
+        expect(mockInvoke).toHaveBeenCalledWith('accept_proposed_block', { blockId: 'accept-1' });
       });
     });
 
@@ -758,7 +758,7 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === 'get_outbox_status') return Promise.resolve(entries);
         if (cmd === 'get_dismissed_suggestions') return Promise.resolve([]);
-        if (cmd === 'accept_suggestion') return Promise.resolve(undefined);
+        if (cmd === 'accept_proposed_block') return Promise.resolve(undefined);
         return Promise.resolve([]);
       });
 
@@ -789,7 +789,7 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === 'get_outbox_status') return Promise.resolve(entries);
         if (cmd === 'get_dismissed_suggestions') return Promise.resolve([]);
-        if (cmd === 'accept_suggestion') return Promise.resolve(undefined);
+        if (cmd === 'accept_proposed_block') return Promise.resolve(undefined);
         return Promise.resolve([]);
       });
 
@@ -964,7 +964,7 @@ describe('SuggestedEntries', () => {
       mockInvoke.mockImplementation((cmd: string) => {
         if (cmd === 'get_outbox_status') return Promise.resolve([suggestedEntry]);
         if (cmd === 'get_dismissed_suggestions') return Promise.resolve([dismissedEntry]);
-        if (cmd === 'delete_outbox_entry') return Promise.resolve(undefined);
+        if (cmd === 'delete_suggestion') return Promise.resolve(undefined);
         return Promise.resolve([]);
       });
 
@@ -985,7 +985,7 @@ describe('SuggestedEntries', () => {
       await user.click(deleteButton);
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledWith('delete_outbox_entry', { id: 'delete-1' });
+        expect(mockInvoke).toHaveBeenCalledWith('delete_suggestion', { id: 'delete-1' });
         expect(screen.queryByText('Delete me')).not.toBeInTheDocument();
       });
     });

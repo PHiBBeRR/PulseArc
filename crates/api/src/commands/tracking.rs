@@ -46,20 +46,15 @@ pub async fn pause_tracker(ctx: State<'_, Arc<AppContext>>) -> Result<()> {
     let app_ctx = Arc::clone(ctx.inner());
 
     info!(command = command_name, "Pausing activity tracker");
-    // TODO: Implement pause functionality
-    let result = Ok(());
+    let result = app_ctx.tracking_service.pause().await;
     let elapsed = start.elapsed();
+    let success = result.is_ok();
+    let error_type = result.as_ref().err().map(error_label);
 
-    log_command_execution(command_name, implementation, elapsed, true);
+    log_command_execution(command_name, implementation, elapsed, success);
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success: true,
-            error_type: None,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 
@@ -75,22 +70,54 @@ pub async fn resume_tracker(ctx: State<'_, Arc<AppContext>>) -> Result<()> {
     let app_ctx = Arc::clone(ctx.inner());
 
     info!(command = command_name, "Resuming activity tracker");
-    // TODO: Implement resume functionality
-    let result = Ok(());
+    let result = app_ctx.tracking_service.resume().await;
     let elapsed = start.elapsed();
+    let success = result.is_ok();
+    let error_type = result.as_ref().err().map(error_label);
 
-    log_command_execution(command_name, implementation, elapsed, true);
+    log_command_execution(command_name, implementation, elapsed, success);
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success: true,
-            error_type: None,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 
     result
+}
+
+/// Save a manual time entry
+///
+/// Replaces legacy `save_manual_activity` command. Creates a manual activity
+/// snapshot with the provided description.
+///
+/// # Arguments
+/// * `description` - Text description of the manual activity
+///
+/// # Returns
+/// ID of the created activity snapshot
+#[tauri::command]
+pub async fn save_time_entry(
+    ctx: State<'_, Arc<AppContext>>,
+    description: String,
+) -> std::result::Result<String, String> {
+    let command_name = "tracking::save_time_entry";
+    let implementation = "new";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, description, "Saving manual time entry");
+
+    let result = app_ctx.tracking_service.save_manual_entry(&description).await;
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+    let error_type = result.as_ref().err().map(error_label);
+
+    log_command_execution(command_name, implementation, elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
+    )
+    .await;
+
+    result.map_err(|e| e.to_string())
 }

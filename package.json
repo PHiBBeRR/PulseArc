@@ -13,6 +13,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write \"frontend/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"frontend/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "codegen": "cargo xtask codegen",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

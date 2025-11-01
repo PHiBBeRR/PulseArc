@@ -22,12 +22,11 @@ async fn create_test_context() -> pulsearc_domain::Result<(AppContext, TempDir)>
     std::env::set_var("TEST_DATABASE_ENCRYPTION_KEY", TEST_KEY);
 
     // Create temporary database directory with auto-cleanup
-    let temp_dir = TempDir::new("pulsearc-context-test")
-        .expect("failed to create temporary test directory");
+    let temp_dir =
+        TempDir::new("pulsearc-context-test").expect("failed to create temporary test directory");
 
     let test_db_path = temp_dir.path().join("pulsearc.db");
-    let lock_dir = temp_dir.create_dir("lock")
-        .expect("failed to create lock directory");
+    let lock_dir = temp_dir.create_dir("lock").expect("failed to create lock directory");
 
     // Create custom config with test database path
     let config = Config {
@@ -105,7 +104,8 @@ async fn test_context_creation_succeeds() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_shutdown_completes_without_panicking() {
     // Create context
-    let (context, _temp_dir) = create_test_context().await.expect("AppContext creation should succeed");
+    let (context, _temp_dir) =
+        create_test_context().await.expect("AppContext creation should succeed");
 
     // Shutdown with timeout to prevent hanging tests
     let shutdown_future = context.shutdown();
@@ -135,7 +135,8 @@ async fn test_shutdown_completes_without_panicking() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_shutdown_is_idempotent() {
     // Create context
-    let (context, _temp_dir) = create_test_context().await.expect("AppContext creation should succeed");
+    let (context, _temp_dir) =
+        create_test_context().await.expect("AppContext creation should succeed");
 
     // Call shutdown multiple times
     for i in 1..=5 {
@@ -160,7 +161,8 @@ async fn test_shutdown_is_idempotent() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_shutdown_with_active_schedulers() {
     // Create context (schedulers are started automatically)
-    let (context, _temp_dir) = create_test_context().await.expect("AppContext creation should succeed");
+    let (context, _temp_dir) =
+        create_test_context().await.expect("AppContext creation should succeed");
 
     // Give schedulers a moment to start their background tasks
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -187,7 +189,8 @@ async fn test_shutdown_with_active_schedulers() {
 async fn test_cleanup_via_drop_without_shutdown() {
     // Create context in a scope
     {
-        let (_context, _temp_dir) = create_test_context().await.expect("AppContext creation should succeed");
+        let (_context, _temp_dir) =
+            create_test_context().await.expect("AppContext creation should succeed");
 
         // Give schedulers a moment to start
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -211,7 +214,8 @@ async fn test_cleanup_via_drop_without_shutdown() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_concurrent_shutdown_calls() {
     // Create context
-    let (context, _temp_dir) = create_test_context().await.expect("AppContext creation should succeed");
+    let (context, _temp_dir) =
+        create_test_context().await.expect("AppContext creation should succeed");
     let context = Arc::new(context);
 
     // Spawn multiple tasks that call shutdown concurrently

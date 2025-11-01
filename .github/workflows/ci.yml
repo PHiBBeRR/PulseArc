@@ -32,6 +32,61 @@ jobs:
       - name: Check formatting
         run: cargo +nightly fmt --all -- --check
 
+  typescript-types:
+    name: TypeScript Type Generation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.77"
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-codegen-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-target-codegen-
+
+      - name: Generate TypeScript types
+        run: cargo xtask codegen
+
+      - name: Check for uncommitted type changes
+        run: |
+          if [ -n "$(git status --porcelain frontend/shared/types/generated)" ]; then
+            echo "❌ TypeScript types are out of date!"
+            echo "Generated types differ from committed versions."
+            echo ""
+            echo "Changed files:"
+            git status --short frontend/shared/types/generated
+            echo ""
+            echo "Diff:"
+            git diff frontend/shared/types/generated
+            echo ""
+            echo "To fix: Run 'cargo xtask codegen' or 'make codegen' and commit the changes."
+            exit 1
+          fi
+          echo "✓ TypeScript types are up-to-date"
+
   clippy:
     name: Clippy Lint
     runs-on: [self-hosted, macOS]

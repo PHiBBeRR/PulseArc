@@ -405,6 +405,57 @@ pub async fn get_database_health(ctx: State<'_, Arc<AppContext>>) -> Result<Heal
     result.map_err(|e| e.to_string())
 }
 
+// =============================================================================
+// Command 5: clear_snapshots (Legacy Migration)
+// =============================================================================
+
+/// Clear all activity snapshots from the database
+///
+/// Replaces legacy `clear_local_activities` command. This is a destructive
+/// operation that deletes all activity snapshots.
+///
+/// # Warning
+/// This operation is irreversible. All activity data will be permanently deleted.
+#[tauri::command]
+pub async fn clear_snapshots(
+    ctx: State<'_, Arc<AppContext>>,
+) -> std::result::Result<usize, String> {
+    let command_name = "database::clear_snapshots";
+    let start = Instant::now();
+    let app_ctx = Arc::clone(ctx.inner());
+
+    info!(command = command_name, "Clearing all activity snapshots");
+
+    let db = Arc::clone(&app_ctx.db);
+    let result = tokio::task::spawn_blocking(move || -> DomainResult<usize> {
+        let conn = db.get_connection()?;
+        let count = conn
+            .execute("DELETE FROM activity_snapshots", rusqlite::params![])
+            .map_err(|e| PulseArcError::Database(format!("Failed to clear snapshots: {}", e)))?;
+        Ok(count)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?;
+
+    let elapsed = start.elapsed();
+    let success = result.is_ok();
+
+    log_command_execution(command_name, "new", elapsed, success);
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation: "new",
+            elapsed,
+            success,
+            error_type: if !success { Some("clear_failed") } else { None },
+        },
+    )
+    .await;
+
+    result.map_err(|e| e.to_string())
+}
+
 #[allow(dead_code)] // Will be removed in Phase 5
 async fn legacy_get_database_health(ctx: &AppContext) -> DomainResult<HealthStatus> {
     let db = ctx.db.clone();

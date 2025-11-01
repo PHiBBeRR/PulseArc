@@ -1,9 +1,9 @@
 //! Idle sync telemetry commands
 //!
-//! FEATURE-012: Tauri commands for recording idle detection, timer state events,
-//! and autoStartTracker validation metrics. These commands provide frontend
-//! visibility into idle synchronization behavior for debugging and performance
-//! monitoring.
+//! FEATURE-012: Tauri commands for recording idle detection, timer state
+//! events, and autoStartTracker validation metrics. These commands provide
+//! frontend visibility into idle synchronization behavior for debugging and
+//! performance monitoring.
 //!
 //! Migration Status: Phase 4C.2
 //! - No feature flag (telemetry is low-risk, migrated directly)
@@ -68,9 +68,7 @@ pub fn record_timer_event_emission(
     success: bool,
 ) -> Result<(), String> {
     debug!(latency_us, success, "recording timer event emission");
-    context
-        .idle_sync_metrics
-        .record_timer_event_emission(latency_us, success);
+    context.idle_sync_metrics.record_timer_event_emission(latency_us, success);
     Ok(())
 }
 
@@ -88,9 +86,7 @@ pub fn record_timer_event_reception(
     sync_latency_ms: u64,
 ) -> Result<(), String> {
     debug!(sync_latency_ms, "recording timer event reception");
-    context
-        .idle_sync_metrics
-        .record_timer_event_reception(sync_latency_ms);
+    context.idle_sync_metrics.record_timer_event_reception(sync_latency_ms);
     Ok(())
 }
 
@@ -126,9 +122,7 @@ pub fn record_state_transition(
     duration_ms: u64,
 ) -> Result<(), String> {
     debug!(from, to, duration_ms, "recording state transition");
-    context
-        .idle_sync_metrics
-        .record_state_transition(&from, &to, duration_ms);
+    context.idle_sync_metrics.record_state_transition(&from, &to, duration_ms);
     Ok(())
 }
 
@@ -151,13 +145,7 @@ pub fn record_auto_start_tracker_rule(
     auto_start: bool,
     is_correct: bool,
 ) -> Result<(), String> {
-    debug!(
-        rule_num,
-        timer_state,
-        auto_start,
-        is_correct,
-        "recording autoStartTracker rule"
-    );
+    debug!(rule_num, timer_state, auto_start, is_correct, "recording autoStartTracker rule");
     context.idle_sync_metrics.record_auto_start_tracker_rule(
         rule_num,
         &timer_state,

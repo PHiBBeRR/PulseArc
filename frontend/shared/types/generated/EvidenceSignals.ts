@@ -2,7 +2,8 @@
 
 /**
  * Structured signals extracted from snapshots
- * These are facts/evidence, not inferences
+ *
+ * These are facts/evidence, not inferences. Used for OpenAI classification.
  */
 export type EvidenceSignals = {
   /**
@@ -10,7 +11,8 @@ export type EvidenceSignals = {
    */
   apps: Array<string>;
   /**
-   * Window titles (PII-redacted, e.g., "[EMAIL] - Gmail", "Model.xlsx - Excel")
+   * Window titles (PII-redacted, e.g., "[EMAIL] - Gmail", "Model.xlsx -
+   * Excel")
    */
   window_titles: Array<string>;
   /**
@@ -38,7 +40,6 @@ export type EvidenceSignals = {
    */
   vdr_providers: Array<string>;
   /**
-   *  Phase 4: Meeting platform metadata
    * Meeting platforms detected (e.g., ["zoom", "google_meet", "teams"])
    */
   meeting_platforms: Array<string>;

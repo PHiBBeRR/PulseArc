@@ -100,6 +100,21 @@ lint-frontend: ## Lint frontend code
 	@echo "Linting frontend..."
 	pnpm lint
 
+codegen: ## Generate TypeScript types from Rust
+	@echo "Generating TypeScript types..."
+	cargo xtask codegen
+
+codegen-check: ## Verify TypeScript types are up-to-date
+	@echo "Verifying TypeScript types are up-to-date..."
+	@cargo xtask codegen
+	@if [ -n "$$(git status --porcelain frontend/shared/types/generated)" ]; then \
+		echo "❌ TypeScript types are out of date!"; \
+		echo "   Run 'make codegen' to update them."; \
+		git diff frontend/shared/types/generated; \
+		exit 1; \
+	fi
+	@echo "✓ TypeScript types are up-to-date"
+
 ##@ Verification & CI
 
 check: fmt-check lint test ## Run all checks (format, lint, test)
@@ -107,6 +122,7 @@ check: fmt-check lint test ## Run all checks (format, lint, test)
 ci: ## Run full CI pipeline locally
 	@echo "Running CI pipeline..."
 	@$(MAKE) fmt-check
+	@$(MAKE) codegen-check
 	@$(MAKE) lint-rust
 	@$(MAKE) build-frontend
 	@$(MAKE) test-rust

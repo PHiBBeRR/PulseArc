@@ -17,5 +17,5 @@ fn main() {
         .expect("Failed to create placeholder index.html");
     }
 
-    tauri_build::build()
+    tauri_build::build();
 }
