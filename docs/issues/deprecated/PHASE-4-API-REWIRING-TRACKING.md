@@ -1,12 +1,26 @@
-# Phase 4: API Layer Rewiring - Detailed Tracking
+# ⚠️ DEPRECATED: Phase 4: API Layer Rewiring - Detailed Tracking
 
-**Status:** 🟡 PREREQUISITES COMPLETE - Ready to Start
+> **🚨 THIS DOCUMENT IS DEPRECATED**
+>
+> **New Plan:** Phase 4 has been redesigned to migrate commands to `crates/api/pulsearc-app` instead of rewiring in `legacy/api/`.
+>
+> **See:** [PHASE-4-NEW-CRATE-MIGRATION.md](../../PHASE-4-NEW-CRATE-MIGRATION.md) for the current migration plan.
+>
+> **Reason:** Clean architecture separation, easier long-term maintenance, full legacy crate archival after validation.
+>
+> **Date Deprecated:** 2025-10-31
+
+---
+
+# Phase 4: API Layer Rewiring - Detailed Tracking (ORIGINAL PLAN - DEPRECATED)
+
+**Status:** 🔴 DEPRECATED - See new plan above
 **Created:** 2025-10-31
-**Updated:** 2025-10-31 (v1.2 - Prerequisites 1, 3, 4 completed)
+**Updated:** 2025-10-31 (v1.3 - ALL prerequisites completed, feature flags integrated)
 **Owner:** TBD
 **Dependencies:** ✅ Phase 3 (Infrastructure Adapters) COMPLETE
 **Estimated Duration:** 4-5 weeks (including 2-week validation period)
-**Current Progress:** **Phase 4: PREREQUISITES COMPLETE** (0/11 commands rewired, 3/4 prerequisites done)
+**Current Progress:** **Phase 4: READY TO START** (0/11 commands rewired, 4/4 prerequisites ✅ DONE)
 
 > **⚠️ IMPORTANT:** See [PHASE-4-ERRATA.md](./PHASE-4-ERRATA.md) for critical corrections and validated deviations from the original plan.
 
@@ -25,10 +39,10 @@
 | - Add `idle_periods` table to schema.sql | ✅ | ~~Task 4B.3~~ | Lines 391-407 |
 | - Add `user_profiles` table to schema.sql | ✅ | ~~Task 4A.2~~ | Lines 419-448 |
 | - `SCHEMA_VERSION` bumped from 1 → 3 | ✅ | ~~Migration trigger~~ | manager.rs:17 |
-| **Feature Flags Infrastructure** | ⚠️ **PARTIAL** | AppState wiring | 1-2 days |
+| **Feature Flags Infrastructure** | ✅ **COMPLETE** | ~~AppState wiring~~ | ✅ 2 hours |
 | - `FeatureFlagsRepository` implemented | ✅ | ~~Rollback mechanism~~ | feature_flags_repository.rs |
-| - Feature flags wired into Tauri `AppState` | ❌ | Runtime access | TODO |
-| - Admin toggle command (or DB update docs) | ❌ | Hotfix capability | TODO |
+| - Feature flags wired into Tauri `AppState` | ✅ | ~~Runtime access~~ | context/mod.rs:41, main.rs:41 |
+| - Admin toggle commands implemented | ✅ | ~~Hotfix capability~~ | commands/feature_flags.rs |
 | **UserProfileRepository** | ✅ **COMPLETE** | ~~Task 4A.2~~ | ✅ 2 hours |
 | - Port trait in `core/src/user/ports.rs` | ✅ | ~~Type definition~~ | 6 methods defined |
 | - UserProfile domain type | ✅ | ~~Type definition~~ | domain/types/user.rs |
@@ -45,12 +59,10 @@
 - ✅ **UserProfileRepository:** Port trait + implementation complete with 7/7 tests passing
 - ✅ **IdlePeriodsRepository:** Port trait + implementation complete with 6/6 tests passing
 - ✅ **Phase 3D:** OutboxWorker and CostTracker verified in codebase
+- ✅ **Feature Flags AppState Wiring:** (2025-10-31) FeatureFlagService added to AppContext, managed in Tauri app
+- ✅ **Admin Toggle Commands:** (2025-10-31) 3 commands created: is_feature_enabled, toggle_feature_flag, list_feature_flags
 
-**⚠️ Remaining Work:**
-- ❌ **Feature Flags AppState Wiring:** Need to add `FeatureFlagService` to Tauri `AppState` for runtime access
-- ❌ **Admin Toggle Command:** Create Tauri command or document SQL for emergency rollback
-
-**Blocker Status:** Only Feature Flags AppState wiring remains before Phase 4 can begin.
+**Blocker Status:** ✅ ALL PREREQUISITES COMPLETE - Phase 4 ready to begin!
 
 **See [PHASE-4-START-CHECKLIST.md](./PHASE-4-START-CHECKLIST.md) for implementation verification details.**
 

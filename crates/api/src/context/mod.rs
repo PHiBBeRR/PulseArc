@@ -5,7 +5,8 @@ use std::sync::Arc;
 use pulsearc_core::TrackingService;
 use pulsearc_domain::{Config, Result};
 use pulsearc_infra::{
-    DbManager, InstanceLock, KeyManager, MacOsActivityProvider, SqlCipherActivityRepository,
+    DbManager, FeatureFlagService, InstanceLock, KeyManager, MacOsActivityProvider,
+    SqlCipherActivityRepository,
 };
 
 /// Application context - holds all services and dependencies
@@ -13,6 +14,7 @@ pub struct AppContext {
     pub config: Config,
     pub db: Arc<DbManager>,
     pub tracking_service: Arc<TrackingService>,
+    pub feature_flags: Arc<FeatureFlagService>,
     // Keep instance lock alive for the lifetime of the app
     _instance_lock: InstanceLock,
 }
@@ -52,6 +54,9 @@ impl AppContext {
         // Create tracking service
         let tracking_service = Arc::new(TrackingService::new(provider, repository));
 
-        Ok(Self { config, db, tracking_service, _instance_lock: instance_lock })
+        // Create feature flags service
+        let feature_flags = Arc::new(FeatureFlagService::new(db.clone()));
+
+        Ok(Self { config, db, tracking_service, feature_flags, _instance_lock: instance_lock })
     }
 }

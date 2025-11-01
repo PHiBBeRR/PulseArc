@@ -1,9 +1,23 @@
-# Phase 4 Start Checklist
+# ⚠️ DEPRECATED: Phase 4 Start Checklist
 
-**Status:** 🟢 **READY** - All prerequisites complete!
+> **🚨 THIS DOCUMENT IS DEPRECATED**
+>
+> **New Plan:** Phase 4 has been redesigned to migrate commands to `crates/api/pulsearc-app` instead of rewiring in `legacy/api/`.
+>
+> **See:** [PHASE-4-NEW-CRATE-MIGRATION.md](../../PHASE-4-NEW-CRATE-MIGRATION.md) for the current migration plan (includes updated checklist).
+>
+> **Reason:** This checklist was for the original Phase 4 plan (in-place rewiring). The new plan uses a different approach.
+>
+> **Date Deprecated:** 2025-10-31
+
+---
+
+# Phase 4 Start Checklist (ORIGINAL PLAN - DEPRECATED)
+
+**Status:** 🔴 DEPRECATED - See new plan above
 **Last Updated:** 2025-10-31 (All prerequisites complete, Feature Flags infrastructure implemented)
 
-> **✅ UPDATE (2025-10-31 PM):** Feature flags infrastructure is now complete! All prerequisites met. Ready to start Phase 4A.
+> **✅ UPDATE (2025-10-31 PM):** Feature flags infrastructure is now complete! All prerequisites met. Ready to start Phase 4A. (NOTE: This refers to the OLD Phase 4 plan)
 
 ---
 

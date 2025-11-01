@@ -1,6 +1,18 @@
-# Phase 4 Documentation Changelog
+# ⚠️ DEPRECATED: Phase 4 Documentation Changelog
 
-**Tracking changes to Phase 4 planning documents**
+> **🚨 THIS DOCUMENT IS DEPRECATED**
+>
+> **New Plan:** Phase 4 has been redesigned to migrate commands to `crates/api/pulsearc-app`.
+>
+> **See:** [PHASE-4-NEW-CRATE-MIGRATION.md](../../PHASE-4-NEW-CRATE-MIGRATION.md) for the current migration plan.
+>
+> **Date Deprecated:** 2025-10-31
+
+---
+
+# Phase 4 Documentation Changelog (ORIGINAL PLAN - DEPRECATED)
+
+**Tracking changes to Phase 4 planning documents (for historical reference)**
 
 ---
 

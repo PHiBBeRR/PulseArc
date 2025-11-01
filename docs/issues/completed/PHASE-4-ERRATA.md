@@ -1,9 +1,21 @@
-# Phase 4 Tracking Document - Critical Errata
+# ⚠️ DEPRECATED: Phase 4 Tracking Document - Critical Errata
+
+> **🚨 THIS DOCUMENT IS DEPRECATED**
+>
+> **New Plan:** Phase 4 has been redesigned to migrate commands to `crates/api/pulsearc-app`.
+>
+> **See:** [PHASE-4-NEW-CRATE-MIGRATION.md](../../PHASE-4-NEW-CRATE-MIGRATION.md) for the current migration plan.
+>
+> **Date Deprecated:** 2025-10-31
+
+---
+
+# Phase 4 Tracking Document - Critical Errata (ORIGINAL PLAN - DEPRECATED)
 
 **Created:** 2025-10-31
 **Updated:** 2025-10-31 (v1.2 - Prerequisites 1, 3, 4 completed)
-**Status:** 🟢 **MOSTLY RESOLVED** - Ready to start Phase 4
-**Impact:** 10/11 tasks ready, only Feature Flags AppState wiring remains
+**Status:** 🔴 DEPRECATED - See new plan above
+**Impact:** 10/11 tasks ready, only Feature Flags AppState wiring remains (NOTE: This refers to the OLD Phase 4 plan)
 
 ---
 

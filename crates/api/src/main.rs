@@ -35,7 +35,11 @@ pub fn run() {
 
             // Initialize application context
             let ctx = AppContext::new()?;
-            app.manage(Arc::new(ctx));
+            let ctx_arc = Arc::new(ctx);
+
+            // Manage feature flags service separately for command access
+            app.manage(ctx_arc.feature_flags.clone());
+            app.manage(ctx_arc);
 
             // Set native macOS window blur effects
             if let Some(window) = app.get_webview_window("main") {
@@ -65,6 +69,10 @@ pub fn run() {
             pulsearc_lib::get_outbox_status,
             // Calendar integration
             pulsearc_lib::get_calendar_events_for_timeline,
+            // Feature flags (Phase 4)
+            pulsearc_lib::is_feature_enabled,
+            pulsearc_lib::toggle_feature_flag,
+            pulsearc_lib::list_feature_flags,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
