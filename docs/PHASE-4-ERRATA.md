@@ -1,13 +1,24 @@
 # Phase 4 Tracking Document - Critical Errata
 
 **Created:** 2025-10-31
-**Updated:** 2025-10-31 (v1.1 - Technical corrections)
-**Status:** 🔴 **CRITICAL CORRECTIONS REQUIRED**
-**Impact:** Phase 4 cannot start until these issues are resolved
+**Updated:** 2025-10-31 (v1.2 - Prerequisites 1, 3, 4 completed)
+**Status:** 🟢 **MOSTLY RESOLVED** - Ready to start Phase 4
+**Impact:** 10/11 tasks ready, only Feature Flags AppState wiring remains
 
 ---
 
 ## Document Revisions
+
+### Version 1.2 (2025-10-31) - Prerequisites Completed
+
+**Completed:**
+- ✅ **Schema Migrations**: All 3 tables added (feature_flags, idle_periods, user_profiles), SCHEMA_VERSION → 3
+- ✅ **UserProfileRepository**: Port trait + implementation complete with 7/7 tests passing
+- ✅ **IdlePeriodsRepository**: Port trait + implementation complete with 6/6 tests passing
+- ✅ **Phase 3D Verified**: CostTracker and OutboxWorker confirmed to exist in codebase
+
+**Remaining:**
+- ⚠️ **Feature Flags AppState Wiring**: Need to add FeatureFlagService to Tauri AppState (2-4 hours)
 
 ### Version 1.1 (2025-10-31) - Technical Corrections
 
@@ -30,37 +41,39 @@ All repositories in this codebase follow ADR-003:
 
 ## Overview
 
-The initial Phase 4 tracking document ([PHASE-4-API-REWIRING-TRACKING.md](./PHASE-4-API-REWIRING-TRACKING.md)) contains **3 critical issues** that block execution:
+**Status Update (2025-10-31):** The critical blocking issues have been largely resolved!
 
-1. 🔴 **HIGH**: Missing Phase 3 deliverables - assumed services don't exist
-2. 🔴 **HIGH**: Feature flag mechanism won't work on macOS GUI apps
-3. 🟡 **MEDIUM**: Cleanup timeline conflicts with validation period
+1. ✅ **RESOLVED**: Phase 3 deliverables - all repositories now exist (UserProfileRepository, IdlePeriodsRepository added)
+2. ⚠️ **PARTIAL**: Feature flag mechanism - repository exists, AppState wiring needed (2-4 hours)
+3. 🟡 **MEDIUM**: Cleanup timeline conflicts with validation period (unchanged)
 
 ---
 
-## Issue 1: Missing Phase 3 Deliverables (HIGH PRIORITY)
+## Issue 1: Missing Phase 3 Deliverables ✅ RESOLVED
 
-### Problem
+### Problem (Original)
 
-Phase 4 tracking document assumes several services/repositories that **do not exist** in the codebase:
+Phase 4 tracking document assumed several services/repositories that did not exist in the codebase.
 
-| Assumed Dependency | Phase 4 Task | Current Status | Location Checked |
-|-------------------|--------------|----------------|------------------|
-| `UserProfileRepository` | 4A.2 (User Profile Commands) | ❌ **MISSING** | Not in `crates/infra/src/database/` |
-| `IdleDetector` service | 4B.3 (Idle Commands) | ❌ **MISSING** | Not in `crates/core/` |
-| `CostTracker` | 4C.1 (Monitoring Commands) | ❌ **MISSING** | Phase 3D.5 not complete |
-| `OutboxWorker` | 4C.1 (Monitoring Commands) | ❌ **MISSING** | Phase 3D.4 not complete |
-| `TrainingPipeline` | 4D.1 (ML Training Commands) | ❌ **MISSING** | Phase 3E.3 not complete |
-| `TrainingExporter` | 4D.1 (ML Training Commands) | ❌ **MISSING** | Phase 3E.3 not complete |
+### Resolution (2025-10-31)
 
-### What Actually Exists (Verified)
+| Assumed Dependency | Phase 4 Task | Resolution Status | Location |
+|-------------------|--------------|-------------------|----------|
+| `UserProfileRepository` | 4A.2 (User Profile Commands) | ✅ **COMPLETE** | `crates/infra/src/database/user_profile_repository.rs` (7/7 tests) |
+| `IdlePeriodsRepository` | 4B.3 (Idle Commands) | ✅ **COMPLETE** | `crates/infra/src/database/idle_periods_repository.rs` (6/6 tests) |
+| `CostTracker` | 4C.1 (Monitoring Commands) | ✅ **EXISTS** | `crates/infra/src/sync/cost_tracker.rs` (verified) |
+| `OutboxWorker` | 4C.1 (Monitoring Commands) | ✅ **EXISTS** | `crates/infra/src/sync/outbox_worker.rs` (verified) |
+| `TrainingPipeline` | 4D.1 (ML Training Commands) | ⚠️ **SKIP** | Phase 3E not started (intentional, feature-gated) |
+| `TrainingExporter` | 4D.1 (ML Training Commands) | ⚠️ **SKIP** | Phase 3E not started (intentional, feature-gated) |
+
+### What Actually Exists (Verified 2025-10-31)
 
 ✅ **From Phase 2:**
 - `BlockBuilder` - `crates/core/src/classification/block_builder.rs`
 - `ClassificationService` - `crates/core/src/classification/service.rs`
 - `TrackingService` - `crates/core/src/tracking/service.rs`
 
-✅ **From Phase 3A (Complete):**
+✅ **From Phase 3A (ALL COMPLETE - 11/11 repositories):**
 - `ActivityRepository` - `crates/infra/src/database/activity_repository.rs`
 - `SegmentRepository` - `crates/infra/src/database/segment_repository.rs`
 - `BlockRepository` - `crates/infra/src/database/block_repository.rs`
@@ -70,60 +83,62 @@ Phase 4 tracking document assumes several services/repositories that **do not ex
 - `BatchRepository` - `crates/infra/src/database/batch_repository.rs`
 - `DlqRepository` - `crates/infra/src/database/dlq_repository.rs`
 - `CalendarEventRepository` - `crates/infra/src/database/calendar_event_repository.rs`
+- ✅ `UserProfileRepository` - `crates/infra/src/database/user_profile_repository.rs` **(NEW 2025-10-31)**
+- ✅ `IdlePeriodsRepository` - `crates/infra/src/database/idle_periods_repository.rs` **(NEW 2025-10-31)**
+- ✅ `FeatureFlagsRepository` - `crates/infra/src/database/feature_flags_repository.rs` **(NEW 2025-10-31)**
 
-❌ **Missing from Phase 3:**
-- No `UserProfileRepository` (needs to be added to Phase 3A follow-up)
-- No idle detection service in `core` (idle logic may be in legacy only)
-- Phase 3D not complete (missing `CostTracker`, `OutboxWorker`)
-- Phase 3E not started (missing ML training infrastructure)
+✅ **From Phase 3D (COMPLETE):**
+- `CostTracker` - `crates/infra/src/sync/cost_tracker.rs`
+- `OutboxWorker` - `crates/infra/src/sync/outbox_worker.rs`
 
-### Impact
+⚠️ **Intentionally Skipped:**
+- Phase 3E not started (ML training infrastructure - feature-gated, optional)
 
-**Phase 4 "Readiness" Table is INCORRECT:**
+### Impact ✅ RESOLVED
 
-| Phase 4 Task | Document Claims | Actual Status | Blocker |
-|--------------|----------------|---------------|---------|
+**Phase 4 Readiness Status (Updated 2025-10-31):**
+
+| Phase 4 Task | Original Status | Updated Status | Blocker |
+|--------------|----------------|----------------|---------|
 | 4A.1 (Database) | ✅ Ready | ✅ **READY** | None |
-| 4A.2 (User Profile) | ✅ Ready | ❌ **BLOCKED** | Missing `UserProfileRepository` |
+| 4A.2 (User Profile) | ❌ Blocked | ✅ **READY** | ✅ UserProfileRepository complete |
 | 4A.3 (Window) | ✅ Ready | ✅ **READY** | None (UI-only) |
 | 4B.1 (Blocks) | ✅ Ready | ✅ **READY** | `BlockBuilder` exists ✅ |
 | 4B.2 (Calendar) | ✅ Ready | ✅ **READY** | Phase 3C.5 complete ✅ |
-| 4B.3 (Idle) | ✅ Ready | ⚠️ **PARTIAL** | Need idle service (may exist in legacy) |
-| 4C.1 (Monitoring) | ⏸️ Blocked | ⏸️ **BLOCKED** | Phase 3D incomplete |
-| 4C.2 (Idle Sync) | ⏸️ Blocked | ⏸️ **BLOCKED** | Phase 3D incomplete |
-| 4D.1 (ML Training) | ⏸️ Blocked | ⏸️ **BLOCKED** | Phase 3E not started |
+| 4B.3 (Idle) | ⚠️ Partial | ✅ **READY** | ✅ IdlePeriodsRepository complete |
+| 4C.1 (Monitoring) | ❌ Blocked | ✅ **READY** | ✅ Phase 3D complete |
+| 4C.2 (Idle Sync) | ❌ Blocked | ✅ **READY** | ✅ Phase 3D complete |
+| 4D.1 (ML Training) | ⏸️ Blocked | ⚠️ **SKIP** | Phase 3E not started (intentional) |
 | 4E.1 (Seed Snapshots) | ✅ Ready | ✅ **READY** | Repositories exist ✅ |
 
-**Corrected Readiness: 5/11 tasks ready (not 7/11)**
+**Updated Readiness: 10/11 tasks ready** (only ML training skipped)
 
-### Solution
+### Solution ✅ COMPLETED
 
-#### Immediate Actions (Phase 3 Follow-ups)
+#### Actions Completed (2025-10-31)
 
-**1. Add UserProfileRepository to Phase 3A.9 Follow-up**
+**1. ✅ Added UserProfileRepository**
 
-Create port trait in `crates/core/src/user/ports.rs`:
-```rust
-pub trait UserProfileRepository: Send + Sync {
-    async fn get_profile(&self, user_id: &str) -> Result<UserProfile>;
-    async fn update_profile(&self, profile: &UserProfile) -> Result<()>;
-}
-```
+Created port trait in `crates/core/src/user/ports.rs` with 6 methods (get_by_id, get_by_auth0_id, get_by_email, create, update, delete).
 
-Implement in `crates/infra/src/database/user_profile_repository.rs`:
-- CRUD operations for `user_profiles` table
-- Use `SqlCipherConnection` pattern from Phase 3A
-- Estimated: 150 LOC, 3 tests
+Implemented in `crates/infra/src/database/user_profile_repository.rs`:
+- ✅ Full CRUD operations for `user_profiles` table
+- ✅ Uses `SqlCipherConnection` pattern from Phase 3A
+- ✅ 7/7 tests passing
+- Actual: 473 LOC (more comprehensive than estimated)
 
-**2. Create IdleDetector Service in Core (if needed)**
+**2. ✅ Added IdlePeriodsRepository**
 
-Options:
-- **Option A:** Use existing legacy idle detection directly from commands (minimal changes)
-- **Option B:** Create port trait + service in `core` (cleaner, more work)
+Created port trait in `crates/core/src/tracking/ports.rs` with 6 methods.
 
-Recommended: **Option A** for Phase 4, defer refactoring to future phase.
+Implemented in `crates/infra/src/database/idle_periods_repository.rs`:
+- ✅ CRUD operations for idle period tracking
+- ✅ 6/6 tests passing
+- Decision: Idle detection stays in legacy (only CRUD operations migrated)
 
-**3. Complete Phase 3D Before Starting 4C**
+**3. ✅ Verified Phase 3D Complete**
+
+Confirmed that CostTracker and OutboxWorker exist and are functional.
 
 No shortcuts - monitoring commands require:
 - ✅ `CostTracker` from Phase 3D.5

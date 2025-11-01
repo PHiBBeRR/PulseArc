@@ -14,6 +14,13 @@ use tracing::info;
 use super::sqlcipher_pool::create_sqlcipher_pool;
 use crate::errors::InfraError;
 
+// Schema evolution within version 1 (additive changes via CREATE TABLE IF NOT
+// EXISTS)
+// - Version 1: Initial schema (batch processing, calendar, repositories)
+// - Added in Phase 4 prep: feature_flags, idle_periods tables
+// - No version bump needed: schema is idempotent, existing v1 databases
+//   compatible
+// - Future: Implement proper migration logic when breaking changes needed
 const SCHEMA_VERSION: i32 = 1;
 const SCHEMA_SQL: &str = include_str!("schema.sql");
 

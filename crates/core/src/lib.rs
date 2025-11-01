@@ -17,7 +17,11 @@ pub mod batch;
 pub mod classification;
 pub mod sync;
 pub mod tracking;
+pub mod user;
 pub mod utils;
+
+// Infrastructure ports
+pub mod feature_flags_ports;
 
 // Feature-gated integration modules
 #[cfg(feature = "calendar")]
@@ -32,11 +36,13 @@ pub use classification::ports::{
     BlockRepository, Classifier, ProjectMatcher, TimeEntryRepository, WbsRepository,
 };
 pub use classification::ClassificationService;
+pub use feature_flags_ports::{FeatureFlag, FeatureFlagsPort};
 pub use sync::ports::{IdMappingRepository, OutboxQueue, TokenUsageRepository};
 pub use tracking::ports::{
     ActivityEnricher, ActivityProvider, ActivityRepository, CalendarEventRepository,
     SegmentRepository, SnapshotRepository,
 };
 pub use tracking::TrackingService;
+pub use user::ports::UserProfileRepository;
 // Re-export utilities
 pub use utils::patterns;

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use pulsearc_common::error::CommonResult;
 use pulsearc_domain::types::database::{ActivitySegment, ActivitySnapshot, CalendarEventParams};
-use pulsearc_domain::{ActivityContext, CalendarEventRow, Result};
+use pulsearc_domain::{ActivityContext, CalendarEventRow, IdlePeriod, Result};
 
 /// Trait for capturing activity from the operating system
 #[async_trait]
@@ -151,4 +151,74 @@ pub trait CalendarEventRepository: Send + Sync {
     /// # Returns
     /// Number of events deleted
     async fn delete_calendar_events_older_than(&self, days: i64) -> Result<usize>;
+}
+
+/// Repository for persisting and querying idle periods
+///
+/// FEATURE-028: Tracks idle periods detected by the idle detection system,
+/// allowing users to review and decide whether to keep or discard idle time.
+#[async_trait]
+pub trait IdlePeriodsRepository: Send + Sync {
+    /// Save a newly detected idle period
+    ///
+    /// # Arguments
+    /// * `period` - The idle period to save
+    ///
+    /// # Returns
+    /// Success or error if save fails
+    async fn save_idle_period(&self, period: IdlePeriod) -> Result<()>;
+
+    /// Get an idle period by ID
+    ///
+    /// # Arguments
+    /// * `id` - The idle period ID
+    ///
+    /// # Returns
+    /// The idle period if found, None otherwise
+    async fn get_idle_period(&self, id: &str) -> Result<Option<IdlePeriod>>;
+
+    /// Get all idle periods within a time range
+    ///
+    /// # Arguments
+    /// * `start_ts` - Start of time range (Unix epoch seconds)
+    /// * `end_ts` - End of time range (Unix epoch seconds)
+    ///
+    /// # Returns
+    /// Vector of idle periods within the specified time range
+    async fn get_idle_periods_in_range(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+    ) -> Result<Vec<IdlePeriod>>;
+
+    /// Get all pending idle periods (user_action is None or 'pending')
+    ///
+    /// # Returns
+    /// Vector of idle periods awaiting user review
+    async fn get_pending_idle_periods(&self) -> Result<Vec<IdlePeriod>>;
+
+    /// Update an idle period's user action (kept, discarded, etc.)
+    ///
+    /// # Arguments
+    /// * `id` - The idle period ID
+    /// * `user_action` - The user's decision ('kept', 'discarded', etc.)
+    /// * `notes` - Optional user notes
+    ///
+    /// # Returns
+    /// Success or error if update fails
+    async fn update_idle_period_action(
+        &self,
+        id: &str,
+        user_action: &str,
+        notes: Option<String>,
+    ) -> Result<()>;
+
+    /// Delete idle periods older than the specified date
+    ///
+    /// # Arguments
+    /// * `before_ts` - Unix timestamp (periods before this will be deleted)
+    ///
+    /// # Returns
+    /// Number of periods deleted
+    async fn delete_idle_periods_before(&self, before_ts: i64) -> Result<usize>;
 }

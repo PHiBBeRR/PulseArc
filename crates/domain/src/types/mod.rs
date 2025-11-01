@@ -7,8 +7,11 @@ pub mod database;
 pub mod idle;
 pub mod sap;
 pub mod stats;
+pub mod user;
 
 use chrono::{DateTime, Utc};
+// Re-export classification types
+pub use classification::ProposedBlock;
 // Re-export database types for convenience
 pub use database::{
     AcceptPatch, ActivitySegment, ActivitySnapshot, BatchQueue, BatchStatus, CalendarEventParams,
@@ -23,6 +26,11 @@ pub use stats::{
     BatchStats, ClassificationMode, DatabaseStats, DlqBatch, OutboxStats, SyncStats, TokenUsage,
     TokenVariance, UserCostSummary,
 };
+pub use user::UserProfile;
+
+// Type alias for API compatibility
+/// Block is an alias for ProposedBlock (used in API contexts)
+pub type Block = ProposedBlock;
 #[cfg(feature = "ts-gen")]
 use ts_rs::TS;
 use uuid::Uuid;

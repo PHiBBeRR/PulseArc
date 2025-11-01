@@ -388,6 +388,64 @@ CREATE TABLE IF NOT EXISTS sap_sync_settings (
             last_sync_status TEXT
         );
 INSERT OR IGNORE INTO sap_sync_settings (id, enabled, sync_interval_hours) VALUES (1, 1, 6);
+CREATE TABLE IF NOT EXISTS idle_periods (
+            id TEXT NOT NULL PRIMARY KEY,
+            start_ts INTEGER NOT NULL,
+            end_ts INTEGER NOT NULL,
+            duration_secs INTEGER NOT NULL,
+            system_trigger TEXT NOT NULL,
+            user_action TEXT,
+            threshold_secs INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            reviewed_at INTEGER,
+            notes TEXT,
+            UNIQUE(start_ts, end_ts)
+        );
+CREATE INDEX IF NOT EXISTS idx_idle_periods_time_range
+         ON idle_periods(start_ts, end_ts);
+CREATE INDEX IF NOT EXISTS idx_idle_periods_user_action
+         ON idle_periods(user_action, start_ts);
+CREATE TABLE IF NOT EXISTS feature_flags (
+            flag_name TEXT PRIMARY KEY,
+            enabled INTEGER NOT NULL DEFAULT 0,
+            description TEXT,
+            updated_at INTEGER NOT NULL
+        );
+-- Default feature flags for Phase 4 rollback control
+INSERT OR IGNORE INTO feature_flags (flag_name, enabled, description, updated_at)
+VALUES
+    ('new_blocks_cmd', 1, 'Use new block builder infrastructure', CAST(strftime('%s','now') AS INTEGER)),
+    ('use_new_infra', 1, 'Enable Phase 4 infrastructure globally', CAST(strftime('%s','now') AS INTEGER));
+CREATE TABLE IF NOT EXISTS user_profiles (
+            id TEXT NOT NULL PRIMARY KEY,
+            auth0_id TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            display_name TEXT,
+            avatar_url TEXT,
+            phone_number TEXT,
+            title TEXT,
+            department TEXT,
+            location TEXT,
+            bio TEXT,
+            timezone TEXT NOT NULL,
+            language TEXT NOT NULL,
+            locale TEXT NOT NULL,
+            date_format TEXT NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            email_verified INTEGER NOT NULL DEFAULT 0,
+            two_factor_enabled INTEGER NOT NULL DEFAULT 0,
+            last_login_at INTEGER NOT NULL,
+            last_synced_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+CREATE INDEX IF NOT EXISTS idx_user_profiles_auth0_id
+         ON user_profiles(auth0_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email
+         ON user_profiles(email);
 CREATE TABLE IF NOT EXISTS schema_version (
             version INTEGER PRIMARY KEY,
             applied_at INTEGER NOT NULL

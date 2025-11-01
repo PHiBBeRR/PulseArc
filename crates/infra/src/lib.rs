@@ -27,6 +27,7 @@ pub mod mdm;
 pub mod observability;
 pub mod platform;
 pub mod scheduling;
+pub mod services;
 pub mod sync;
 // Re-export commonly used items
 pub use api::{ApiClient, ApiCommands, ApiForwarder, ApiScheduler};
@@ -51,4 +52,5 @@ pub use scheduling::{
 pub use scheduling::{CalendarScheduler, CalendarSchedulerConfig};
 #[cfg(feature = "sap")]
 pub use scheduling::{SapScheduler, SapSchedulerConfig};
+pub use services::FeatureFlagService;
 pub use sync::{CleanupService, CostTracker, NeonClient, OutboxWorker, OutboxWorkerConfig};
