@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use pulsearc_domain::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::warn;
 
 use super::traits::{
     CalendarProviderTrait, FetchEventsResponse, RawCalendarEvent, TokenRefreshResponse,
@@ -65,19 +66,27 @@ impl CalendarProviderTrait for GoogleCalendarProvider {
                      end,
                      recurring_event_id,
                      hangout_link,
+                     attendees,
                  }| {
                     let is_all_day = start.date.is_some();
                     let subject = summary.filter(|s| !s.trim().is_empty());
 
-                    let start = start.date_time.or(start.date).unwrap_or_default();
-                    let end = end.date_time.or(end.date).unwrap_or_default();
+                    let start_str = start.date_time.or(start.date).unwrap_or_default();
+                    let end_str = end.date_time.or(end.date).unwrap_or_default();
+
+                    // Parse attendees with validation
+                    let parsed_attendees = attendees.map(|list| {
+                        list.into_iter()
+                            .filter_map(|a| validate_and_log_email(&a.email, &id))
+                            .collect()
+                    });
 
                     RawCalendarEvent {
                         id,
                         subject,
                         body_preview: description,
-                        start,
-                        end,
+                        start: start_str,
+                        end: end_str,
                         is_all_day,
                         calendar_id: Some(calendar_id.to_string()),
                         series_master_id: recurring_event_id,
@@ -89,6 +98,7 @@ impl CalendarProviderTrait for GoogleCalendarProvider {
                         meeting_id: None,
                         attendee_count: None,
                         external_attendee_count: None,
+                        attendees: parsed_attendees,
                     }
                 },
             )
@@ -155,6 +165,23 @@ impl CalendarProviderTrait for GoogleCalendarProvider {
     }
 }
 
+/// Validate email address and log warnings for malformed emails
+///
+/// Returns None only for empty emails. Malformed emails (missing @) are logged
+/// but kept, as provider data is canonical.
+fn validate_and_log_email(email: &str, event_id: &str) -> Option<String> {
+    let trimmed = email.trim();
+    if trimmed.is_empty() {
+        warn!(event_id, email, "empty attendee email");
+        return None;
+    }
+    if !trimmed.contains('@') {
+        warn!(event_id, email, "attendee email missing @ symbol");
+        // Keep it anyway - provider data is canonical
+    }
+    Some(trimmed.to_string())
+}
+
 #[derive(Debug, Deserialize)]
 struct GoogleEventsResponse {
     items: Vec<GoogleCalendarEvent>,
@@ -175,6 +202,7 @@ struct GoogleCalendarEvent {
     recurring_event_id: Option<String>,
     #[serde(rename = "hangoutLink")]
     hangout_link: Option<String>,
+    attendees: Option<Vec<GoogleAttendee>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,6 +210,11 @@ struct EventDateTime {
     #[serde(rename = "dateTime")]
     date_time: Option<String>,
     date: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleAttendee {
+    email: String,
 }
 
 #[derive(Debug, Deserialize)]

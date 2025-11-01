@@ -26,6 +26,7 @@ pub struct RawCalendarEvent {
     pub meeting_id: Option<String>,
     pub attendee_count: Option<i32>,
     pub external_attendee_count: Option<i32>,
+    pub attendees: Option<Vec<String>>,
 }
 
 /// Response from calendar provider fetch_events

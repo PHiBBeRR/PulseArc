@@ -190,13 +190,8 @@ impl CalendarOAuthManager {
             config.add_token_param(key.clone(), value.clone());
         }
 
-        let service = OAuthService::new(
-            config,
-            self.keychain.clone(),
-            self.keychain_service_name.clone(),
-            account_name.to_string(),
-            self.refresh_threshold_seconds,
-        );
+        let service =
+            OAuthService::new(config, self.keychain.clone(), account_name.to_string(), self.refresh_threshold_seconds);
 
         Ok(service)
     }

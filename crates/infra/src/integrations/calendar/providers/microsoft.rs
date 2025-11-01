@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use pulsearc_domain::Result;
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::warn;
 
 use super::traits::{
     CalendarProviderTrait, FetchEventsResponse, RawCalendarEvent, TokenRefreshResponse,
@@ -208,6 +209,7 @@ struct MicrosoftCalendarEvent {
     calendar_id: Option<String>,
     #[serde(rename = "onlineMeeting")]
     online_meeting: Option<OnlineMeeting>,
+    attendees: Option<Vec<MicrosoftAttendee>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -228,6 +230,34 @@ struct MicrosoftTokenRefreshResponse {
 struct OnlineMeeting {
     #[serde(rename = "joinUrl")]
     join_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftAttendee {
+    #[serde(rename = "emailAddress")]
+    email_address: EmailAddress,
+}
+
+#[derive(Debug, Deserialize)]
+struct EmailAddress {
+    address: String,
+}
+
+/// Validate email address and log warnings for malformed emails
+///
+/// Returns None only for empty emails. Malformed emails (missing @) are logged
+/// but kept, as provider data is canonical.
+fn validate_and_log_email(email: &str, event_id: &str) -> Option<String> {
+    let trimmed = email.trim();
+    if trimmed.is_empty() {
+        warn!(event_id, email, "empty attendee email");
+        return None;
+    }
+    if !trimmed.contains('@') {
+        warn!(event_id, email, "attendee email missing @ symbol");
+        // Keep it anyway - provider data is canonical
+    }
+    Some(trimmed.to_string())
 }
 
 fn normalise_event_time(event: &EventDateTime) -> String {

@@ -1,8 +1,6 @@
 //! Pure string utility functions for title extraction and manipulation
 
-use crate::constants::{
-    MAX_PROJECT_NAME_LENGTH, MAX_TITLE_LENGTH, TITLE_TRUNCATE_SUFFIX,
-};
+use crate::constants::{MAX_PROJECT_NAME_LENGTH, MAX_TITLE_LENGTH, TITLE_TRUNCATE_SUFFIX};
 
 /// Extract text by splitting on a delimiter and taking a specific part.
 ///
