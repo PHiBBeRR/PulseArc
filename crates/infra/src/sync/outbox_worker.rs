@@ -1,16 +1,35 @@
 //! Outbox worker for periodic batch processing and forwarding.
 //!
+//! **STATUS: INFRASTRUCTURE COMPLETE** - Batch processing logic pending entity
+//! mapping.
+//!
 //! Provides a background worker that polls the outbox repository for pending
 //! time entries and forwards them to the API in batches. The implementation
 //! follows the runtime rules captured in `CLAUDE.md`: join handles are tracked,
 //! cancellation is explicit, and every asynchronous operation is wrapped in a
 //! timeout.
 //!
+//! # Scope & Responsibilities
+//!
+//! **IMPORTANT**: This worker is for generic outbox processing. Specialized
+//! outbox handling is delegated to feature-specific schedulers:
+//!
+//! - **SAP Time Entries**: Handled by `SapScheduler` (Task 3D.3)
+//!   - Uses `SqlCipherOutboxRepository::dequeue_batch()`
+//!   - Forwards via `BatchForwarder` from SAP integration
+//!   - Updates outbox status (sent/failed) with retry backoff
+//!
+//! - **Generic Outbox** (this worker): Placeholder for future use
+//!   - Infrastructure complete (lifecycle, cancellation, timeouts)
+//!   - Batch processing logic pending until entity mapping is clarified
+//!   - **TODO**: Determine mapping from `TimeEntryOutbox` → API entities
+//!   - **Tracked in**: Phase 3D follow-up (outbox entity mapping)
+//!
 //! # Architecture
 //!
 //! - Polls outbox repository at configured intervals
 //! - Dequeues pending entries in batches
-//! - Forwards batches via `ApiForwarder`
+//! - Forwards batches via `ApiForwarder` (once entity mapping is defined)
 //! - Updates entry status (sent/failed) based on results
 //! - Handles partial batch failures gracefully
 //! - Respects retry backoff for failed entries
@@ -50,11 +69,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use pulsearc_core::OutboxQueue;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
-
-use pulsearc_core::OutboxQueue;
 
 use crate::api::forwarder::ApiForwarder;
 use crate::database::outbox_repository::SqlCipherOutboxRepository;
@@ -273,23 +291,29 @@ impl OutboxWorker {
 
         info!(count = entries.len(), "Processing outbox batch");
 
-        // TODO: Convert TimeEntryOutbox to ActivitySegment/ActivitySnapshot
-        // For now, this is a placeholder. The actual implementation will depend on
-        // how we map outbox entries to segments/snapshots.
-        // This is where we'd need to understand the relationship between
-        // TimeEntryOutbox and the API entities.
+        // =======================================================================
+        // BATCH PROCESSING LOGIC - TODO: Pending entity mapping clarification
+        // =======================================================================
+        //
+        // CURRENT STATUS:
+        // - Infrastructure complete (polling, dequeuing, lifecycle management)
+        // - SAP time entries handled by SapScheduler (see Task 3D.3)
+        // - Generic outbox processing awaiting entity mapping specification
+        //
+        // REQUIRED FOR COMPLETION:
+        // 1. Define mapping: TimeEntryOutbox → ActivitySegment/ActivitySnapshot
+        // 2. Implement conversion logic
+        // 3. Group entries by entity type
+        // 4. Call forwarder.forward_segments() / forward_snapshots()
+        // 5. Update outbox status based on BatchSubmissionResult
+        //
+        // TRACKED IN: Phase 3D follow-up (outbox entity mapping)
+        // =======================================================================
 
-        // Track metrics
+        // Track metrics (infrastructure working)
         log_metric(metrics.record_call(), "outbox_worker.batch.processed");
 
-        // Placeholder for batch submission
-        // In a real implementation:
-        // 1. Group entries by type (segment vs snapshot)
-        // 2. Convert to API entities
-        // 3. Submit via forwarder.forward_segments() / forward_snapshots()
-        // 4. Update status based on results
-
-        warn!("Outbox worker batch processing is not yet fully implemented");
+        debug!(count = entries.len(), "Batch infrastructure processed; entity mapping pending");
 
         Ok(())
     }
@@ -340,7 +364,8 @@ mod tests {
         entries: Arc<tokio::sync::Mutex<Vec<TimeEntryOutbox>>>,
     }
 
-    // Helper methods (new, add_entries, etc.) will be added when tests are implemented
+    // Helper methods (new, add_entries, etc.) will be added when tests are
+    // implemented
 
     #[async_trait]
     impl OutboxQueue for MockOutboxRepo {

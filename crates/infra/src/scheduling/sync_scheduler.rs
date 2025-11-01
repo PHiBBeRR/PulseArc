@@ -1,10 +1,25 @@
 //! Sync scheduler for periodic outbox processing.
 //!
+//! **STATUS: PENDING** - Awaiting repository implementations.
+//!
 //! Provides interval-based synchronization scheduler for API operations with
 //! lifecycle management. Processes pending segments and snapshots from the
 //! outbox and forwards them to the API.
 //!
 //! Always compiled (not feature-gated).
+//!
+//! # Pending Dependencies
+//!
+//! This scheduler requires segment and snapshot repository implementations
+//! that provide `get_pending_for_sync()` and `mark_synced()` operations.
+//! These repositories are planned but not yet implemented in Phase 3.
+//!
+//! Placeholder traits are defined below. When proper repositories land in
+//! `crates/infra/src/repositories/`, these traits should be replaced with
+//! the actual repository ports from `pulsearc-core`.
+//!
+//! **TODO**: Replace placeholder traits with actual repositories once
+//! available. **Tracked in**: Phase 3D follow-up work
 //!
 //! # Example
 //!
@@ -56,7 +71,28 @@ use crate::observability::metrics::PerformanceMetrics;
 use crate::observability::MetricsResult;
 use crate::scheduling::error::{SchedulerError, SchedulerResult};
 
-/// Placeholder trait until repositories module is implemented
+// =============================================================================
+// PLACEHOLDER TRAITS - TODO: REPLACE WITH ACTUAL REPOSITORIES
+// =============================================================================
+//
+// These traits are temporary placeholders until proper repository
+// implementations are available. They define the minimum interface needed for
+// sync operations.
+//
+// When repositories are implemented:
+// 1. Remove these placeholder traits
+// 2. Import actual repository traits from pulsearc-core/tracking/ports
+// 3. Update SyncScheduler to use Arc<dyn ActualRepositoryTrait>
+// 4. Ensure repositories provide get_pending_for_sync() and mark_synced()
+//    methods
+//
+// Tracked in: Phase 3D follow-up (repository implementations)
+// =============================================================================
+
+/// Placeholder trait for segment repository operations.
+///
+/// **TODO**: Replace with actual `SegmentRepository` port from pulsearc-core
+/// once repository implementations land in Phase 3.
 #[allow(dead_code)]
 #[async_trait]
 pub trait ActivitySegmentRepository: Send + Sync {
@@ -69,7 +105,10 @@ pub trait ActivitySegmentRepository: Send + Sync {
     async fn mark_synced(&self, id: &str) -> Result<(), PulseArcError>;
 }
 
-/// Placeholder trait until repositories module is implemented
+/// Placeholder trait for snapshot repository operations.
+///
+/// **TODO**: Replace with actual `SnapshotRepository` port from pulsearc-core
+/// once repository implementations land in Phase 3.
 #[allow(dead_code)]
 #[async_trait]
 pub trait ActivitySnapshotRepository: Send + Sync {
