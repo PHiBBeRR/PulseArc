@@ -61,6 +61,22 @@ pub trait DatabaseStatsPort: Send + Sync {
     /// ```
     async fn get_table_stats(&self) -> Result<Vec<TableStats>>;
 
+    /// Get count of unprocessed snapshots.
+    ///
+    /// Counts snapshots that have not been processed into segments yet.
+    /// Used for monitoring the snapshot processing queue.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use pulsearc_core::DatabaseStatsPort;
+    /// # async fn example(db_stats: &impl DatabaseStatsPort) {
+    /// let count = db_stats.get_unprocessed_count().await.unwrap();
+    /// println!("{} snapshots pending processing", count);
+    /// # }
+    /// ```
+    async fn get_unprocessed_count(&self) -> Result<i64>;
+
     /// Run VACUUM to reclaim unused space.
     ///
     /// Rebuilds the database file to remove fragmentation and unused pages.

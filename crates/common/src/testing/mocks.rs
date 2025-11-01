@@ -74,15 +74,19 @@ impl MockHttpClient {
 
     /// Add a mock response for a URL
     pub fn add_response(&self, url: &str, status: u16, body: &str) {
-        // SAFETY: Mutex poisoning is acceptable in test mocks - if a test panics,
-        // the entire test fails anyway, so we don't need to handle poisoned mutexes
-        // gracefully
-        let mut responses = self.responses.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early.
+        // If a test panics while holding the lock, the test already failed.
+        let mut responses = self.responses.lock().expect("mutex poisoned");
         responses.insert(url.to_string(), MockHttpResponse { status, body: body.to_string() });
     }
 
     /// Add a response sequence for a URL (returns different responses on each
     /// call)
+    ///
+    /// Each call to `get()` for this URL will **consume** one response from the
+    /// sequence in order. Once all responses are consumed, subsequent calls
+    /// will fall back to the single response set via `add_response()` (if any),
+    /// or return an error.
     ///
     /// # Examples
     ///
@@ -95,13 +99,15 @@ impl MockHttpClient {
     ///     vec![(200, "First"), (200, "Second"), (404, "Not Found")],
     /// );
     ///
+    /// // Each call consumes one response from the sequence
     /// assert_eq!(client.get("https://api.example.com").unwrap().body, "First");
     /// assert_eq!(client.get("https://api.example.com").unwrap().body, "Second");
     /// assert_eq!(client.get("https://api.example.com").unwrap().status, 404);
+    /// // Fourth call would fail with "No response configured" error
     /// ```
     pub fn add_response_sequence(&self, url: &str, responses: Vec<(u16, &str)>) {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        let mut sequences = self.response_sequences.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early
+        let mut sequences = self.response_sequences.lock().expect("mutex poisoned");
         let sequence = responses
             .into_iter()
             .map(|(status, body)| MockHttpResponse { status, body: body.to_string() })
@@ -111,15 +117,15 @@ impl MockHttpClient {
 
     /// Simulate a GET request
     pub fn get(&self, url: &str) -> Result<MockHttpResponse, String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
+        // Test utility: panic on poisoned mutex to fail tests early
         self.requests
             .lock()
             .unwrap()
             .push(HttpRequest { url: url.to_string(), method: "GET".to_string() });
 
         // Check for response sequence first
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        let mut sequences = self.response_sequences.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early
+        let mut sequences = self.response_sequences.lock().expect("mutex poisoned");
         if let Some(sequence) = sequences.get_mut(url) {
             if !sequence.is_empty() {
                 return Ok(sequence.remove(0));
@@ -128,8 +134,8 @@ impl MockHttpClient {
         drop(sequences);
 
         // Fall back to single response
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        let responses = self.responses.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early
+        let responses = self.responses.lock().expect("mutex poisoned");
         responses
             .get(url)
             .cloned()
@@ -139,22 +145,22 @@ impl MockHttpClient {
     /// Get all requests that were made
     #[must_use]
     pub fn requests(&self) -> Vec<HttpRequest> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.requests.lock().unwrap().clone()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.requests.lock().expect("mutex poisoned").clone()
     }
 
     /// Get all request URLs (for backward compatibility)
     #[must_use]
     pub fn request_urls(&self) -> Vec<String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.requests.lock().unwrap().iter().map(|req| req.url.clone()).collect()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.requests.lock().expect("mutex poisoned").iter().map(|req| req.url.clone()).collect()
     }
 
     /// Get the number of requests made to a URL
     #[must_use]
     pub fn request_count(&self, url: &str) -> usize {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.requests.lock().unwrap().iter().filter(|req| req.url == url).count()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.requests.lock().expect("mutex poisoned").iter().filter(|req| req.url == url).count()
     }
 
     /// Verify that a request was made to the given URL
@@ -169,17 +175,45 @@ impl MockHttpClient {
         self.request_count(url) == times
     }
 
+    /// Assert that a URL was called exactly N times (panics on mismatch)
+    ///
+    /// This is a convenience method that combines `request_count()` with an
+    /// assertion, providing a clear error message when the count doesn't match.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the actual call count doesn't match the expected count.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pulsearc_common::testing::mocks::MockHttpClient;
+    ///
+    /// let client = MockHttpClient::new();
+    /// client.add_response("https://api.example.com", 200, "OK");
+    ///
+    /// client.get("https://api.example.com").unwrap();
+    /// client.get("https://api.example.com").unwrap();
+    ///
+    /// client.assert_called_times("https://api.example.com", 2); // Passes
+    /// // client.assert_called_times("https://api.example.com", 3); // Would panic
+    /// ```
+    pub fn assert_called_times(&self, url: &str, expected: usize) {
+        let actual = self.request_count(url);
+        assert_eq!(actual, expected, "Expected {} calls to {}, but got {}", expected, url, actual);
+    }
+
     /// Get the last request made
     #[must_use]
     pub fn last_request(&self) -> Option<HttpRequest> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.requests.lock().unwrap().last().cloned()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.requests.lock().expect("mutex poisoned").last().cloned()
     }
 
     /// Clear all recorded requests
     pub fn clear_requests(&self) {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.requests.lock().unwrap().clear();
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.requests.lock().expect("mutex poisoned").clear();
     }
 }
 
@@ -215,56 +249,56 @@ impl MockStorage {
 
     /// Set a key-value pair
     pub fn set(&self, key: &str, value: &str) -> Result<(), String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().insert(key.to_string(), value.to_string());
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").insert(key.to_string(), value.to_string());
         Ok(())
     }
 
     /// Get a value by key
     pub fn get(&self, key: &str) -> Result<Option<String>, String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        Ok(self.data.lock().unwrap().get(key).cloned())
+        // Test utility: panic on poisoned mutex to fail tests early
+        Ok(self.data.lock().expect("mutex poisoned").get(key).cloned())
     }
 
     /// Delete a key
     pub fn delete(&self, key: &str) -> Result<(), String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().remove(key);
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").remove(key);
         Ok(())
     }
 
     /// Check if a key exists
     #[must_use]
     pub fn exists(&self, key: &str) -> bool {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().contains_key(key)
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").contains_key(key)
     }
 
     /// Get all keys
     #[must_use]
     pub fn keys(&self) -> Vec<String> {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().keys().cloned().collect()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").keys().cloned().collect()
     }
 
     /// Clear all data
     pub fn clear(&self) {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().clear();
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").clear();
     }
 
     /// Get the number of items
     #[must_use]
     pub fn len(&self) -> usize {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().len()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").len()
     }
 
     /// Check if storage is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        // SAFETY: Mutex poisoning is acceptable in test mocks
-        self.data.lock().unwrap().is_empty()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.data.lock().expect("mutex poisoned").is_empty()
     }
 }
 
@@ -295,30 +329,35 @@ impl MockKeychainProvider {
 
     /// Store an arbitrary secret value in memory.
     pub fn set_secret(&self, key: &str, value: &str) -> Result<(), KeychainError> {
-        self.storage.lock().unwrap().insert(key.to_string(), value.to_string());
+        self.storage.lock().expect("mutex poisoned").insert(key.to_string(), value.to_string());
         Ok(())
     }
 
     /// Retrieve a secret value or return `KeychainError::NotFound`.
     pub fn get_secret(&self, key: &str) -> Result<String, KeychainError> {
-        self.storage.lock().unwrap().get(key).cloned().ok_or(KeychainError::NotFound)
+        self.storage
+            .lock()
+            .expect("mutex poisoned")
+            .get(key)
+            .cloned()
+            .ok_or(KeychainError::NotFound)
     }
 
     /// Delete a secret value (idempotent).
     pub fn delete_secret(&self, key: &str) -> Result<(), KeychainError> {
-        self.storage.lock().unwrap().remove(key);
+        self.storage.lock().expect("mutex poisoned").remove(key);
         Ok(())
     }
 
     /// Determine whether a secret exists.
     #[must_use]
     pub fn secret_exists(&self, key: &str) -> bool {
-        self.storage.lock().unwrap().contains_key(key)
+        self.storage.lock().expect("mutex poisoned").contains_key(key)
     }
 
     /// Store OAuth tokens under an account identifier.
     pub fn store_tokens(&self, account: &str, tokens: &TokenSet) -> Result<(), KeychainError> {
-        let mut storage = self.storage.lock().unwrap();
+        let mut storage = self.storage.lock().expect("mutex poisoned");
 
         // Persist access token
         storage.insert(format!("access.{}", account), tokens.access_token.clone());
@@ -345,7 +384,7 @@ impl MockKeychainProvider {
 
     /// Retrieve tokens for an account.
     pub fn retrieve_tokens(&self, account: &str) -> Result<TokenSet, KeychainError> {
-        let storage = self.storage.lock().unwrap();
+        let storage = self.storage.lock().expect("mutex poisoned");
 
         let access_token =
             storage.get(&format!("access.{}", account)).ok_or(KeychainError::NotFound)?.clone();
@@ -378,7 +417,7 @@ impl MockKeychainProvider {
 
     /// Delete all stored tokens for an account.
     pub fn delete_tokens(&self, account: &str) -> Result<(), KeychainError> {
-        let mut storage = self.storage.lock().unwrap();
+        let mut storage = self.storage.lock().expect("mutex poisoned");
         storage.remove(&format!("access.{}", account));
         storage.remove(&format!("refresh.{}", account));
         storage.remove(&format!("metadata.{}", account));
@@ -388,7 +427,7 @@ impl MockKeychainProvider {
     /// Determine whether tokens exist for an account.
     #[must_use]
     pub fn has_tokens(&self, account: &str) -> bool {
-        let storage = self.storage.lock().unwrap();
+        let storage = self.storage.lock().expect("mutex poisoned");
         storage.contains_key(&format!("access.{}", account))
     }
 
@@ -420,7 +459,7 @@ impl MockKeychainProvider {
 
     /// Clear all stored credentials.
     pub fn clear_all(&self) {
-        self.storage.lock().unwrap().clear();
+        self.storage.lock().expect("mutex poisoned").clear();
     }
 }
 
@@ -473,25 +512,25 @@ impl MockOAuthClient {
 
     /// Configure the response returned by `refresh_access_token`.
     pub fn set_refresh_response(&self, tokens: TokenSet) {
-        *self.refresh_token_response.lock().unwrap() = Some(tokens);
+        *self.refresh_token_response.lock().expect("mutex poisoned") = Some(tokens);
     }
 
     /// Force the refresh call to fail.
     pub fn set_should_fail(&self, should_fail: bool) {
-        *self.should_fail.lock().unwrap() = should_fail;
+        *self.should_fail.lock().expect("mutex poisoned") = should_fail;
     }
 
     /// Check whether refresh was called.
     #[must_use]
     pub fn was_refresh_called(&self) -> bool {
-        *self.refresh_called.lock().unwrap()
+        *self.refresh_called.lock().expect("mutex poisoned")
     }
 
     /// Reset internal state.
     pub fn reset(&self) {
-        *self.refresh_called.lock().unwrap() = false;
-        *self.refresh_token_response.lock().unwrap() = None;
-        *self.should_fail.lock().unwrap() = false;
+        *self.refresh_called.lock().expect("mutex poisoned") = false;
+        *self.refresh_token_response.lock().expect("mutex poisoned") = None;
+        *self.should_fail.lock().expect("mutex poisoned") = false;
     }
 
     /// Construct a real OAuth client for hybrid tests.
@@ -542,13 +581,13 @@ impl OAuthClientTrait for MockOAuthClient {
         &self,
         _refresh_token: &str,
     ) -> Result<TokenSet, OAuthClientError> {
-        *self.refresh_called.lock().unwrap() = true;
+        *self.refresh_called.lock().expect("mutex poisoned") = true;
 
-        if *self.should_fail.lock().unwrap() {
+        if *self.should_fail.lock().expect("mutex poisoned") {
             return Err(OAuthClientError::NoRefreshToken);
         }
 
-        let response = self.refresh_token_response.lock().unwrap();
+        let response = self.refresh_token_response.lock().expect("mutex poisoned");
         if let Some(tokens) = response.as_ref() {
             Ok(tokens.clone())
         } else {

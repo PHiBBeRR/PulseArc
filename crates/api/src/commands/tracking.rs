@@ -30,13 +30,7 @@ pub async fn get_activity(ctx: State<'_, Arc<AppContext>>) -> Result<ActivityCon
     log_command_execution(command_name, implementation, elapsed, success);
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success,
-            error_type,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 

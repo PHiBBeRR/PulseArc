@@ -21,7 +21,7 @@ use pulsearc_common::compliance::audit::{
 use pulsearc_common::compliance::config::{ConfigManager, RemoteConfig};
 use pulsearc_common::compliance::feature_flags::{FeatureFlag, FeatureFlagManager};
 use pulsearc_common::security::rbac::{Permission, UserContext};
-use tempfile::TempDir;
+use pulsearc_common::testing::TempDir;
 use tokio::time::sleep;
 
 // ============================================================================
@@ -62,7 +62,7 @@ fn create_audit_context(user_id: &str) -> AuditContext {
 /// Tests the complete audit logging lifecycle: log -> query -> export
 #[tokio::test(flavor = "multi_thread")]
 async fn test_audit_logger_complete_lifecycle() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
     let log_path = temp_file_path(&temp_dir, "audit.log");
 
     let logger = GlobalAuditLogger::new();
@@ -245,7 +245,7 @@ async fn test_audit_logger_memory_limit() {
 /// Tests audit logger clear operation with external audit trail
 #[tokio::test(flavor = "multi_thread")]
 async fn test_audit_logger_clear_with_trail() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
     let log_path = temp_file_path(&temp_dir, "audit_clear.log");
 
     let logger = GlobalAuditLogger::new();
@@ -460,7 +460,7 @@ async fn test_feature_flag_error_handling() {
 /// Tests complete config manager lifecycle: create -> load -> override -> merge
 #[tokio::test(flavor = "multi_thread")]
 async fn test_config_manager_complete_lifecycle() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
     let config_path = temp_file_path(&temp_dir, "config.json");
 
     // 1. Create a remote config
@@ -517,7 +517,7 @@ async fn test_config_manager_version_handling() {
     assert_eq!(manager.get_version(), "1.0.0");
 
     // Test with temp configs
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
 
     // Compatible version (1.x.x)
     let compatible_path = temp_file_path(&temp_dir, "compatible.json");
@@ -793,7 +793,7 @@ async fn test_config_driven_feature_rollout() {
 /// Tests complete compliance workflow: config + flags + audit
 #[tokio::test(flavor = "multi_thread")]
 async fn test_complete_compliance_workflow() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
     let audit_log_path = temp_file_path(&temp_dir, "compliance_audit.log");
 
     // 1. Initialize all compliance components
@@ -1170,7 +1170,7 @@ async fn test_feature_flags_edge_cases() {
 /// Tests config manager with malformed data
 #[tokio::test(flavor = "multi_thread")]
 async fn test_config_manager_malformed_data() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("compliance-test").unwrap();
 
     // Test with invalid JSON
     let invalid_json_path = temp_file_path(&temp_dir, "invalid.json");

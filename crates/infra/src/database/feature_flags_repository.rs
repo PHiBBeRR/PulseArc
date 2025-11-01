@@ -9,22 +9,12 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use pulsearc_common::storage::sqlcipher::SqlCipherConnection;
 use pulsearc_common::storage::StorageError;
-use pulsearc_core::feature_flags_ports::{FeatureFlag, FeatureFlagsPort};
+use pulsearc_core::feature_flags_ports::{FeatureFlag, FeatureFlagEvaluation, FeatureFlagsPort};
 use pulsearc_domain::{PulseArcError, Result as DomainResult};
 use rusqlite::params;
 use tokio::task;
 
 use super::manager::DbManager;
-
-/// Result of looking up a feature flag.
-#[derive(Debug, Clone, Copy)]
-pub struct FeatureFlagState {
-    /// Whether the flag should be considered enabled.
-    pub enabled: bool,
-    /// Whether the returned value came from the provided fallback because the
-    /// flag was missing from persistent storage.
-    pub fallback_used: bool,
-}
 
 /// SQLCipher-backed feature flags repository.
 pub struct SqlCipherFeatureFlagsRepository {
@@ -37,19 +27,19 @@ impl SqlCipherFeatureFlagsRepository {
         Self { db }
     }
 
-    /// Retrieve the current state for a feature flag, reporting whether the
-    /// fallback default was used.
-    pub async fn get_flag_state(
+    /// Evaluate a feature flag, reporting whether the fallback default was
+    /// used.
+    pub async fn evaluate(
         &self,
         flag_name: &str,
         default: bool,
-    ) -> DomainResult<FeatureFlagState> {
+    ) -> DomainResult<FeatureFlagEvaluation> {
         let db = Arc::clone(&self.db);
         let flag = flag_name.to_owned();
 
-        task::spawn_blocking(move || -> DomainResult<FeatureFlagState> {
+        task::spawn_blocking(move || -> DomainResult<FeatureFlagEvaluation> {
             let conn = db.get_connection().map_err(|e| PulseArcError::Database(e.to_string()))?;
-            query_flag_state(&conn, &flag, default)
+            query_flag_evaluation(&conn, &flag, default)
                 .map_err(|e| PulseArcError::Database(e.to_string()))
         })
         .await
@@ -59,7 +49,7 @@ impl SqlCipherFeatureFlagsRepository {
     /// Check if a feature flag is enabled, returning the fallback value when
     /// the flag is missing.
     pub async fn is_enabled(&self, flag_name: &str, default: bool) -> DomainResult<bool> {
-        self.get_flag_state(flag_name, default).await.map(|state| state.enabled)
+        self.evaluate(flag_name, default).await.map(|state| state.enabled)
     }
 
     /// Set a feature flag's enabled status (upsert semantics).
@@ -91,16 +81,19 @@ impl SqlCipherFeatureFlagsRepository {
 
 #[async_trait]
 impl FeatureFlagsPort for SqlCipherFeatureFlagsRepository {
-    async fn is_enabled(&self, flag_name: &str, default: bool) -> DomainResult<bool> {
-        self.is_enabled(flag_name, default).await
+    async fn evaluate(
+        &self,
+        flag_name: &str,
+        default: bool,
+    ) -> DomainResult<FeatureFlagEvaluation> {
+        <SqlCipherFeatureFlagsRepository>::evaluate(self, flag_name, default).await
     }
-
     async fn set_enabled(&self, flag_name: &str, enabled: bool) -> DomainResult<()> {
-        self.set_enabled(flag_name, enabled).await
+        <SqlCipherFeatureFlagsRepository>::set_enabled(self, flag_name, enabled).await
     }
 
     async fn list_all(&self) -> DomainResult<Vec<FeatureFlag>> {
-        self.list_all().await
+        <SqlCipherFeatureFlagsRepository>::list_all(self).await
     }
 }
 
@@ -108,19 +101,19 @@ impl FeatureFlagsPort for SqlCipherFeatureFlagsRepository {
 // Synchronous SQL helpers (invoked inside spawn_blocking)
 // ============================================================================
 
-fn query_flag_state(
+fn query_flag_evaluation(
     conn: &SqlCipherConnection,
     flag_name: &str,
     default: bool,
-) -> Result<FeatureFlagState, StorageError> {
+) -> Result<FeatureFlagEvaluation, StorageError> {
     match conn.query_row(
         "SELECT enabled FROM feature_flags WHERE flag_name = ?1",
         params![flag_name],
         |row| row.get::<_, i64>(0),
     ) {
-        Ok(value) => Ok(FeatureFlagState { enabled: value != 0, fallback_used: false }),
+        Ok(value) => Ok(FeatureFlagEvaluation { enabled: value != 0, fallback_used: false }),
         Err(StorageError::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
-            Ok(FeatureFlagState { enabled: default, fallback_used: true })
+            Ok(FeatureFlagEvaluation { enabled: default, fallback_used: true })
         }
         Err(e) => Err(e),
     }
@@ -187,7 +180,7 @@ mod tests {
     async fn missing_flag_reports_fallback() {
         let (repo, _mgr, _dir) = setup().await;
 
-        let state = repo.get_flag_state("nonexistent_flag", true).await.expect("query succeeded");
+        let state = repo.evaluate("nonexistent_flag", true).await.expect("query succeeded");
         assert!(state.enabled);
         assert!(state.fallback_used);
     }
@@ -196,7 +189,7 @@ mod tests {
     async fn existing_flag_reports_actual_value() {
         let (repo, _mgr, _dir) = setup().await;
 
-        let state = repo.get_flag_state("new_blocks_cmd", false).await.expect("query succeeded");
+        let state = repo.evaluate("new_blocks_cmd", false).await.expect("query succeeded");
         assert!(state.enabled);
         assert!(!state.fallback_used);
     }
@@ -207,7 +200,7 @@ mod tests {
 
         repo.set_enabled("new_blocks_cmd", false).await.expect("update succeeded");
 
-        let state = repo.get_flag_state("new_blocks_cmd", true).await.expect("query succeeded");
+        let state = repo.evaluate("new_blocks_cmd", true).await.expect("query succeeded");
         assert!(!state.enabled);
         assert!(!state.fallback_used);
     }

@@ -1,8 +1,9 @@
-//! Command metrics port - tracks command execution metrics for Phase 4 validation
+//! Command metrics port - tracks command execution metrics for Phase 4
+//! validation
 //!
-//! This port enables tracking of command performance metrics (latency, error rates)
-//! during the Phase 4 migration validation period. Metrics are used to compare
-//! legacy vs new implementation performance and detect regressions.
+//! This port enables tracking of command performance metrics (latency, error
+//! rates) during the Phase 4 migration validation period. Metrics are used to
+//! compare legacy vs new implementation performance and detect regressions.
 
 use async_trait::async_trait;
 use pulsearc_domain::Result;
@@ -67,7 +68,8 @@ pub trait CommandMetricsPort: Send + Sync {
     ///
     /// # Parameters
     /// - `command`: Command name to query
-    /// - `implementation`: Optional filter by implementation ("legacy" or "new")
+    /// - `implementation`: Optional filter by implementation ("legacy" or
+    ///   "new")
     /// - `start_ts`: Start of time range (Unix timestamp in seconds)
     /// - `end_ts`: End of time range (Unix timestamp in seconds)
     async fn get_stats(
@@ -80,7 +82,8 @@ pub trait CommandMetricsPort: Send + Sync {
 
     /// Get recent executions for debugging
     ///
-    /// Returns the most recent N executions for a command, ordered by timestamp DESC.
+    /// Returns the most recent N executions for a command, ordered by timestamp
+    /// DESC.
     async fn get_recent_executions(
         &self,
         command: &str,

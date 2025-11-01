@@ -21,7 +21,7 @@ use pulsearc_common::storage::types::{Connection, ConnectionPool};
 use pulsearc_common::storage::{
     KeySource, SqlCipherPool, SqlCipherPoolConfig, StorageError, StorageResult,
 };
-use tempfile::TempDir;
+use pulsearc_common::testing::{SqlCipherTestDatabase, TempDir};
 
 mod fixtures;
 
@@ -39,9 +39,9 @@ fn test_encryption_key_2() -> String {
     "test_key_64_chars_long_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string()
 }
 
-/// Create a temporary database path
+/// Create a temporary database path using common testing utilities
 fn temp_db_path() -> (TempDir, PathBuf) {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new("storage-test").unwrap();
     let db_path = temp_dir.path().join("test.db");
     (temp_dir, db_path)
 }
@@ -50,6 +50,14 @@ fn temp_db_path() -> (TempDir, PathBuf) {
 fn test_pool(db_path: &std::path::Path) -> StorageResult<SqlCipherPool> {
     let config = SqlCipherPoolConfig::default();
     SqlCipherPool::new(db_path, test_encryption_key(), config)
+}
+
+/// Create a test database with SqlCipherTestDatabase helper
+///
+/// This provides automatic cleanup and encryption key management.
+/// Returns the test database instance which must be kept alive.
+fn create_test_database() -> SqlCipherTestDatabase {
+    SqlCipherTestDatabase::new().expect("Failed to create test database")
 }
 
 // ============================================================================

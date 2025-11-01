@@ -1,24 +1,26 @@
 //! Health check infrastructure for AppContext components
 //!
-//! Provides HealthStatus and ComponentHealth types for monitoring application health.
-//! Pattern adapted from pulsearc-platform's ManagerHealth infrastructure.
+//! Provides HealthStatus and ComponentHealth types for monitoring application
+//! health. Pattern adapted from pulsearc-platform's ManagerHealth
+//! infrastructure.
+
+use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 
 /// Overall health status of the application
 ///
 /// # Example
 /// ```no_run
-/// use pulsearc_app::utils::health::{HealthStatus, ComponentHealth};
+/// use pulsearc_app::utils::health::{ComponentHealth, HealthStatus};
 ///
 /// let mut status = HealthStatus::new();
 /// status = status.add_component(ComponentHealth::healthy("database"));
 /// status = status.add_component(ComponentHealth::unhealthy("cache", "connection timeout"));
 /// status.calculate_score();
 ///
-/// assert_eq!(status.score, 0.5);  // 1 out of 2 components healthy
-/// assert!(!status.is_healthy);     // Below 0.8 threshold
+/// assert_eq!(status.score, 0.5); // 1 out of 2 components healthy
+/// assert!(!status.is_healthy); // Below 0.8 threshold
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
@@ -50,8 +52,7 @@ impl HealthStatus {
             score: 1.0,
             message: None,
             components: Vec::new(),
-            timestamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()
-                as i64,
+            timestamp: Self::current_timestamp(),
         }
     }
 
@@ -89,8 +90,24 @@ impl HealthStatus {
             score: 0.0,
             message: Some(message.into()),
             components: Vec::new(),
-            timestamp: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs()
-                as i64,
+            timestamp: Self::current_timestamp(),
+        }
+    }
+
+    fn current_timestamp() -> i64 {
+        Self::timestamp_from(SystemTime::now())
+    }
+
+    fn timestamp_from(time: SystemTime) -> i64 {
+        match time.duration_since(SystemTime::UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs() as i64,
+            Err(err) => {
+                tracing::warn!(
+                    error = ?err,
+                    "system clock is before UNIX_EPOCH; defaulting health timestamp to 0"
+                );
+                0
+            }
         }
     }
 }
@@ -140,6 +157,8 @@ impl ComponentHealth {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, SystemTime};
+
     use super::*;
 
     #[test]
@@ -199,6 +218,13 @@ mod tests {
 
         assert_eq!(status.score, 0.8); // 4/5 = 0.8
         assert!(status.is_healthy); // Exactly at threshold
+    }
+
+    #[test]
+    fn test_timestamp_before_epoch_defaults_to_zero() {
+        let timestamp =
+            HealthStatus::timestamp_from(SystemTime::UNIX_EPOCH - Duration::from_secs(1));
+        assert_eq!(timestamp, 0);
     }
 
     #[test]

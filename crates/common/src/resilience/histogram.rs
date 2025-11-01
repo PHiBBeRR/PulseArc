@@ -540,5 +540,490 @@ mod tests {
         assert!(p50 >= Duration::from_millis(100));
         let p99 = snapshot.percentile(0.99).unwrap();
         assert!(p99 >= Duration::from_millis(100));
+
+    }
+    
+    #[test]
+    fn test_concurrent_recording() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let histogram = Arc::new(Histogram::new());
+        let mut handles = vec![];
+
+        // Spawn 10 threads, each recording 1000 measurements
+        for thread_id in 0..10 {
+            let hist = Arc::clone(&histogram);
+            handles.push(thread::spawn(move || {
+                for i in 0..1000 {
+                    hist.record(Duration::from_micros((thread_id * 100 + i) as u64));
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 10_000, "Should record all measurements from all threads");
+        assert!(snapshot.min().is_some());
+        assert!(snapshot.max().is_some());
+        assert!(snapshot.mean().is_some());
+    }
+
+    /// Test standard deviation with uniform values
+    #[test]
+    fn test_stddev_uniform_values() {
+        let histogram = Histogram::new();
+
+        // Record 100 identical values
+        for _ in 0..100 {
+            histogram.record(Duration::from_millis(100));
+        }
+
+        let snapshot = histogram.snapshot();
+        let stddev = snapshot.stddev().unwrap();
+
+        // With identical values, stddev should be very low (accounting for bucket approximation)
+        assert!(
+            stddev < Duration::from_millis(20),
+            "Expected low stddev for uniform values, got {:?}",
+            stddev
+        );
+    }
+
+    /// Test standard deviation with high variance
+    #[test]
+    fn test_stddev_with_variance() {
+        let histogram = Histogram::new();
+
+        histogram.record(Duration::from_millis(10));
+        histogram.record(Duration::from_millis(50));
+        histogram.record(Duration::from_millis(90));
+
+        let snapshot = histogram.snapshot();
+        let stddev = snapshot.stddev().unwrap();
+
+        // Should have significant variance
+        assert!(
+            stddev > Duration::from_millis(10),
+            "Expected high stddev for varied values, got {:?}",
+            stddev
+        );
+    }
+
+    /// Test standard deviation with single sample (should return None)
+    #[test]
+    fn test_stddev_single_sample() {
+        let histogram = Histogram::new();
+        histogram.record(Duration::from_millis(100));
+
+        let snapshot = histogram.snapshot();
+        // stddev requires at least 2 samples
+        assert_eq!(snapshot.stddev(), None, "stddev should be None with single sample");
+    }
+
+    /// Test standard deviation with empty histogram
+    #[test]
+    fn test_stddev_empty() {
+        let histogram = Histogram::new();
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.stddev(), None, "stddev should be None with no samples");
+    }
+
+    /// Test bucket boundaries - minimum value
+    #[test]
+    fn test_bucket_boundary_min() {
+        let histogram = Histogram::new();
+
+        // Test minimum boundary (1µs)
+        histogram.record(Duration::from_micros(1));
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 1);
+        let min = snapshot.min().unwrap();
+        assert!(min >= Duration::from_micros(1));
+    }
+
+    /// Test bucket boundaries - maximum value
+    #[test]
+    fn test_bucket_boundary_max() {
+        let histogram = Histogram::new();
+
+        // Test maximum boundary (1 hour)
+        histogram.record(Duration::from_secs(3600));
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 1);
+        assert!(snapshot.max().is_some());
+    }
+
+    /// Test zero duration handling
+    #[test]
+    fn test_zero_duration() {
+        let histogram = Histogram::new();
+
+        // Test zero duration
+        histogram.record(Duration::ZERO);
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 1);
+        // Zero duration should be mapped to MIN_MICROS (1µs)
+        let min = snapshot.min().unwrap();
+        assert!(min >= Duration::from_micros(1));
+    }
+
+    /// Test duration clamping beyond maximum
+    #[test]
+    fn test_duration_clamping() {
+        let histogram = Histogram::new();
+
+        // Record duration beyond MAX_MICROS (1 hour)
+        histogram.record(Duration::from_secs(10_000)); // Way beyond 1 hour
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 1);
+
+        // Should be clamped to MAX_MICROS
+        let max = snapshot.max().unwrap();
+        assert!(
+            max <= Duration::from_secs(3700),
+            "Duration should be clamped, got {:?}",
+            max
+        );
+    }
+
+    /// Test mixed boundary values
+    #[test]
+    fn test_mixed_boundaries() {
+        let histogram = Histogram::new();
+
+        histogram.record(Duration::ZERO);
+        histogram.record(Duration::from_micros(1));
+        histogram.record(Duration::from_secs(3600));
+        histogram.record(Duration::from_millis(100));
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 4);
+        assert!(snapshot.min().is_some());
+        assert!(snapshot.max().is_some());
+        assert!(snapshot.mean().is_some());
+    }
+
+    /// Test percentile boundary values
+    #[test]
+    fn test_percentile_boundaries() {
+        let histogram = Histogram::new();
+
+        for i in 1..=100 {
+            histogram.record(Duration::from_millis(i));
+        }
+
+        let snapshot = histogram.snapshot();
+
+        // Test boundary percentiles
+        assert!(snapshot.percentile(0.0).is_some(), "p0 should exist");
+        assert!(snapshot.percentile(1.0).is_some(), "p100 should exist");
+
+        // Test invalid percentiles
+        assert_eq!(snapshot.percentile(-0.1), None, "Negative percentile should be None");
+        assert_eq!(snapshot.percentile(1.1), None, "Percentile > 1.0 should be None");
+    }
+
+    /// Test percentile ordering (monotonicity)
+    #[test]
+    fn test_percentile_ordering() {
+        let histogram = Histogram::new();
+
+        for i in 1..=1000 {
+            histogram.record(Duration::from_micros(i));
+        }
+
+        let snapshot = histogram.snapshot();
+
+        let p25 = snapshot.percentile(0.25).unwrap();
+        let p50 = snapshot.percentile(0.50).unwrap();
+        let p75 = snapshot.percentile(0.75).unwrap();
+        let p95 = snapshot.percentile(0.95).unwrap();
+        let p99 = snapshot.percentile(0.99).unwrap();
+
+        // Percentiles should be monotonically increasing
+        assert!(p25 <= p50, "p25 should be <= p50");
+        assert!(p50 <= p75, "p50 should be <= p75");
+        assert!(p75 <= p95, "p75 should be <= p95");
+        assert!(p95 <= p99, "p95 should be <= p99");
+    }
+
+    /// Test snapshot immutability
+    #[test]
+    fn test_snapshot_immutability() {
+        let histogram = Histogram::new();
+
+        histogram.record(Duration::from_millis(10));
+        histogram.record(Duration::from_millis(20));
+
+        let snapshot1 = histogram.snapshot();
+        assert_eq!(snapshot1.count(), 2);
+
+        // Record more data
+        histogram.record(Duration::from_millis(30));
+        histogram.record(Duration::from_millis(40));
+
+        // Original snapshot should be unchanged
+        assert_eq!(
+            snapshot1.count(),
+            2,
+            "Snapshot should be immutable and not reflect new recordings"
+        );
+
+        let snapshot2 = histogram.snapshot();
+        assert_eq!(snapshot2.count(), 4, "New snapshot should have updated count");
+    }
+
+    /// Test snapshot statistics don't change
+    #[test]
+    fn test_snapshot_stats_immutable() {
+        let histogram = Histogram::new();
+
+        histogram.record(Duration::from_millis(10));
+        histogram.record(Duration::from_millis(20));
+
+        let snapshot = histogram.snapshot();
+        let original_mean = snapshot.mean();
+        let original_min = snapshot.min();
+        let original_max = snapshot.max();
+
+        // Record very different values
+        histogram.record(Duration::from_secs(1));
+
+        // Snapshot stats should be unchanged
+        assert_eq!(snapshot.mean(), original_mean);
+        assert_eq!(snapshot.min(), original_min);
+        assert_eq!(snapshot.max(), original_max);
+    }
+
+    /// Test bucket conversion accuracy
+    #[test]
+    fn test_bucket_conversion_accuracy() {
+        // Test that bucket conversion is reasonably accurate
+        for micros in [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000] {
+            let bucket = Histogram::duration_to_bucket(micros);
+            let recovered = Histogram::bucket_to_micros(bucket);
+
+            // Should be within same order of magnitude (logarithmic bucketing)
+            let ratio = recovered as f64 / micros as f64;
+            assert!(
+                ratio >= 0.5 && ratio <= 2.0,
+                "Bucket conversion too inaccurate for {}µs: got bucket {}, recovered {}µs (ratio: {:.2})",
+                micros,
+                bucket,
+                recovered,
+                ratio
+            );
+        }
+    }
+
+    /// Test bucket indices are in valid range
+    #[test]
+    fn test_bucket_indices_valid() {
+        for micros in [0, 1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 1_000_000_000] {
+            let bucket = Histogram::duration_to_bucket(micros);
+            assert!(
+                bucket < Histogram::NUM_BUCKETS,
+                "Bucket index {} out of range for {}µs",
+                bucket,
+                micros
+            );
+        }
+    }
+
+    /// Test high volume recording
+    #[test]
+    fn test_high_volume_recording() {
+        let histogram = Histogram::new();
+
+        // Record 100,000 measurements (reduced from 1M for test speed)
+        for i in 0..100_000 {
+            histogram.record(Duration::from_micros(i % 10_000));
+        }
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 100_000);
+
+        // Should still compute percentiles efficiently
+        let p99 = snapshot.percentile(0.99);
+        assert!(p99.is_some(), "Should compute p99 even with high volume");
+
+        let mean = snapshot.mean();
+        assert!(mean.is_some(), "Should compute mean even with high volume");
+    }
+
+    /// Test concurrent recording with high contention
+    #[test]
+    fn test_high_contention_concurrent() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let histogram = Arc::new(Histogram::new());
+        let mut handles = vec![];
+
+        // Spawn 50 threads recording the same value (high contention on min/max)
+        for _ in 0..50 {
+            let hist = Arc::clone(&histogram);
+            handles.push(thread::spawn(move || {
+                for _ in 0..100 {
+                    hist.record(Duration::from_micros(1000));
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let snapshot = histogram.snapshot();
+        assert_eq!(snapshot.count(), 5000);
+    }
+
+    /// Test percentiles format output
+    #[test]
+    fn test_percentiles_format() {
+        let histogram = Histogram::new();
+
+        for i in 1..=1000 {
+            histogram.record(Duration::from_micros(i));
+        }
+
+        let snapshot = histogram.snapshot();
+        let percentiles = snapshot.percentiles();
+        let formatted = percentiles.format();
+
+        assert!(formatted.contains("p50="), "Format should include p50");
+        assert!(formatted.contains("p95="), "Format should include p95");
+        assert!(formatted.contains("p99="), "Format should include p99");
+        assert!(formatted.contains("p999="), "Format should include p999");
+    }
+
+    /// Test empty histogram summary
+    #[test]
+    fn test_empty_summary() {
+        let histogram = Histogram::new();
+        let snapshot = histogram.snapshot();
+        let summary = snapshot.summary();
+
+        assert!(
+            summary.contains("No measurements"),
+            "Empty histogram should have special message"
+        );
+    }
+
+    /// Test mean calculation accuracy
+    #[test]
+    fn test_mean_accuracy() {
+        let histogram = Histogram::new();
+
+        // Record known values
+        histogram.record(Duration::from_millis(100));
+        histogram.record(Duration::from_millis(200));
+        histogram.record(Duration::from_millis(300));
+
+        let snapshot = histogram.snapshot();
+        let mean = snapshot.mean().unwrap();
+
+        // Mean should be around 200ms (allowing for bucket approximation)
+        assert!(
+            mean >= Duration::from_millis(150) && mean <= Duration::from_millis(250),
+            "Mean should be approximately 200ms, got {:?}",
+            mean
+        );
+    }
+
+    /// Test min/max with concurrent updates
+    #[test]
+    fn test_concurrent_min_max_updates() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let histogram = Arc::new(Histogram::new());
+        let mut handles = vec![];
+
+        // Each thread records different ranges
+        for thread_id in 0..10 {
+            let hist = Arc::clone(&histogram);
+            handles.push(thread::spawn(move || {
+                let base = (thread_id * 1000) as u64;
+                for i in 0..100 {
+                    hist.record(Duration::from_micros(base + i));
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        let snapshot = histogram.snapshot();
+        let min = snapshot.min().unwrap();
+        let max = snapshot.max().unwrap();
+
+        // Min should be close to 0, max should be close to 9099
+        assert!(min < Duration::from_micros(100), "Min should be very small");
+        assert!(max > Duration::from_micros(9000), "Max should be close to 9099");
+    }
+
+    /// Test percentile with exact rank calculation
+    #[test]
+    fn test_percentile_rank() {
+        let histogram = Histogram::new();
+
+        // Record exactly 10 values
+        for i in 1..=10 {
+            histogram.record(Duration::from_millis(i * 10));
+        }
+
+        let snapshot = histogram.snapshot();
+
+        // p50 should be around the 5th value (50ms)
+        let p50 = snapshot.percentile(0.5).unwrap();
+        assert!(
+            p50 >= Duration::from_millis(30) && p50 <= Duration::from_millis(70),
+            "p50 should be around median, got {:?}",
+            p50
+        );
+    }
+
+    /// Test reset clears all statistics
+    #[test]
+    fn test_reset_clears_all() {
+        let histogram = Histogram::new();
+
+        histogram.record(Duration::from_millis(10));
+        histogram.record(Duration::from_millis(50));
+        histogram.record(Duration::from_millis(100));
+
+        let before_snapshot = histogram.snapshot();
+        assert_eq!(before_snapshot.count(), 3);
+        assert!(before_snapshot.min().is_some());
+        assert!(before_snapshot.max().is_some());
+
+        histogram.reset();
+
+        let after_snapshot = histogram.snapshot();
+        assert_eq!(after_snapshot.count(), 0);
+        assert_eq!(after_snapshot.min(), None);
+        assert_eq!(after_snapshot.max(), None);
+        assert_eq!(after_snapshot.mean(), None);
+        assert_eq!(after_snapshot.percentile(0.5), None);
+    }
+
+    /// Test default trait implementation
+    #[test]
+    fn test_default_trait() {
+        let histogram = Histogram::default();
+        assert_eq!(histogram.count(), 0);
+
+        histogram.record(Duration::from_millis(10));
+        assert_eq!(histogram.count(), 1);
     }
 }

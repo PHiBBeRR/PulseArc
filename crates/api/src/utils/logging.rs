@@ -10,7 +10,8 @@ use crate::AppContext;
 /// Log the outcome of a command execution with structured fields.
 ///
 /// # Parameters
-/// * `command` - Logical command identifier (e.g. `"database::get_database_stats"`).
+/// * `command` - Logical command identifier (e.g.
+///   `"database::get_database_stats"`).
 /// * `implementation` - Implementation path in use (`"legacy"` or `"new"`).
 /// * `elapsed` - Duration the command execution took.
 /// * `success` - Whether the command completed successfully.

@@ -4,12 +4,14 @@
 //! - **[`assertions`]**: Custom assertions for complex scenarios
 //! - **[`async_utils`]**: Async test utilities and helpers
 //! - **[`builders`]**: Test data builders with fluent API
+//! - **[`database`]**: SQLCipher test database helpers (requires `platform`
+//!   feature)
 //! - **[`fixtures`]**: Test fixture generators (with deterministic seeded
 //!   variants)
 //! - **[`matchers`]**: Custom matchers for assertions
 //! - **[`mocks`]**: Mock implementations of common traits
 //! - **[`temp`]**: Temporary file/directory helpers
-//! - **[`time`]**: Time mocking utilities (re-exported from sync)
+//! - **[`time`]**: Time mocking utilities (`Clock`, `MockClock`, `SystemClock`)
 //!
 //! ## Usage
 //!
@@ -35,6 +37,8 @@
 pub mod assertions;
 pub mod async_utils;
 pub mod builders;
+#[cfg(feature = "platform")]
+pub mod database;
 pub mod fixtures;
 pub mod matchers;
 pub mod mocks;
@@ -49,6 +53,8 @@ pub use assertions::{
 };
 pub use async_utils::{poll_until, retry_async, timeout_ok};
 pub use builders::{StringBuilder, TestBuilder};
+#[cfg(feature = "platform")]
+pub use database::SqlCipherTestDatabase;
 pub use fixtures::{random_email, random_string, random_u64};
 pub use matchers::{contains_string, is_error, is_ok, matches_pattern};
 pub use mocks::{MockHttpClient, MockStorage};

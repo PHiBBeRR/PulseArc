@@ -99,6 +99,27 @@ impl DatabaseStatsPort for SqlCipherDatabaseStatsRepository {
         .map_err(map_join_error)?
     }
 
+    async fn get_unprocessed_count(&self) -> DomainResult<i64> {
+        let db = Arc::clone(&self.db);
+
+        task::spawn_blocking(move || -> DomainResult<i64> {
+            let conn = db.get_connection()?;
+
+            // Count snapshots that haven't been processed yet
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM activity_snapshots WHERE processed = 0",
+                    &[],
+                    |row| row.get(0),
+                )
+                .map_err(map_storage_error)?;
+
+            Ok(count)
+        })
+        .await
+        .map_err(map_join_error)?
+    }
+
     async fn vacuum_database(&self) -> DomainResult<()> {
         let db = Arc::clone(&self.db);
 

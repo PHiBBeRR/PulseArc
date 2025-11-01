@@ -30,12 +30,36 @@ pub struct FeatureFlag {
     pub updated_at: i64,
 }
 
+/// Result of evaluating a feature flag.
+///
+/// Provides both the effective enabled state and whether the value came from
+/// the caller-provided default (meaning the flag is currently missing from the
+/// backing store).
+#[derive(Debug, Clone, Copy)]
+pub struct FeatureFlagEvaluation {
+    /// Whether the flag should be considered enabled.
+    pub enabled: bool,
+    /// Whether the returned value originated from the supplied fallback.
+    pub fallback_used: bool,
+}
+
 /// Port for querying and managing feature flags.
 ///
 /// Feature flags enable runtime control of feature rollout without code
 /// changes. All operations are database-backed for persistence across restarts.
 #[async_trait]
 pub trait FeatureFlagsPort: Send + Sync {
+    /// Evaluate a feature flag and report whether the fallback was used.
+    ///
+    /// Returns [`FeatureFlagEvaluation`] containing both the effective enabled
+    /// value and whether the caller-provided default was returned because the
+    /// flag is missing from storage.
+    ///
+    /// # Arguments
+    /// * `flag_name` - The unique identifier for the feature flag
+    /// * `default` - The value to return if the flag doesn't exist
+    async fn evaluate(&self, flag_name: &str, default: bool) -> Result<FeatureFlagEvaluation>;
+
     /// Check if a feature flag is enabled.
     ///
     /// Returns the `default` value if the flag doesn't exist in the database.
@@ -60,7 +84,9 @@ pub trait FeatureFlagsPort: Send + Sync {
     /// }
     /// # }
     /// ```
-    async fn is_enabled(&self, flag_name: &str, default: bool) -> Result<bool>;
+    async fn is_enabled(&self, flag_name: &str, default: bool) -> Result<bool> {
+        self.evaluate(flag_name, default).await.map(|evaluation| evaluation.enabled)
+    }
 
     /// Set a feature flag's enabled status.
     ///

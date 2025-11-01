@@ -7,10 +7,7 @@ use tauri::State;
 use tracing::info;
 
 use crate::utils::logging::{
-    log_command_execution,
-    log_feature_flag_check,
-    record_command_metric,
-    MetricRecord,
+    log_command_execution, log_feature_flag_check, record_command_metric, MetricRecord,
 };
 use crate::AppContext;
 
@@ -45,13 +42,7 @@ pub async fn is_feature_enabled(
 
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success,
-            error_type,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 
@@ -89,13 +80,7 @@ pub async fn toggle_feature_flag(
     log_command_execution(command_name, implementation, elapsed, success);
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success,
-            error_type,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 
@@ -137,13 +122,7 @@ pub async fn list_feature_flags(
     log_command_execution(command_name, implementation, elapsed, success);
     record_command_metric(
         &app_ctx,
-        MetricRecord {
-            command: command_name,
-            implementation,
-            elapsed,
-            success,
-            error_type,
-        },
+        MetricRecord { command: command_name, implementation, elapsed, success, error_type },
     )
     .await;
 

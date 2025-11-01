@@ -323,8 +323,9 @@ fn map_join_error(err: tokio::task::JoinError) -> PulseArcError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use uuid::Uuid;
+
+    use super::*;
 
     async fn setup_test_db() -> (Arc<DbManager>, SqlCipherCommandMetricsRepository) {
         // Create a unique temporary database for each test to avoid conflicts

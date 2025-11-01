@@ -138,8 +138,8 @@ impl MockClock {
     /// assert_eq!(clock.elapsed(), Duration::from_secs(10));
     /// ```
     pub fn advance(&self, duration: Duration) {
-        // SAFETY: Mutex poisoning is acceptable in test utilities
-        let mut elapsed = self.elapsed.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early
+        let mut elapsed = self.elapsed.lock().expect("mutex poisoned");
         *elapsed += duration;
     }
 
@@ -160,8 +160,8 @@ impl MockClock {
     /// assert_eq!(clock.elapsed(), Duration::from_secs(100));
     /// ```
     pub fn set_elapsed(&self, duration: Duration) {
-        // SAFETY: Mutex poisoning is acceptable in test utilities
-        let mut elapsed = self.elapsed.lock().unwrap();
+        // Test utility: panic on poisoned mutex to fail tests early
+        let mut elapsed = self.elapsed.lock().expect("mutex poisoned");
         *elapsed = duration;
     }
 
@@ -170,8 +170,8 @@ impl MockClock {
     /// Returns how much time has been simulated since the clock was created.
     #[must_use]
     pub fn elapsed(&self) -> Duration {
-        // SAFETY: Mutex poisoning is acceptable in test utilities
-        *self.elapsed.lock().unwrap()
+        // Test utility: panic on poisoned mutex to fail tests early
+        *self.elapsed.lock().expect("mutex poisoned")
     }
 }
 
@@ -183,13 +183,13 @@ impl Default for MockClock {
 
 impl Clock for MockClock {
     fn now(&self) -> Instant {
-        // SAFETY: Mutex poisoning is acceptable in test utilities
-        self.start + *self.elapsed.lock().unwrap()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.start + *self.elapsed.lock().expect("mutex poisoned")
     }
 
     fn system_time(&self) -> SystemTime {
-        // SAFETY: Mutex poisoning is acceptable in test utilities
-        self.base_system_time + *self.elapsed.lock().unwrap()
+        // Test utility: panic on poisoned mutex to fail tests early
+        self.base_system_time + *self.elapsed.lock().expect("mutex poisoned")
     }
 }
 

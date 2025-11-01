@@ -28,5 +28,5 @@ use crate::utils::health::HealthStatus;
 /// ```
 #[tauri::command]
 pub async fn get_app_health(context: State<'_, AppContext>) -> Result<HealthStatus, String> {
-    Ok(context.health_check())
+    Ok(context.health_check().await)
 }

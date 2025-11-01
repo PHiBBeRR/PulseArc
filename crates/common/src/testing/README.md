@@ -184,6 +184,62 @@ fn test_with_mock_time() {
 }
 ```
 
+### Async Utilities
+
+```rust
+use agent::common::testing::async_utils::{timeout_ok, retry_async, poll_until};
+use std::time::Duration;
+
+#[tokio::test]
+async fn test_with_timeout() {
+    let result = timeout_ok(Duration::from_secs(1), async {
+        // Some async operation
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        42
+    }).await;
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 42);
+}
+
+#[tokio::test]
+async fn test_with_retry() {
+    let mut attempts = 0;
+    let result = retry_async(3, Duration::from_millis(10), || async {
+        attempts += 1;
+        if attempts < 3 {
+            Err("Not yet")
+        } else {
+            Ok(42)
+        }
+    }).await;
+
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_poll_until() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let flag = Arc::new(AtomicBool::new(false));
+    let flag_clone = flag.clone();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        flag_clone.store(true, Ordering::SeqCst);
+    });
+
+    let result = poll_until(
+        Duration::from_secs(1),
+        Duration::from_millis(10),
+        || async { flag.load(Ordering::SeqCst) }
+    ).await;
+
+    assert!(result);
+}
+```
+
 ## API Reference
 
 ### Assertions Module
@@ -199,6 +255,16 @@ fn test_with_mock_time() {
 - `assert_duration_in_range(actual, expected, tolerance)` - Assert duration within range
 - `assert_contains_all(haystack, needles)` - Assert collection contains all items
 - `assert_sorted(items)` - Assert collection is sorted
+
+### Async Utilities Module
+
+**Macros:**
+- `assert_eventually_async!(timeout, future)` - Async variant of `assert_eventually!`
+
+**Functions:**
+- `timeout_ok(duration, future)` - Run future with timeout, return Result
+- `retry_async(max_attempts, initial_delay, operation)` - Retry async operation with exponential backoff
+- `poll_until(timeout, interval, condition)` - Poll async condition until true or timeout
 
 ### Fixtures Module
 

@@ -12,6 +12,7 @@
 //! - Wires up the hexagonal architecture
 //! - Provides Tauri commands for the frontend
 
+pub mod adapters;
 pub mod commands;
 pub mod context;
 pub mod utils;

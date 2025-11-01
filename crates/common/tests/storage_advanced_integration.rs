@@ -44,7 +44,7 @@ use std::time::{Duration, Instant};
 use pulsearc_common::error::{ErrorClassification, ErrorSeverity};
 use pulsearc_common::storage::types::{Connection, ConnectionPool};
 use pulsearc_common::storage::{SqlCipherPool, SqlCipherPoolConfig, StorageError, StorageResult};
-use tempfile::TempDir;
+use pulsearc_common::testing::TempDir;
 
 // ============================================================================
 // Test Helper Functions
@@ -62,7 +62,7 @@ fn test_encryption_key_2() -> String {
 
 /// Create a temporary database path
 fn temp_db_path() -> (TempDir, PathBuf) {
-    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let temp_dir = TempDir::new("storage-advanced-test").expect("Failed to create temp dir");
     let db_path = temp_dir.path().join("test.db");
     (temp_dir, db_path)
 }

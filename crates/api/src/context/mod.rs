@@ -1,10 +1,14 @@
 //! Application context - dependency injection container
 
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use pulsearc_core::{CommandMetricsPort, DatabaseStatsPort, TrackingService};
+use pulsearc_core::tracking::ports::SnapshotRepository as SnapshotRepositoryPort;
+use pulsearc_core::user::ports::UserProfileRepository as UserProfileRepositoryPort;
+use pulsearc_core::{CommandMetricsPort, DatabaseStatsPort, FeatureFlagsPort, TrackingService};
 use pulsearc_domain::types::{ActivitySegment, ActivitySnapshot};
 use pulsearc_domain::{Config, PulseArcError, Result};
 use pulsearc_infra::api::{AccessTokenProvider, ApiClientConfig, ApiError, ForwarderConfig};
@@ -20,8 +24,8 @@ use pulsearc_infra::{
     ApiClient, ApiCommands, ApiForwarder, BlockScheduler, BlockSchedulerConfig,
     ClassificationScheduler, ClassificationSchedulerConfig, DbManager, FeatureFlagService,
     InfraError, InstanceLock, KeyManager, MacOsActivityProvider, SqlCipherActivityRepository,
-    SqlCipherCommandMetricsRepository, SqlCipherDatabaseStatsRepository, SyncScheduler,
-    SyncSchedulerConfig,
+    SqlCipherCommandMetricsRepository, SqlCipherDatabaseStatsRepository,
+    SqlCipherUserProfileRepository, SyncScheduler, SyncSchedulerConfig,
 };
 
 /// Type alias for database stats port trait object
@@ -30,15 +34,26 @@ type DynDatabaseStatsPort = dyn DatabaseStatsPort + Send + Sync + 'static;
 /// Type alias for command metrics port trait object
 type DynCommandMetricsPort = dyn CommandMetricsPort + Send + Sync + 'static;
 
+/// Type alias for feature flag port trait object
+type DynFeatureFlagsPort = dyn FeatureFlagsPort + Send + Sync + 'static;
+
+/// Type alias for snapshot repository port trait object
+type DynSnapshotRepositoryPort = dyn SnapshotRepositoryPort + Send + Sync + 'static;
+
+/// Type alias for user profile repository port trait object
+type DynUserProfileRepositoryPort = dyn UserProfileRepositoryPort + Send + Sync + 'static;
+
 /// Application context - holds all services and dependencies
 pub struct AppContext {
     // Core services
     pub config: Config,
     pub db: Arc<DbManager>,
     pub tracking_service: Arc<TrackingService>,
-    pub feature_flags: Arc<FeatureFlagService>,
+    pub feature_flags: Arc<DynFeatureFlagsPort>,
     pub database_stats: Arc<DynDatabaseStatsPort>,
     pub command_metrics: Arc<DynCommandMetricsPort>,
+    pub snapshots: Arc<DynSnapshotRepositoryPort>,
+    pub user_profile: Arc<DynUserProfileRepositoryPort>,
 
     // Schedulers (Phase 4.1.2: Added for command migration)
     pub block_scheduler: Arc<BlockScheduler>,
@@ -59,38 +74,58 @@ pub struct AppContext {
 }
 
 async fn create_block_scheduler() -> Result<Arc<BlockScheduler>> {
-    // Placeholder job until scheduler wiring lands in Phase 4.1.3 (docs/PHASE-4-NEW-CRATE-MIGRATION.md)
+    // Placeholder job until scheduler wiring lands in Phase 4.1.3
+    // (docs/PHASE-4-NEW-CRATE-MIGRATION.md)
     let job: Arc<dyn BlockJob> = Arc::new(NoopBlockJob);
     let metrics = Arc::new(PerformanceMetrics::new());
     let config = BlockSchedulerConfig::default();
 
     let mut scheduler = BlockScheduler::with_config(config, job, metrics).map_err(|err| {
+        tracing::error!(error = %err, "failed to construct BlockScheduler");
         PulseArcError::Internal(format!("failed to construct BlockScheduler: {}", err))
     })?;
 
-    // Start the scheduler (fail-fast initialization)
-    scheduler.start().await.map_err(|err| {
-        PulseArcError::Internal(format!("failed to start BlockScheduler: {}", err))
-    })?;
+    // Start the scheduler with timeout (fail-fast initialization)
+    let start_timeout = Duration::from_secs(10);
+    tokio::time::timeout(start_timeout, scheduler.start())
+        .await
+        .map_err(|_| {
+            tracing::error!(timeout_secs = 10, "BlockScheduler start timed out");
+            PulseArcError::Internal("BlockScheduler start timed out after 10s".into())
+        })?
+        .map_err(|err| {
+            tracing::error!(error = %err, "failed to start BlockScheduler");
+            PulseArcError::Internal(format!("failed to start BlockScheduler: {}", err))
+        })?;
 
     Ok(Arc::new(scheduler))
 }
 
 async fn create_classification_scheduler() -> Result<Arc<ClassificationScheduler>> {
-    // Placeholder job until classifier wiring is implemented (docs/PHASE-4-NEW-CRATE-MIGRATION.md)
+    // Placeholder job until classifier wiring is implemented
+    // (docs/PHASE-4-NEW-CRATE-MIGRATION.md)
     let job: Arc<dyn ClassificationJob> = Arc::new(NoopClassificationJob);
     let metrics = Arc::new(PerformanceMetrics::new());
     let config = ClassificationSchedulerConfig::default();
 
     let mut scheduler =
         ClassificationScheduler::with_config(config, job, metrics).await.map_err(|err| {
+            tracing::error!(error = %err, "failed to construct ClassificationScheduler");
             PulseArcError::Internal(format!("failed to construct ClassificationScheduler: {}", err))
         })?;
 
-    // Start the scheduler (fail-fast initialization)
-    scheduler.start().await.map_err(|err| {
-        PulseArcError::Internal(format!("failed to start ClassificationScheduler: {}", err))
-    })?;
+    // Start the scheduler with timeout (fail-fast initialization)
+    let start_timeout = Duration::from_secs(10);
+    tokio::time::timeout(start_timeout, scheduler.start())
+        .await
+        .map_err(|_| {
+            tracing::error!(timeout_secs = 10, "ClassificationScheduler start timed out");
+            PulseArcError::Internal("ClassificationScheduler start timed out after 10s".into())
+        })?
+        .map_err(|err| {
+            tracing::error!(error = %err, "failed to start ClassificationScheduler");
+            PulseArcError::Internal(format!("failed to start ClassificationScheduler: {}", err))
+        })?;
 
     Ok(Arc::new(scheduler))
 }
@@ -109,10 +144,18 @@ async fn create_sync_scheduler(config: &Config) -> Result<Arc<SyncScheduler>> {
     let mut scheduler =
         SyncScheduler::new(forwarder, segment_repo, snapshot_repo, scheduler_config, metrics);
 
-    // Start the scheduler (fail-fast initialization)
-    scheduler.start().await.map_err(|err| {
-        PulseArcError::Internal(format!("failed to start SyncScheduler: {}", err))
-    })?;
+    // Start the scheduler with timeout (fail-fast initialization)
+    let start_timeout = Duration::from_secs(10);
+    tokio::time::timeout(start_timeout, scheduler.start())
+        .await
+        .map_err(|_| {
+            tracing::error!(timeout_secs = 10, "SyncScheduler start timed out");
+            PulseArcError::Internal("SyncScheduler start timed out after 10s".into())
+        })?
+        .map_err(|err| {
+            tracing::error!(error = %err, "failed to start SyncScheduler");
+            PulseArcError::Internal(format!("failed to start SyncScheduler: {}", err))
+        })?;
 
     Ok(Arc::new(scheduler))
 }
@@ -160,24 +203,38 @@ struct EmptyCalendarEventRepository;
 impl pulsearc_core::CalendarEventRepository for EmptyCalendarEventRepository {
     async fn find_event_by_timestamp(
         &self,
-        _timestamp: i64,
-        _window_secs: i64,
+        timestamp: i64,
+        window_secs: i64,
     ) -> pulsearc_domain::Result<Option<pulsearc_domain::types::CalendarEventRow>> {
+        tracing::debug!(
+            timestamp,
+            window_secs,
+            "EmptyCalendarEventRepository::find_event_by_timestamp (placeholder, returns None)"
+        );
         Ok(None)
     }
 
     async fn insert_calendar_event(
         &self,
-        _params: pulsearc_domain::types::CalendarEventParams,
+        params: pulsearc_domain::types::CalendarEventParams,
     ) -> pulsearc_domain::Result<String> {
+        tracing::debug!(
+            summary = ?params.summary,
+            "EmptyCalendarEventRepository::insert_calendar_event (placeholder, returns stub-event-id)"
+        );
         Ok("stub-event-id".to_string())
     }
 
     async fn upsert_calendar_event(
         &self,
-        _external_id: &str,
-        _params: pulsearc_domain::types::CalendarEventParams,
+        external_id: &str,
+        params: pulsearc_domain::types::CalendarEventParams,
     ) -> pulsearc_domain::Result<String> {
+        tracing::debug!(
+            external_id,
+            summary = ?params.summary,
+            "EmptyCalendarEventRepository::upsert_calendar_event (placeholder, returns stub-event-id)"
+        );
         Ok("stub-event-id".to_string())
     }
 }
@@ -191,27 +248,34 @@ struct EmptyOutboxQueue;
 impl pulsearc_core::OutboxQueue for EmptyOutboxQueue {
     async fn enqueue(
         &self,
-        _entry: pulsearc_domain::types::OutboxEntry,
+        entry: pulsearc_domain::types::OutboxEntry,
     ) -> pulsearc_domain::Result<()> {
+        tracing::debug!(
+            entry_id = ?entry.id,
+            "EmptyOutboxQueue::enqueue (placeholder, no-op)"
+        );
         Ok(())
     }
 
     async fn dequeue_batch(
         &self,
-        _limit: usize,
+        limit: usize,
     ) -> pulsearc_domain::Result<Vec<pulsearc_domain::types::OutboxEntry>> {
+        tracing::debug!(limit, "EmptyOutboxQueue::dequeue_batch (placeholder, returns empty)");
         Ok(Vec::new())
     }
 
-    async fn mark_delivered(&self, _ids: &[String]) -> pulsearc_domain::Result<()> {
+    async fn mark_delivered(&self, ids: &[String]) -> pulsearc_domain::Result<()> {
+        tracing::debug!(count = ids.len(), "EmptyOutboxQueue::mark_delivered (placeholder, no-op)");
         Ok(())
     }
 
-    async fn requeue_failed(
-        &self,
-        _id: &str,
-        _retry_after_secs: i64,
-    ) -> pulsearc_domain::Result<()> {
+    async fn requeue_failed(&self, id: &str, retry_after_secs: i64) -> pulsearc_domain::Result<()> {
+        tracing::debug!(
+            id,
+            retry_after_secs,
+            "EmptyOutboxQueue::requeue_failed (placeholder, no-op)"
+        );
         Ok(())
     }
 }
@@ -235,6 +299,7 @@ struct NoopBlockJob;
 #[async_trait]
 impl BlockJob for NoopBlockJob {
     async fn run(&self) -> std::result::Result<(), InfraError> {
+        tracing::trace!("NoopBlockJob::run (placeholder, no-op until Phase 4.1.3)");
         Ok(())
     }
 }
@@ -245,6 +310,7 @@ struct NoopClassificationJob;
 #[async_trait]
 impl ClassificationJob for NoopClassificationJob {
     async fn run(&self) -> std::result::Result<(), InfraError> {
+        tracing::trace!("NoopClassificationJob::run (placeholder, no-op until classifier wiring)");
         Ok(())
     }
 }
@@ -256,12 +322,17 @@ struct EmptySegmentRepository;
 impl ActivitySegmentRepository for EmptySegmentRepository {
     async fn get_pending_for_sync(
         &self,
-        _batch_size: usize,
+        batch_size: usize,
     ) -> std::result::Result<Vec<ActivitySegment>, PulseArcError> {
+        tracing::debug!(
+            batch_size,
+            "EmptySegmentRepository::get_pending_for_sync (placeholder, returns empty)"
+        );
         Ok(Vec::new())
     }
 
-    async fn mark_synced(&self, _id: &str) -> std::result::Result<(), PulseArcError> {
+    async fn mark_synced(&self, id: &str) -> std::result::Result<(), PulseArcError> {
+        tracing::debug!(id, "EmptySegmentRepository::mark_synced (placeholder, no-op)");
         Ok(())
     }
 }
@@ -273,12 +344,17 @@ struct EmptySnapshotRepository;
 impl ActivitySnapshotRepository for EmptySnapshotRepository {
     async fn get_pending_for_sync(
         &self,
-        _batch_size: usize,
+        batch_size: usize,
     ) -> std::result::Result<Vec<ActivitySnapshot>, PulseArcError> {
+        tracing::debug!(
+            batch_size,
+            "EmptySnapshotRepository::get_pending_for_sync (placeholder, returns empty)"
+        );
         Ok(Vec::new())
     }
 
-    async fn mark_synced(&self, _id: &str) -> std::result::Result<(), PulseArcError> {
+    async fn mark_synced(&self, id: &str) -> std::result::Result<(), PulseArcError> {
+        tracing::debug!(id, "EmptySnapshotRepository::mark_synced (placeholder, no-op)");
         Ok(())
     }
 }
@@ -289,7 +365,20 @@ struct StaticAccessTokenProvider {
 
 impl StaticAccessTokenProvider {
     fn new(token: impl Into<String>) -> Self {
-        Self { token: token.into() }
+        let token = token.into();
+
+        // Safety guard: warn if using placeholder token (potential production
+        // misconfiguration)
+        #[cfg(not(test))]
+        if token == "stub-token" {
+            tracing::warn!(
+                "StaticAccessTokenProvider initialized with placeholder 'stub-token'; \
+                 API calls will fail with authentication errors. This is expected for \
+                 scheduler placeholders but should be replaced in production."
+            );
+        }
+
+        Self { token }
     }
 }
 
@@ -311,20 +400,51 @@ impl AppContext {
     /// This method is primarily for testing, allowing tests to specify a custom
     /// database path and avoid conflicts with the production database.
     pub async fn new_with_config(config: Config) -> Result<Self> {
+        Self::new_with_config_in_lock_dir(config, std::env::temp_dir()).await
+    }
+
+    /// Create a new application context with a custom lock directory
+    ///
+    /// Tests can use this to provide per-test directories and avoid PID file
+    /// conflicts.
+    pub async fn new_with_config_in_lock_dir<P>(config: Config, lock_dir: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let lock_dir_path = lock_dir.as_ref().to_path_buf();
+
+        fs::create_dir_all(&lock_dir_path).map_err(|err| {
+            PulseArcError::Internal(format!(
+                "failed to create instance lock directory {}: {}",
+                lock_dir_path.display(),
+                err
+            ))
+        })?;
+
         // Acquire instance lock to prevent multiple instances
-        // Use system temp directory for PID file to avoid triggering file watchers
-        let lock_dir = std::env::temp_dir();
-        let instance_lock = InstanceLock::acquire(&lock_dir)?;
+        let instance_lock = InstanceLock::acquire(&lock_dir_path)?;
 
         // Resolve encryption key with test-friendly fallback chain:
         // 1. TEST_DATABASE_ENCRYPTION_KEY (for tests, doesn't touch keychain)
         // 2. DATABASE_ENCRYPTION_KEY (for production override)
         // 3. KeyManager (production default, uses macOS keychain)
         let encryption_key = match std::env::var("TEST_DATABASE_ENCRYPTION_KEY") {
-            Ok(value) => value,
+            Ok(value) => {
+                tracing::debug!("using TEST_DATABASE_ENCRYPTION_KEY for database encryption");
+                value
+            }
             Err(_) => match std::env::var("DATABASE_ENCRYPTION_KEY") {
-                Ok(value) => value,
-                Err(_) => KeyManager::get_or_create_key()?,
+                Ok(value) => {
+                    tracing::info!("using DATABASE_ENCRYPTION_KEY for database encryption");
+                    value
+                }
+                Err(_) => {
+                    tracing::info!("fetching encryption key from macOS keychain");
+                    KeyManager::get_or_create_key().map_err(|e| {
+                        tracing::error!(error = %e, "failed to retrieve encryption key from keychain");
+                        e
+                    })?
+                }
             },
         };
 
@@ -345,16 +465,24 @@ impl AppContext {
         let repository = Arc::new(SqlCipherActivityRepository::new(db.clone()));
 
         // Create tracking service
-        let tracking_service = Arc::new(TrackingService::new(provider, repository));
+        let tracking_service = Arc::new(TrackingService::new(provider, repository.clone()));
 
-        // Create feature flags service
-        let feature_flags = Arc::new(FeatureFlagService::new(db.clone()));
+        // Create feature flags service (cached implementation of FeatureFlagsPort)
+        let feature_flags: Arc<DynFeatureFlagsPort> = Arc::new(FeatureFlagService::new(db.clone()));
 
         // Create database stats repository
         let database_stats = Arc::new(SqlCipherDatabaseStatsRepository::new(db.clone()));
 
-        // Create command metrics repository (Phase 4.1.6: Metrics collection for validation)
+        // Create command metrics repository (Phase 4.1.6: Metrics collection for
+        // validation)
         let command_metrics = Arc::new(SqlCipherCommandMetricsRepository::new(db.clone()));
+
+        // Create snapshots repository (Phase 4A.1: Database commands migration)
+        let snapshots: Arc<DynSnapshotRepositoryPort> = repository.clone();
+
+        // Create user profile repository (Phase 4A.2: User profile commands migration)
+        let user_profile: Arc<DynUserProfileRepositoryPort> =
+            Arc::new(SqlCipherUserProfileRepository::new(db.clone()));
 
         // Initialize and start schedulers (fail-fast)
         let block_scheduler = create_block_scheduler().await?;
@@ -371,6 +499,8 @@ impl AppContext {
             feature_flags,
             database_stats,
             command_metrics,
+            snapshots,
+            user_profile,
             block_scheduler,
             classification_scheduler,
             sync_scheduler,
@@ -382,14 +512,15 @@ impl AppContext {
 
     /// Check health of all application components
     ///
-    /// Returns a HealthStatus with individual component health checks and an overall
-    /// health score. The score is calculated as (healthy_components / total_components),
-    /// and the application is considered healthy if score >= 0.8.
+    /// Returns a HealthStatus with individual component health checks and an
+    /// overall health score. The score is calculated as (healthy_components
+    /// / total_components), and the application is considered healthy if
+    /// score >= 0.8.
     ///
     /// # Example
     /// ```no_run
     /// let context = AppContext::new().await?;
-    /// let health = context.health_check();
+    /// let health = context.health_check().await;
     ///
     /// if health.is_healthy {
     ///     println!("Application is healthy (score: {})", health.score);
@@ -402,13 +533,13 @@ impl AppContext {
     ///     }
     /// }
     /// ```
-    pub fn health_check(&self) -> crate::utils::health::HealthStatus {
+    pub async fn health_check(&self) -> crate::utils::health::HealthStatus {
         use crate::utils::health::{ComponentHealth, HealthStatus};
 
         let mut status = HealthStatus::new();
 
-        // Check database connection
-        status = status.add_component(self.check_database_health());
+        // Check database connection (async to avoid blocking)
+        status = status.add_component(self.check_database_health().await);
 
         // Check feature flags service (stateless, always healthy)
         status = status.add_component(ComponentHealth::healthy("feature_flags"));
@@ -432,15 +563,31 @@ impl AppContext {
     }
 
     /// Check database health by attempting a simple query
-    fn check_database_health(&self) -> crate::utils::health::ComponentHealth {
+    ///
+    /// Uses spawn_blocking to avoid blocking the async runtime with synchronous
+    /// database operations.
+    async fn check_database_health(&self) -> crate::utils::health::ComponentHealth {
         use crate::utils::health::ComponentHealth;
 
-        match self.db.get_connection() {
-            Ok(conn) => match conn.execute("SELECT 1", []) {
-                Ok(_) => ComponentHealth::healthy("database"),
-                Err(e) => ComponentHealth::unhealthy("database", format!("query failed: {}", e)),
-            },
-            Err(e) => ComponentHealth::unhealthy("database", format!("connection failed: {}", e)),
+        let db = self.db.clone();
+        match tokio::task::spawn_blocking(move || {
+            let conn = db.get_connection()?;
+            conn.execute("SELECT 1", []).map_err(|e| {
+                PulseArcError::Database(format!("health check query failed: {}", e))
+            })?;
+            Ok::<(), pulsearc_domain::PulseArcError>(())
+        })
+        .await
+        {
+            Ok(Ok(())) => ComponentHealth::healthy("database"),
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "database health check failed");
+                ComponentHealth::unhealthy("database", format!("query failed: {}", e))
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "database health check task panicked");
+                ComponentHealth::unhealthy("database", format!("task panic: {}", e))
+            }
         }
     }
 
@@ -448,33 +595,39 @@ impl AppContext {
     ///
     /// # Implementation Note
     ///
-    /// This method is intentionally a no-op. Most services and schedulers in AppContext
-    /// don't require explicit shutdown because they use `tokio::spawn` tasks that are
-    /// automatically cancelled when the tokio runtime shuts down.
+    /// This method is intentionally a no-op. Most services and schedulers in
+    /// AppContext don't require explicit shutdown because they use
+    /// `tokio::spawn` tasks that are automatically cancelled when the tokio
+    /// runtime shuts down.
     ///
-    /// According to the scheduler lifecycle survey (Phase 0.2), all schedulers implement:
+    /// According to the scheduler lifecycle survey (Phase 0.2), all schedulers
+    /// implement:
     /// - `start()` - Spawns background tasks
     /// - `stop()` - Cancels tasks via CancellationToken
     /// - `Drop` - Ensures cleanup on drop
     ///
-    /// When AppContext is dropped (when the app exits), the following happens automatically:
+    /// When AppContext is dropped (when the app exits), the following happens
+    /// automatically:
     /// 1. All Arc<Scheduler> references are dropped
     /// 2. Scheduler Drop impls trigger cancellation
     /// 3. Tokio runtime shutdown waits for tasks to complete
     /// 4. Resources are cleaned up in reverse dependency order
     ///
-    /// Only services with explicit cleanup requirements (database connections, file handles,
-    /// OAuth tokens) would need shutdown calls, and currently none of our services require this.
+    /// Only services with explicit cleanup requirements (database connections,
+    /// file handles, OAuth tokens) would need shutdown calls, and currently
+    /// none of our services require this.
     ///
     /// # Design Decision
     ///
-    /// This approach follows Rust's RAII pattern where cleanup happens via Drop rather than
-    /// explicit shutdown methods. This makes the shutdown process more robust because:
+    /// This approach follows Rust's RAII pattern where cleanup happens via Drop
+    /// rather than explicit shutdown methods. This makes the shutdown
+    /// process more robust because:
     /// - Cleanup happens even if shutdown() is never called (e.g., on panic)
     /// - No need to remember the correct shutdown order
     /// - Idempotent (can be called multiple times safely)
     ///
-    /// See: docs/SCHEDULER-LIFECYCLE-REFERENCE.md for complete scheduler lifecycle details
+    /// See: docs/SCHEDULER-LIFECYCLE-REFERENCE.md for complete scheduler
+    /// lifecycle details
     pub async fn shutdown(&self) -> Result<()> {
         use tracing::info;
 
@@ -483,8 +636,9 @@ impl AppContext {
         // Log diagnostic information about component states
         self.shutdown_diagnostics();
 
-        // NOTE: Explicit scheduler shutdown is not needed. All schedulers use CancellationToken
-        // and tokio::spawn tasks that are automatically cancelled when:
+        // NOTE: Explicit scheduler shutdown is not needed. All schedulers use
+        // CancellationToken and tokio::spawn tasks that are automatically
+        // cancelled when:
         // 1. The scheduler is dropped (triggers CancellationToken)
         // 2. The tokio runtime shuts down (waits for tasks to complete)
         //
@@ -509,8 +663,9 @@ impl AppContext {
 
     /// Log diagnostic information about component cleanup
     ///
-    /// This method provides observability during shutdown by logging the cleanup
-    /// approach for each component. Useful for debugging shutdown issues.
+    /// This method provides observability during shutdown by logging the
+    /// cleanup approach for each component. Useful for debugging shutdown
+    /// issues.
     fn shutdown_diagnostics(&self) {
         use tracing::info;
 

@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use log::{Level, LevelFilter, Log, Metadata, Record};
+use pulsearc_common::testing::TempDir;
 use pulsearc_domain::{OutboxStatus, TimeEntryOutbox};
 use pulsearc_infra::database::DbManager;
-use tempfile::TempDir;
 
 type LogRecord = (Level, String);
 type LogBuffer = Vec<LogRecord>;
@@ -20,7 +20,7 @@ pub struct TestDatabase {
 impl TestDatabase {
     /// Create a new temporary database with default configuration.
     pub fn new() -> Self {
-        let temp_dir = TempDir::new().expect("temp dir should be created");
+        let temp_dir = TempDir::new("infra-test").expect("temp dir should be created");
         let db_path = temp_dir.path().join("test.db");
 
         let manager =

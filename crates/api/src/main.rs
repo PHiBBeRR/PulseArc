@@ -69,12 +69,22 @@ pub fn run() {
             pulsearc_lib::get_outbox_status,
             // Calendar integration
             pulsearc_lib::get_calendar_events_for_timeline,
+            // Database commands (Phase 4A.1)
+            pulsearc_lib::get_database_stats,
+            pulsearc_lib::get_recent_snapshots,
+            pulsearc_lib::vacuum_database,
+            pulsearc_lib::get_database_health,
             // Feature flags (Phase 4)
             pulsearc_lib::is_feature_enabled,
             pulsearc_lib::toggle_feature_flag,
             pulsearc_lib::list_feature_flags,
             // Health check (Phase 4.1.6)
             pulsearc_lib::get_app_health,
+            // User profile commands (Phase 4A.2)
+            pulsearc_lib::get_user_profile,
+            pulsearc_lib::upsert_user_profile,
+            // Window commands (Phase 4A.3)
+            pulsearc_lib::animate_window_resize,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

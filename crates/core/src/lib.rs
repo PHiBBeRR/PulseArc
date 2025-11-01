@@ -40,7 +40,7 @@ pub use classification::ports::{
 pub use classification::ClassificationService;
 pub use command_metrics_ports::{CommandMetric, CommandMetricsPort, CommandStats};
 pub use database_stats_ports::DatabaseStatsPort;
-pub use feature_flags_ports::{FeatureFlag, FeatureFlagsPort};
+pub use feature_flags_ports::{FeatureFlag, FeatureFlagEvaluation, FeatureFlagsPort};
 pub use sync::ports::{IdMappingRepository, OutboxQueue, TokenUsageRepository};
 pub use tracking::ports::{
     ActivityEnricher, ActivityProvider, ActivityRepository, CalendarEventRepository,

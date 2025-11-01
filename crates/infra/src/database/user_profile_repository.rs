@@ -133,6 +133,46 @@ impl UserProfileRepositoryPort for SqlCipherUserProfileRepository {
         .map_err(map_join_error)?
     }
 
+    async fn get_current_profile(&self) -> DomainResult<Option<UserProfile>> {
+        let db = Arc::clone(&self.db);
+
+        task::spawn_blocking(move || -> DomainResult<Option<UserProfile>> {
+            let conn = db.get_connection()?;
+
+            let result = conn.query_row(
+                "SELECT id, auth0_id, email, name, first_name, last_name, display_name,
+                        avatar_url, phone_number, title, department, location, bio,
+                        timezone, language, locale, date_format, is_active, email_verified,
+                        two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
+                 FROM user_profiles
+                 ORDER BY created_at ASC
+                 LIMIT 1",
+                &[],
+                map_user_profile_row,
+            );
+
+            match result {
+                Ok(profile) => Ok(Some(profile)),
+                Err(StorageError::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => Ok(None),
+                Err(err) => Err(map_storage_error(err)),
+            }
+        })
+        .await
+        .map_err(map_join_error)?
+    }
+
+    async fn upsert(&self, profile: UserProfile) -> DomainResult<()> {
+        let db = Arc::clone(&self.db);
+
+        task::spawn_blocking(move || -> DomainResult<()> {
+            let conn = db.get_connection()?;
+            upsert_user_profile(&conn, &profile).map_err(map_storage_error)?;
+            Ok(())
+        })
+        .await
+        .map_err(map_join_error)?
+    }
+
     async fn delete(&self, id: &str) -> DomainResult<()> {
         let db = Arc::clone(&self.db);
         let id = id.to_string();
@@ -267,6 +307,77 @@ fn update_user_profile(
             locale = ?15, date_format = ?16, is_active = ?17, email_verified = ?18,
             two_factor_enabled = ?19, last_login_at = ?20, last_synced_at = ?21, updated_at = ?22
          WHERE id = ?23",
+        params.as_slice(),
+    )?;
+
+    Ok(())
+}
+
+/// Upsert a user profile (insert or update based on auth0_id conflict)
+///
+/// This matches the legacy behavior where the unique constraint is on auth0_id.
+/// If a profile with the same auth0_id already exists, it will be updated.
+fn upsert_user_profile(
+    conn: &SqlCipherConnection,
+    profile: &UserProfile,
+) -> Result<(), StorageError> {
+    let params: [&dyn ToSql; 24] = [
+        &profile.id,
+        &profile.auth0_id,
+        &profile.email,
+        &profile.name,
+        &profile.first_name,
+        &profile.last_name,
+        &profile.display_name,
+        &profile.avatar_url,
+        &profile.phone_number,
+        &profile.title,
+        &profile.department,
+        &profile.location,
+        &profile.bio,
+        &profile.timezone,
+        &profile.language,
+        &profile.locale,
+        &profile.date_format,
+        &bool_to_int(profile.is_active),
+        &bool_to_int(profile.email_verified),
+        &bool_to_int(profile.two_factor_enabled),
+        &profile.last_login_at,
+        &profile.last_synced_at,
+        &profile.created_at,
+        &profile.updated_at,
+    ];
+
+    conn.execute(
+        "INSERT INTO user_profiles (
+            id, auth0_id, email, name, first_name, last_name, display_name,
+            avatar_url, phone_number, title, department, location, bio,
+            timezone, language, locale, date_format, is_active, email_verified,
+            two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+         ON CONFLICT(auth0_id) DO UPDATE SET
+            id = excluded.id,
+            email = excluded.email,
+            name = excluded.name,
+            first_name = excluded.first_name,
+            last_name = excluded.last_name,
+            display_name = excluded.display_name,
+            avatar_url = excluded.avatar_url,
+            phone_number = excluded.phone_number,
+            title = excluded.title,
+            department = excluded.department,
+            location = excluded.location,
+            bio = excluded.bio,
+            timezone = excluded.timezone,
+            language = excluded.language,
+            locale = excluded.locale,
+            date_format = excluded.date_format,
+            is_active = excluded.is_active,
+            email_verified = excluded.email_verified,
+            two_factor_enabled = excluded.two_factor_enabled,
+            last_login_at = excluded.last_login_at,
+            last_synced_at = excluded.last_synced_at,
+            updated_at = excluded.updated_at",
         params.as_slice(),
     )?;
 
