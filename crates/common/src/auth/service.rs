@@ -88,7 +88,6 @@ where
     /// # Arguments
     /// * `config` - OAuth configuration (domain, client_id, etc.)
     /// * `keychain` - Keychain provider for token storage
-    /// * `service_name` - Keychain service name (e.g., "PulseArc.api")
     /// * `account_name` - Keychain account name (e.g., "main")
     /// * `refresh_threshold_seconds` - Refresh tokens this many seconds before
     ///   expiry (default: 300)
@@ -109,15 +108,13 @@ where
     ///     Some("https://api.pulsearc.ai".to_string()),
     /// );
     ///
-    /// let keychain = Arc::new(KeychainProvider::new("PulseArc".to_string()));
-    /// let service =
-    ///     OAuthService::new(config, keychain, "PulseArc.api".to_string(), "main".to_string(), 300);
+    /// let keychain = Arc::new(KeychainProvider::new("PulseArc.api".to_string()));
+    /// let service = OAuthService::new(config, keychain, "main".to_string(), 300);
     /// ```
     #[must_use]
     pub fn new(
         config: OAuthConfig,
         keychain: Arc<K>,
-        service_name: String,
         account_name: String,
         refresh_threshold_seconds: i64,
     ) -> Self {
@@ -126,7 +123,6 @@ where
         let token_manager = TokenManager::new(
             oauth_client.clone(),
             keychain,
-            service_name,
             account_name,
             refresh_threshold_seconds,
         );
@@ -278,7 +274,7 @@ where
     /// # async fn example() {
     /// # let config = OAuthConfig::new("dev-test.us.auth0.com".to_string(), "client".to_string(), "http://localhost".to_string(), vec![], None);
     /// # let keychain = Arc::new(KeychainProvider::new("PulseArc".to_string()));
-    /// let service = OAuthService::new(config, keychain, "PulseArc.api".to_string(), "main".to_string(), 300);
+    /// let service = OAuthService::new(config, keychain, "main".to_string(), 300);
     /// service.start_auto_refresh();
     /// // Auto-refresh now runs in background
     /// # }
