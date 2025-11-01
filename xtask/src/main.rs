@@ -69,22 +69,25 @@ fn print_help() {
 fn run_ci() -> anyhow::Result<()> {
     println!("==> Running CI checks...\n");
 
-    println!("==> Step 1/6: Checking Rust format...");
+    println!("==> Step 1/7: Checking Rust format...");
     run_fmt()?;
 
-    println!("\n==> Step 2/6: Checking frontend format...");
+    println!("\n==> Step 2/7: Checking frontend format...");
     run_prettier()?;
 
-    println!("\n==> Step 3/6: Running Clippy...");
+    println!("\n==> Step 3/7: Running Clippy...");
     run_clippy()?;
 
-    println!("\n==> Step 4/6: Running tests...");
+    println!("\n==> Step 4/7: Verifying new crate (pulsearc-app)...");
+    verify_new_crate()?;
+
+    println!("\n==> Step 5/7: Running tests...");
     run_test()?;
 
-    println!("\n==> Step 5/6: Checking dependencies...");
+    println!("\n==> Step 6/7: Checking dependencies...");
     run_deny()?;
 
-    println!("\n==> Step 6/6: Auditing dependencies...");
+    println!("\n==> Step 7/7: Auditing dependencies...");
     run_audit()?;
 
     println!("\n✓ All CI checks passed!");
@@ -140,6 +143,19 @@ fn run_clippy() -> anyhow::Result<()> {
     } else {
         Err(anyhow!("Clippy run failed. See output above."))
     }
+}
+
+/// Verify the new crate (pulsearc-app) compiles and checks pass
+fn verify_new_crate() -> anyhow::Result<()> {
+    println!("Checking pulsearc-app compiles...");
+    let status = Command::new("cargo").args(["check", "-p", "pulsearc-app"]).status()?;
+
+    if !status.success() {
+        anyhow::bail!("pulsearc-app check failed");
+    }
+
+    println!("✓ pulsearc-app compiles successfully");
+    Ok(())
 }
 
 /// Run all workspace tests

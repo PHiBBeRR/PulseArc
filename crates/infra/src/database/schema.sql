@@ -415,7 +415,33 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 INSERT OR IGNORE INTO feature_flags (flag_name, enabled, description, updated_at)
 VALUES
     ('new_blocks_cmd', 1, 'Use new block builder infrastructure', CAST(strftime('%s','now') AS INTEGER)),
-    ('use_new_infra', 1, 'Enable Phase 4 infrastructure globally', CAST(strftime('%s','now') AS INTEGER));
+    ('use_new_infra', 1, 'Enable Phase 4 infrastructure globally', CAST(strftime('%s','now') AS INTEGER)),
+    -- Phase 4 migration flags (disabled by default for safe rollout)
+    ('new_database_commands', 0, 'Phase 4A.1: New database command infrastructure', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_user_profile_commands', 0, 'Phase 4A.2: New user profile commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_window_commands', 0, 'Phase 4A.3: New window management commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_block_commands', 0, 'Phase 4B.1: New block building commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_calendar_commands', 0, 'Phase 4B.2: New calendar integration commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_idle_commands', 0, 'Phase 4C.1: New idle management commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_monitoring_commands', 0, 'Phase 4C.2: New monitoring & stats commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_idle_sync_commands', 0, 'Phase 4C.3: New idle sync telemetry commands', CAST(strftime('%s','now') AS INTEGER)),
+    ('new_seed_commands', 0, 'Phase 4C.4: New seed snapshot commands', CAST(strftime('%s','now') AS INTEGER));
+CREATE TABLE IF NOT EXISTS command_metrics (
+            id TEXT PRIMARY KEY,
+            command TEXT NOT NULL,
+            implementation TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            success INTEGER NOT NULL,
+            error_type TEXT
+        );
+-- Indexes for command metrics queries (Phase 4 validation)
+CREATE INDEX IF NOT EXISTS idx_command_metrics_command_time
+         ON command_metrics(command, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_command_metrics_impl_time
+         ON command_metrics(command, implementation, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_command_metrics_timestamp
+         ON command_metrics(timestamp);
 CREATE TABLE IF NOT EXISTS user_profiles (
             id TEXT NOT NULL PRIMARY KEY,
             auth0_id TEXT NOT NULL UNIQUE,

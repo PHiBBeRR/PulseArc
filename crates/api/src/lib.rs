@@ -14,10 +14,10 @@
 
 pub mod commands;
 pub mod context;
+pub mod utils;
 
 // Re-export for convenience
 pub use commands::*;
-pub use context::*;
-
 // Re-export feature flag commands explicitly
 pub use commands::{is_feature_enabled, list_feature_flags, toggle_feature_flag};
+pub use context::*;

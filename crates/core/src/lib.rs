@@ -21,6 +21,8 @@ pub mod user;
 pub mod utils;
 
 // Infrastructure ports
+pub mod command_metrics_ports;
+pub mod database_stats_ports;
 pub mod feature_flags_ports;
 
 // Feature-gated integration modules
@@ -36,6 +38,8 @@ pub use classification::ports::{
     BlockRepository, Classifier, ProjectMatcher, TimeEntryRepository, WbsRepository,
 };
 pub use classification::ClassificationService;
+pub use command_metrics_ports::{CommandMetric, CommandMetricsPort, CommandStats};
+pub use database_stats_ports::DatabaseStatsPort;
 pub use feature_flags_ports::{FeatureFlag, FeatureFlagsPort};
 pub use sync::ports::{IdMappingRepository, OutboxQueue, TokenUsageRepository};
 pub use tracking::ports::{

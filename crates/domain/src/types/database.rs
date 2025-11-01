@@ -612,6 +612,55 @@ pub struct SuggestionFeedbackParams {
     pub context_json: Option<String>,
 }
 
+// ============================================================================
+// Database Statistics and Health DTOs
+// ============================================================================
+
+/// Database size information from PRAGMA introspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct DatabaseSize {
+    /// Total database file size in bytes (from filesystem)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub size_bytes: u64,
+    /// Number of pages in the database (PRAGMA page_count)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub page_count: u64,
+    /// Size of each page in bytes (PRAGMA page_size, typically 4096)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub page_size: u64,
+    /// Number of unused pages (PRAGMA freelist_count)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub freelist_count: u64,
+}
+
+/// Statistics for a single database table.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct TableStats {
+    /// Table name
+    pub name: String,
+    /// Number of rows in the table
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub row_count: u64,
+}
+
+/// Database health status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts-gen", derive(TS))]
+#[cfg_attr(feature = "ts-gen", ts(export))]
+pub struct HealthStatus {
+    /// Whether the database is healthy
+    pub is_healthy: bool,
+    /// Human-readable status message
+    pub message: String,
+    /// Response time for health check query (milliseconds)
+    #[cfg_attr(feature = "ts-gen", ts(type = "number"))]
+    pub response_time_ms: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -34,7 +34,7 @@ pub fn run() {
             log::info!("PulseArc starting...");
 
             // Initialize application context
-            let ctx = AppContext::new()?;
+            let ctx = tauri::async_runtime::block_on(AppContext::new())?;
             let ctx_arc = Arc::new(ctx);
 
             // Manage feature flags service separately for command access
@@ -73,6 +73,8 @@ pub fn run() {
             pulsearc_lib::is_feature_enabled,
             pulsearc_lib::toggle_feature_flag,
             pulsearc_lib::list_feature_flags,
+            // Health check (Phase 4.1.6)
+            pulsearc_lib::get_app_health,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

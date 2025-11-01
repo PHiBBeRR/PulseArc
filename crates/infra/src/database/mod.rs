@@ -5,6 +5,8 @@ pub mod batch_repository;
 pub mod block_repository;
 #[cfg(feature = "calendar")]
 pub mod calendar_event_repository;
+pub mod command_metrics_repository;
+pub mod database_stats_repository;
 pub mod dlq_repository;
 pub mod feature_flags_repository;
 pub mod id_mapping_repository;
@@ -22,6 +24,8 @@ pub use batch_repository::*;
 pub use block_repository::*;
 #[cfg(feature = "calendar")]
 pub use calendar_event_repository::*;
+pub use command_metrics_repository::SqlCipherCommandMetricsRepository;
+pub use database_stats_repository::SqlCipherDatabaseStatsRepository;
 pub use dlq_repository::*;
 pub use feature_flags_repository::SqlCipherFeatureFlagsRepository;
 pub use id_mapping_repository::*;

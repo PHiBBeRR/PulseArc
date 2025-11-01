@@ -16,8 +16,9 @@ pub use classification::ProposedBlock;
 pub use database::{
     AcceptPatch, ActivitySegment, ActivitySnapshot, BatchQueue, BatchStatus, CalendarEventParams,
     CalendarEventRow, CalendarSyncSettingsParams, CalendarSyncSettingsRow, CalendarTokenRow,
-    ContextPart, IdMapping, OutboxStatus, ParsedFields, PrismaTimeEntryDto, Project,
-    ProjectWithWbs, SuggestionFeedbackParams, TimeEntryOutbox, TimeRange,
+    ContextPart, DatabaseSize, HealthStatus, IdMapping, OutboxStatus, ParsedFields,
+    PrismaTimeEntryDto, Project, ProjectWithWbs, SuggestionFeedbackParams, TableStats,
+    TimeEntryOutbox, TimeRange,
 };
 pub use idle::{IdlePeriod, IdleSummary};
 pub use sap::{OutboxStatusSummary, SapSyncSettings, WbsElement};

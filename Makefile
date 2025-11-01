@@ -45,14 +45,14 @@ build-release: build-frontend ## Build optimized release binary
 	cargo build --workspace --release
 
 build-tauri: build-frontend ## Build Tauri app bundle
-	@echo "Building Tauri app..."
-	cargo tauri build
+	@echo "Building Tauri app (new crate: crates/api/pulsearc-app)..."
+	cd crates/api && pnpm tauri build
 
 ##@ Development
 
 dev: ## Run development server (Tauri dev mode)
-	@echo "Starting Tauri dev server..."
-	cargo tauri dev
+	@echo "Starting Tauri dev server (new crate: crates/api/pulsearc-app)..."
+	cd crates/api && pnpm tauri dev
 
 dev-frontend: ## Run frontend dev server only
 	@echo "Starting frontend dev server..."
@@ -66,7 +66,7 @@ watch: ## Watch and rebuild on changes
 
 test: test-rust ## Run all tests
 
-test-rust: ## Run Rust tests
+test-rust: ## Run Rust tests (includes pulsearc-app)
 	@echo "Running Rust tests..."
 	cargo test --workspace --all-features
 
