@@ -10,8 +10,8 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! use tokio::runtime::Runtime;
 //! use pulsearc_infra::platform::macos::enrichers::browser::get_browser_url;
+//! use tokio::runtime::Runtime;
 //!
 //! Runtime::new().unwrap().block_on(async {
 //!     if let Some(url) = get_browser_url("com.apple.Safari", "Safari").await {

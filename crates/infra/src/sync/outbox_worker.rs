@@ -1,38 +1,11 @@
 //! Outbox worker for periodic batch processing and forwarding.
 //!
-//! **STATUS: INFRASTRUCTURE COMPLETE** - Batch processing logic pending entity
-//! mapping.
-//!
-//! Provides a background worker that polls the outbox repository for pending
-//! time entries and forwards them to the API in batches. The implementation
-//! follows the runtime rules captured in `CLAUDE.md`: join handles are tracked,
-//! cancellation is explicit, and every asynchronous operation is wrapped in a
-//! timeout.
-//!
-//! # Scope & Responsibilities
-//!
-//! **IMPORTANT**: This worker is for generic outbox processing. Specialized
-//! outbox handling is delegated to feature-specific schedulers:
-//!
-//! - **SAP Time Entries**: Handled by `SapScheduler` (Task 3D.3)
-//!   - Uses `SqlCipherOutboxRepository::dequeue_batch()`
-//!   - Forwards via `BatchForwarder` from SAP integration
-//!   - Updates outbox status (sent/failed) with retry backoff
-//!
-//! - **Generic Outbox** (this worker): Placeholder for future use
-//!   - Infrastructure complete (lifecycle, cancellation, timeouts)
-//!   - Batch processing logic pending until entity mapping is clarified
-//!   - **TODO**: Determine mapping from `TimeEntryOutbox` → API entities
-//!   - **Tracked in**: Phase 3D follow-up (outbox entity mapping)
-//!
-//! # Architecture
-//!
-//! - Polls outbox repository at configured intervals
-//! - Dequeues pending entries in batches
-//! - Forwards batches via `ApiForwarder` (once entity mapping is defined)
-//! - Updates entry status (sent/failed) based on results
-//! - Handles partial batch failures gracefully
-//! - Respects retry backoff for failed entries
+//! Polls the SQLCipher-backed outbox queue for pending time entries, forwards
+//! each entry to the Neon domain API, and updates local outbox status based on
+//! the outcome. The implementation follows the runtime rules captured in
+//! `CLAUDE.md`: join handles are tracked, cancellation is explicit, and every
+//! asynchronous operation is wrapped in a timeout. SAP-bound entries are
+//! handled by the dedicated `SapScheduler`.
 //!
 //! # Example
 //!
@@ -44,19 +17,19 @@
 //! use pulsearc_infra::sync::{OutboxWorker, OutboxWorkerConfig};
 //!
 //! # async fn example() -> Result<(), String> {
-//! let _metrics = Arc::new(PerformanceMetrics::new());
-//! // ... create outbox_repo and forwarder ...
-//! # let outbox_repo = todo!();
-//! # let forwarder = todo!();
+//! let metrics = Arc::new(PerformanceMetrics::new());
+//! // ... create outbox_repo and Neon client ...
+//! # let outbox_repo = todo!(); // Arc<dyn OutboxQueue>
+//! # let neon_client = todo!(); // Arc<NeonClient>
 //! let mut worker = OutboxWorker::new(
 //!     outbox_repo,
-//!     forwarder,
+//!     neon_client,
 //!     OutboxWorkerConfig {
 //!         batch_size: 50,
 //!         poll_interval: Duration::from_secs(60),
 //!         ..Default::default()
 //!     },
-//!     metrics,
+//!     metrics.clone(),
 //! );
 //!
 //! worker.start().await?;
@@ -69,15 +42,17 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use async_trait::async_trait;
 use pulsearc_core::OutboxQueue;
+use pulsearc_domain::types::{PrismaTimeEntryDto, TimeEntryOutbox};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::api::forwarder::ApiForwarder;
-use crate::database::outbox_repository::SqlCipherOutboxRepository;
 use crate::observability::metrics::PerformanceMetrics;
 use crate::observability::MetricsResult;
+use crate::sync::errors::SyncError;
+use crate::sync::neon_client::NeonClient;
 
 /// Configuration for the outbox worker.
 #[derive(Debug, Clone)]
@@ -106,10 +81,32 @@ impl Default for OutboxWorkerConfig {
     }
 }
 
+/// Interface for submitting time entries to a remote destination.
+#[async_trait]
+pub trait TimeEntryForwarder: Send + Sync {
+    /// Forward a time entry payload using the provided idempotency key.
+    async fn forward_time_entry(
+        &self,
+        dto: &PrismaTimeEntryDto,
+        idempotency_key: &str,
+    ) -> Result<String, SyncError>;
+}
+
+#[async_trait]
+impl TimeEntryForwarder for NeonClient {
+    async fn forward_time_entry(
+        &self,
+        dto: &PrismaTimeEntryDto,
+        idempotency_key: &str,
+    ) -> Result<String, SyncError> {
+        self.submit_time_entry(dto, idempotency_key).await
+    }
+}
+
 /// Outbox worker with explicit lifecycle management.
 pub struct OutboxWorker {
-    outbox_repo: Arc<SqlCipherOutboxRepository>,
-    forwarder: Arc<ApiForwarder>,
+    outbox_repo: Arc<dyn OutboxQueue>,
+    forwarder: Arc<dyn TimeEntryForwarder>,
     config: OutboxWorkerConfig,
     cancellation: CancellationToken,
     task_handle: Option<JoinHandle<()>>,
@@ -119,8 +116,8 @@ pub struct OutboxWorker {
 impl OutboxWorker {
     /// Create a new outbox worker with the given configuration.
     pub fn new(
-        outbox_repo: Arc<SqlCipherOutboxRepository>,
-        forwarder: Arc<ApiForwarder>,
+        outbox_repo: Arc<dyn OutboxQueue>,
+        forwarder: Arc<dyn TimeEntryForwarder>,
         config: OutboxWorkerConfig,
         metrics: Arc<PerformanceMetrics>,
     ) -> Self {
@@ -217,8 +214,8 @@ impl OutboxWorker {
     /// Background processing loop.
     #[allow(clippy::too_many_arguments)]
     async fn process_loop(
-        outbox_repo: Arc<SqlCipherOutboxRepository>,
-        forwarder: Arc<ApiForwarder>,
+        outbox_repo: Arc<dyn OutboxQueue>,
+        forwarder: Arc<dyn TimeEntryForwarder>,
         poll_interval: Duration,
         batch_size: usize,
         processing_timeout: Duration,
@@ -237,12 +234,7 @@ impl OutboxWorker {
 
                     match tokio::time::timeout(
                         processing_timeout,
-                        Self::process_batch(
-                            &outbox_repo,
-                            &forwarder,
-                            batch_size,
-                            &metrics,
-                        ),
+                        Self::process_batch(&outbox_repo, &forwarder, batch_size, &metrics),
                     )
                     .await
                     {
@@ -272,13 +264,12 @@ impl OutboxWorker {
 
     /// Process a single batch of outbox entries.
     async fn process_batch(
-        outbox_repo: &Arc<SqlCipherOutboxRepository>,
-        _forwarder: &Arc<ApiForwarder>,
+        outbox_repo: &Arc<dyn OutboxQueue>,
+        forwarder: &Arc<dyn TimeEntryForwarder>,
         batch_size: usize,
         metrics: &Arc<PerformanceMetrics>,
     ) -> Result<(), String> {
-        // Dequeue pending entries
-        // CRITICAL: This query filters status='pending' AND checks next_attempt_at
+        // Dequeue pending entries (status = 'pending' and past retry window)
         let entries = outbox_repo
             .dequeue_batch(batch_size)
             .await
@@ -291,32 +282,104 @@ impl OutboxWorker {
 
         info!(count = entries.len(), "Processing outbox batch");
 
-        // =======================================================================
-        // BATCH PROCESSING LOGIC - TODO: Pending entity mapping clarification
-        // =======================================================================
-        //
-        // CURRENT STATUS:
-        // - Infrastructure complete (polling, dequeuing, lifecycle management)
-        // - SAP time entries handled by SapScheduler (see Task 3D.3)
-        // - Generic outbox processing awaiting entity mapping specification
-        //
-        // REQUIRED FOR COMPLETION:
-        // 1. Define mapping: TimeEntryOutbox → ActivitySegment/ActivitySnapshot
-        // 2. Implement conversion logic
-        // 3. Group entries by entity type
-        // 4. Call forwarder.forward_segments() / forward_snapshots()
-        // 5. Update outbox status based on BatchSubmissionResult
-        //
-        // TRACKED IN: Phase 3D follow-up (outbox entity mapping)
-        // =======================================================================
+        let mut fatal_errors: Vec<String> = Vec::new();
+        let mut forwarded = 0_u32;
+        let mut failures = 0_u32;
+        let mut skipped = 0_u32;
 
-        // Track metrics (infrastructure working)
+        for entry in entries {
+            if entry.target.eq_ignore_ascii_case("sap") {
+                debug!(entry_id = %entry.id, "Skipping SAP-target outbox entry");
+                skipped = skipped.saturating_add(1);
+                continue;
+            }
+
+            let dto = match parse_time_entry(&entry) {
+                Ok(dto) => dto,
+                Err(err) => {
+                    warn!(
+                        entry_id = %entry.id,
+                        error = %err,
+                        "Failed to parse outbox payload"
+                    );
+                    if let Err(mark_err) =
+                        outbox_repo.mark_failed(&entry.id, &truncate_reason(&err.to_string())).await
+                    {
+                        let msg = mark_err.to_string();
+                        warn!(entry_id = %entry.id, error = %msg, "mark_failed failed");
+                        fatal_errors.push(format!("mark_failed error for {}: {}", entry.id, msg));
+                    }
+                    failures = failures.saturating_add(1);
+                    continue;
+                }
+            };
+
+            match forwarder.forward_time_entry(&dto, &entry.idempotency_key).await {
+                Ok(remote_id) => {
+                    debug!(
+                        entry_id = %entry.id,
+                        remote_id = %remote_id,
+                        "Forwarded outbox entry"
+                    );
+                    if let Err(err) = outbox_repo.mark_sent(&entry.id).await {
+                        let msg = err.to_string();
+                        warn!(entry_id = %entry.id, error = %msg, "mark_sent failed");
+                        fatal_errors.push(format!("mark_sent error for {}: {}", entry.id, msg));
+                    } else {
+                        forwarded = forwarded.saturating_add(1);
+                    }
+                }
+                Err(err) => {
+                    warn!(
+                        entry_id = %entry.id,
+                        error = ?err,
+                        "Forwarding outbox entry failed"
+                    );
+                    if let Err(mark_err) =
+                        outbox_repo.mark_failed(&entry.id, &truncate_reason(&err.to_string())).await
+                    {
+                        let msg = mark_err.to_string();
+                        warn!(entry_id = %entry.id, error = %msg, "mark_failed failed");
+                        fatal_errors.push(format!("mark_failed error for {}: {}", entry.id, msg));
+                    }
+                    failures = failures.saturating_add(1);
+                }
+            }
+        }
+
         log_metric(metrics.record_call(), "outbox_worker.batch.processed");
+        debug!(
+            forwarded = forwarded,
+            failures = failures,
+            skipped = skipped,
+            "Outbox batch completed"
+        );
 
-        debug!(count = entries.len(), "Batch infrastructure processed; entity mapping pending");
+        if failures > 0 {
+            log_metric(metrics.record_fetch_error(), "outbox_worker.batch.failure_count");
+        }
+
+        if !fatal_errors.is_empty() {
+            return Err(fatal_errors.join("; "));
+        }
 
         Ok(())
     }
+}
+
+fn parse_time_entry(entry: &TimeEntryOutbox) -> Result<PrismaTimeEntryDto, serde_json::Error> {
+    serde_json::from_str(&entry.payload_json)
+}
+
+fn truncate_reason(reason: &str) -> String {
+    const MAX_LEN: usize = 256;
+    if reason.len() <= MAX_LEN {
+        return reason.to_string();
+    }
+
+    let mut truncated = reason.chars().take(MAX_LEN.saturating_sub(3)).collect::<String>();
+    truncated.push_str("...");
+    truncated
 }
 
 fn log_metric(result: MetricsResult<()>, metric: &'static str) {
@@ -336,36 +399,110 @@ impl Drop for OutboxWorker {
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
     use pulsearc_core::OutboxQueue;
-    use pulsearc_domain::{Result as DomainResult, TimeEntryOutbox};
+    use pulsearc_domain::{OutboxStatus, PulseArcError, Result as DomainResult};
+    use tokio::sync::Mutex as TokioMutex;
 
     use super::*;
-    use crate::api::auth::AccessTokenProvider;
-    use crate::api::client::{ApiClient, ApiClientConfig};
-    use crate::api::commands::ApiCommands;
-    use crate::api::errors::ApiError;
-    use crate::api::forwarder::ForwarderConfig;
 
-    #[derive(Clone)]
-    struct MockAuthProvider;
+    type EntryStore = Arc<TokioMutex<Vec<TimeEntryOutbox>>>;
+    type SentStore = Arc<TokioMutex<Vec<String>>>;
+    type FailedStore = Arc<TokioMutex<Vec<(String, String)>>>;
+    type ResponseQueue = TokioMutex<Vec<Result<String, SyncError>>>;
+    type CallStore = Arc<TokioMutex<Vec<PrismaTimeEntryDto>>>;
 
-    #[async_trait]
-    impl AccessTokenProvider for MockAuthProvider {
-        async fn access_token(&self) -> Result<String, ApiError> {
-            Ok("test-token".to_string())
+    fn sample_time_entry_dto() -> PrismaTimeEntryDto {
+        PrismaTimeEntryDto {
+            id: None,
+            org_id: "org-123".to_string(),
+            project_id: "proj-123".to_string(),
+            task_id: Some("task-456".to_string()),
+            user_id: "user-123".to_string(),
+            entry_date: "2025-01-01".to_string(),
+            duration_minutes: 60,
+            notes: Some("Work session".to_string()),
+            billable: Some(true),
+            source: "pulsearc".to_string(),
+            status: Some("pending".to_string()),
+            start_time: Some("2025-01-01T09:00:00Z".to_string()),
+            end_time: Some("2025-01-01T10:00:00Z".to_string()),
+            duration_sec: Some(3_600),
+            display_project: Some("Project Alpha".to_string()),
+            display_workstream: Some("analysis".to_string()),
+            display_task: None,
+            confidence: Some(0.9),
+            context_breakdown: None,
+            wbs_code: Some("WBS-123".to_string()),
         }
     }
 
-    // Mock outbox repository for testing
-    // Note: Currently unused because tests are #[ignore]d with todo!() placeholders
-    #[allow(dead_code)]
-    struct MockOutboxRepo {
-        entries: Arc<tokio::sync::Mutex<Vec<TimeEntryOutbox>>>,
+    fn sample_outbox_entry(id: &str) -> TimeEntryOutbox {
+        TimeEntryOutbox {
+            id: id.to_string(),
+            idempotency_key: format!("idem-{id}"),
+            user_id: "user-123".to_string(),
+            payload_json: serde_json::to_string(&sample_time_entry_dto()).unwrap(),
+            backend_cuid: None,
+            status: OutboxStatus::Pending,
+            attempts: 0,
+            last_error: None,
+            retry_after: None,
+            created_at: 1_735_000_000,
+            sent_at: None,
+            correlation_id: None,
+            local_status: None,
+            remote_status: None,
+            sap_entry_id: None,
+            next_attempt_at: None,
+            error_code: None,
+            last_forwarded_at: None,
+            wbs_code: Some("WBS-123".to_string()),
+            target: "neon".to_string(),
+            description: Some("Work session".to_string()),
+            auto_applied: true,
+            version: 1,
+            last_modified_by: "tester".to_string(),
+            last_modified_at: None,
+        }
     }
 
-    // Helper methods (new, add_entries, etc.) will be added when tests are
-    // implemented
+    struct MockOutboxRepo {
+        entries: EntryStore,
+        sent: SentStore,
+        failed: FailedStore,
+        fail_mark_sent: bool,
+        fail_mark_failed: bool,
+    }
+
+    impl MockOutboxRepo {
+        fn new(entries: Vec<TimeEntryOutbox>) -> Self {
+            Self {
+                entries: Arc::new(TokioMutex::new(entries)),
+                sent: Arc::new(TokioMutex::new(Vec::new())),
+                failed: Arc::new(TokioMutex::new(Vec::new())),
+                fail_mark_sent: false,
+                fail_mark_failed: false,
+            }
+        }
+
+        fn with_fail_mark_sent(mut self) -> Self {
+            self.fail_mark_sent = true;
+            self
+        }
+
+        fn with_fail_mark_failed(mut self) -> Self {
+            self.fail_mark_failed = true;
+            self
+        }
+
+        async fn sent_entries(&self) -> Vec<String> {
+            self.sent.lock().await.clone()
+        }
+
+        async fn failed_entries(&self) -> Vec<(String, String)> {
+            self.failed.lock().await.clone()
+        }
+    }
 
     #[async_trait]
     impl OutboxQueue for MockOutboxRepo {
@@ -381,93 +518,142 @@ mod tests {
             Ok(batch)
         }
 
-        async fn mark_sent(&self, _id: &str) -> DomainResult<()> {
+        async fn mark_sent(&self, id: &str) -> DomainResult<()> {
+            if self.fail_mark_sent {
+                return Err(PulseArcError::Internal("mark_sent failure".into()));
+            }
+            self.sent.lock().await.push(id.to_string());
             Ok(())
         }
 
-        async fn mark_failed(&self, _id: &str, _error: &str) -> DomainResult<()> {
+        async fn mark_failed(&self, id: &str, error: &str) -> DomainResult<()> {
+            if self.fail_mark_failed {
+                return Err(PulseArcError::Internal("mark_failed failure".into()));
+            }
+            self.failed.lock().await.push((id.to_string(), error.to_string()));
             Ok(())
         }
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "Requires SqlCipherOutboxRepository mock"]
-    #[allow(unreachable_code, dead_code, clippy::diverging_sub_expression)]
-    async fn test_worker_lifecycle() {
-        let config = ApiClientConfig::default();
-        let client = Arc::new(ApiClient::new(config, Arc::new(MockAuthProvider)).unwrap());
-        let commands = Arc::new(ApiCommands::new(client));
-        let _forwarder = Arc::new(ApiForwarder::new(commands, ForwarderConfig::default()));
-        let _metrics = Arc::new(PerformanceMetrics::new());
-
-        // TODO: Replace with proper mock
-        let _outbox_repo: Arc<SqlCipherOutboxRepository> =
-            todo!("Need SqlCipherOutboxRepository mock");
-
-        let mut worker =
-            OutboxWorker::new(_outbox_repo, _forwarder, OutboxWorkerConfig::default(), _metrics);
-
-        // Initially not running
-        assert!(!worker.is_running());
-
-        // Start succeeds
-        worker.start().await.unwrap();
-        assert!(worker.is_running());
-
-        // Stop succeeds
-        worker.stop().await.unwrap();
-        assert!(!worker.is_running());
+    struct MockForwarder {
+        responses: ResponseQueue,
+        calls: CallStore,
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    #[ignore = "Requires SqlCipherOutboxRepository mock"]
-    #[allow(unreachable_code, dead_code, clippy::diverging_sub_expression)]
-    async fn test_double_start_fails() {
-        let config = ApiClientConfig::default();
-        let client = Arc::new(ApiClient::new(config, Arc::new(MockAuthProvider)).unwrap());
-        let commands = Arc::new(ApiCommands::new(client));
-        let _forwarder = Arc::new(ApiForwarder::new(commands, ForwarderConfig::default()));
-        let _metrics = Arc::new(PerformanceMetrics::new());
+    impl MockForwarder {
+        fn new(responses: Vec<Result<String, SyncError>>) -> Self {
+            Self {
+                responses: TokioMutex::new(responses),
+                calls: Arc::new(TokioMutex::new(Vec::new())),
+            }
+        }
 
-        // TODO: Replace with proper mock
-        let _outbox_repo: Arc<SqlCipherOutboxRepository> =
-            todo!("Need SqlCipherOutboxRepository mock");
+        async fn call_count(&self) -> usize {
+            self.calls.lock().await.len()
+        }
+    }
 
-        let mut worker =
-            OutboxWorker::new(_outbox_repo, _forwarder, OutboxWorkerConfig::default(), _metrics);
+    #[async_trait]
+    impl TimeEntryForwarder for MockForwarder {
+        async fn forward_time_entry(
+            &self,
+            dto: &PrismaTimeEntryDto,
+            _idempotency_key: &str,
+        ) -> Result<String, SyncError> {
+            self.calls.lock().await.push(dto.clone());
+            let mut responses = self.responses.lock().await;
+            if responses.is_empty() {
+                Ok("remote-id".to_string())
+            } else {
+                responses.remove(0)
+            }
+        }
+    }
 
-        worker.start().await.unwrap();
+    #[tokio::test]
+    async fn process_batch_marks_sent_on_success() {
+        let repo = Arc::new(MockOutboxRepo::new(vec![sample_outbox_entry("entry-1")]));
+        let repo_trait: Arc<dyn OutboxQueue> = repo.clone();
+        let forwarder = Arc::new(MockForwarder::new(vec![Ok("remote-1".to_string())]));
+        let forwarder_trait: Arc<dyn TimeEntryForwarder> = forwarder.clone();
+        let metrics = Arc::new(PerformanceMetrics::new());
 
-        // Second start should fail
-        let result = worker.start().await;
+        let result = OutboxWorker::process_batch(&repo_trait, &forwarder_trait, 10, &metrics).await;
+        assert!(result.is_ok());
+
+        let sent = repo.sent_entries().await;
+        assert_eq!(sent, vec!["entry-1".to_string()]);
+        assert_eq!(forwarder.call_count().await, 1);
+    }
+
+    #[tokio::test]
+    async fn process_batch_marks_failed_on_parse_error() {
+        let mut entry = sample_outbox_entry("entry-parse");
+        entry.payload_json = "{invalid json}".to_string();
+
+        let repo = Arc::new(MockOutboxRepo::new(vec![entry]));
+        let repo_trait: Arc<dyn OutboxQueue> = repo.clone();
+        let forwarder = Arc::new(MockForwarder::new(vec![]));
+        let forwarder_trait: Arc<dyn TimeEntryForwarder> = forwarder.clone();
+        let metrics = Arc::new(PerformanceMetrics::new());
+
+        let result = OutboxWorker::process_batch(&repo_trait, &forwarder_trait, 5, &metrics).await;
+        assert!(result.is_ok());
+
+        let failed = repo.failed_entries().await;
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].0, "entry-parse");
+        assert!(failed[0].1.contains("Invalid"));
+    }
+
+    #[tokio::test]
+    async fn process_batch_skips_sap_entries() {
+        let mut entry = sample_outbox_entry("entry-sap");
+        entry.target = "sap".to_string();
+
+        let repo = Arc::new(MockOutboxRepo::new(vec![entry]));
+        let repo_trait: Arc<dyn OutboxQueue> = repo.clone();
+        let forwarder = Arc::new(MockForwarder::new(vec![Ok("remote".to_string())]));
+        let forwarder_trait: Arc<dyn TimeEntryForwarder> = forwarder.clone();
+        let metrics = Arc::new(PerformanceMetrics::new());
+
+        let result = OutboxWorker::process_batch(&repo_trait, &forwarder_trait, 5, &metrics).await;
+        assert!(result.is_ok());
+
+        assert!(repo.sent_entries().await.is_empty());
+        assert!(repo.failed_entries().await.is_empty());
+        assert_eq!(forwarder.call_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn process_batch_propagates_mark_sent_failures() {
+        let repo = Arc::new(
+            MockOutboxRepo::new(vec![sample_outbox_entry("entry-fail")]).with_fail_mark_sent(),
+        );
+        let repo_trait: Arc<dyn OutboxQueue> = repo.clone();
+        let forwarder = Arc::new(MockForwarder::new(vec![Ok("remote".to_string())]));
+        let forwarder_trait: Arc<dyn TimeEntryForwarder> = forwarder.clone();
+        let metrics = Arc::new(PerformanceMetrics::new());
+
+        let result = OutboxWorker::process_batch(&repo_trait, &forwarder_trait, 5, &metrics).await;
         assert!(result.is_err());
-
-        worker.stop().await.unwrap();
+        assert!(repo.sent_entries().await.is_empty());
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_processes_pending_entries() {
-        // This test will verify that the worker actually processes pending
-        // entries TODO: Implement when we have proper mocking
-        // infrastructure
-    }
+    #[tokio::test]
+    async fn process_batch_propagates_mark_failed_errors() {
+        let repo = Arc::new(
+            MockOutboxRepo::new(vec![sample_outbox_entry("entry-mark-failed")])
+                .with_fail_mark_failed(),
+        );
+        let repo_trait: Arc<dyn OutboxQueue> = repo.clone();
+        let forwarder =
+            Arc::new(MockForwarder::new(vec![Err(SyncError::Server("server boom".into()))]));
+        let forwarder_trait: Arc<dyn TimeEntryForwarder> = forwarder.clone();
+        let metrics = Arc::new(PerformanceMetrics::new());
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_handles_partial_batch_failures() {
-        // This test will verify that partial failures are handled correctly
-        // TODO: Implement when we have proper mocking infrastructure
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_respects_batch_size_limit() {
-        // This test will verify that batch_size is respected
-        // TODO: Implement when we have proper mocking infrastructure
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_cancellation_finishes_current_batch() {
-        // This test will verify that cancellation allows current batch to
-        // finish TODO: Implement when we have proper mocking
-        // infrastructure
+        let result = OutboxWorker::process_batch(&repo_trait, &forwarder_trait, 5, &metrics).await;
+        assert!(result.is_err());
+        assert!(repo.failed_entries().await.is_empty());
     }
 }

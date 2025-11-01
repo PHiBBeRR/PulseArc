@@ -6,8 +6,8 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! use tokio::runtime::Runtime;
 //! use pulsearc_infra::platform::macos::enrichers::office::get_office_document;
+//! use tokio::runtime::Runtime;
 //!
 //! Runtime::new().unwrap().block_on(async {
 //!     if let Some(doc) = get_office_document("com.microsoft.Word", "Microsoft Word").await {

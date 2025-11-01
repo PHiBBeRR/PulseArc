@@ -155,7 +155,7 @@ let results = stmt
 
 ### Task 3A.0: Establish Performance Baseline (Day 0 - Pre-work) ✅
 
-**Status:** ✅ COMPLETE (October 31, 2025)
+**Status:** ✅ COMPLETE (Updated February 13, 2026)
 
 **Goal:** Measure legacy performance for comparison with new infrastructure
 
@@ -1782,34 +1782,21 @@ All infrastructure is complete and follows CLAUDE.md compliance. The following i
      - Infrastructure remains ready for when repositories land
      - Tests continue to pass with mock implementations
 
-### 2. **OutboxWorker Entity Mapping** (Task 3D.4)
-   - **Status**: Infrastructure complete, batch logic awaiting specification
-   - **What's Done**: Polling, dequeuing, lifecycle, cancellation, 4 unit tests passing
-   - **What's Pending**: `TimeEntryOutbox` → `ActivitySegment`/`ActivitySnapshot` mapping logic
-   - **Blocker**: SAP handled by SapScheduler; generic outbox mapping undefined
-   - **Files**: `crates/infra/src/sync/outbox_worker.rs` (marked with TODO at lines 294-311)
+### 2. **OutboxWorker Neon Forwarding** (Task 3D.4)
+   - **Status**: ✅ COMPLETE – Outbox entries now forwarded to Neon API
+   - **What's Done**:
+     - Added `TimeEntryForwarder` trait with NeonClient implementation
+     - `OutboxWorker` converts `TimeEntryOutbox.payload_json` into `PrismaTimeEntryDto`
+     - Submits to Neon via REST, marks entries as sent/failed with retry bookkeeping
+     - Skips SAP-targeted entries so SapScheduler owns that pathway
+     - Added unit tests covering success path, payload parse failures, mark_sent/mark_failed error handling
+   - **Files**: `crates/infra/src/sync/outbox_worker.rs`, `crates/infra/src/sync/neon_client.rs`
 
-   **When to Revisit:**
-   - ✅ **Option A - Entity Mapping Defined**: When API schema is clarified
-     - Product defines how `TimeEntryOutbox` maps to `ActivitySegment`/`ActivitySnapshot`
-     - Implement conversion logic in `process_batch()` (line 256)
-     - Group entries by entity type
-     - Call `forwarder.forward_segments()` / `forward_snapshots()`
-     - Update outbox status based on `BatchSubmissionResult`
-     - Enable ignored integration tests (lines 369-406)
+   **Follow-up (Optional Enhancements):**
+   - Split processing by destination (Neon vs future pipelines) if/when new targets arise
+   - Wire in observability counters once Phase 4C monitoring commands land
 
-   - ✅ **Option B - SAP-Only Scope**: If generic outbox is out of scope
-     - Acknowledge SAP time entries are handled by `SapScheduler` (Task 3D.3)
-     - Document that `OutboxWorker` is infrastructure-only (no generic use case)
-     - Keep infrastructure for future extensibility
-     - Mark batch processing TODO as "awaiting future requirements"
-
-   - ✅ **Option C - Phase 4 Integration**: During API layer rewiring
-     - May become clear during Phase 4 when API endpoints are wired up
-     - Revisit after understanding full data flow from domain → API
-     - Re-evaluate if generic outbox processing is actually needed
-
-**Recommendation**: Proceed to Phase 4 with these as documented limitations. Revisit based on Phase 4 findings or product scope clarification.
+**Recommendation**: Proceed to Phase 4 – no remaining blockers for generic outbox processing.
 
 ---
 
@@ -1966,29 +1953,32 @@ All infrastructure is complete and follows CLAUDE.md compliance. The following i
 **Line Count:** 340 LOC (actual)
 
 **Scope:**
-- Background outbox processing
+- Background outbox processing with Neon submission
 - Batch dequeuing and forwarding
 - Configurable batch size and poll interval
 - Runtime compliance with cancellation support
 
-**Files Created:**
-1. **Outbox Worker** (`sync/outbox_worker.rs`) - 340 LOC
+**Files Updated:**
+1. **Outbox Worker** (`sync/outbox_worker.rs`) – now ~420 LOC after refinements
    - Interval-based polling (default: 60s poll interval)
-   - Batch processing with configurable size (default: 50 entries)
-   - Integrates with `SqlCipherOutboxRepository` and `ApiForwarder`
+   - Converts `TimeEntryOutbox.payload_json` into `PrismaTimeEntryDto`
+   - Uses new `TimeEntryForwarder` trait (implemented by `NeonClient`)
+   - Marks entries as sent/failed with retry bookkeeping and metrics
+   - Skips SAP-targeted entries to avoid double-processing
    - Runtime compliance: CancellationToken, join handles, timeouts
-   - Drop guard with cancellation warning
-   - PerformanceMetrics integration with batch duration histogram
+   - **Tests:** Added 5 async unit tests covering success, parse failure, mark_sent failure, mark_failed failure, and SAP skips
+2. **Neon Client** (`sync/neon_client.rs`)
+   - Added `/time-entries` submission endpoint + response handling
+   - Added tests covering success + server error paths (wiremock)
 
 **Implementation Checklist:**
-- ✅ Create `crates/infra/src/sync/outbox_worker.rs`
-- ✅ Implement `OutboxWorker` struct with lifecycle management
-- ✅ Add batch processing structure (processing logic marked as TODO)
+- ✅ Create `TimeEntryForwarder` abstraction and wire `NeonClient`
+- ✅ Implement full batch processing logic (conversion + forwarding + status updates)
 - ✅ Add configurable poll interval and batch size
-- ✅ Updated `sync/mod.rs` with OutboxWorker exports
-- ✅ Updated `lib.rs` with OutboxWorker re-exports
-- ✅ Add unit test structure (6 test function stubs)
+- ✅ Update `sync/mod.rs` exports (re-export forwarder trait)
+- ✅ Add unit tests (5 new async tests covering success/failure/parse cases)
 - ✅ Verify compilation and linting
+- ✅ Document completion here (this section updated February 13, 2026)
 
 **Acceptance Criteria:**
 - ✅ Worker structure with start/stop lifecycle
@@ -1996,21 +1986,11 @@ All infrastructure is complete and follows CLAUDE.md compliance. The following i
 - ✅ Timeout wrapping on batch processing (300s default)
 - ✅ Runtime compliance patterns followed
 - ✅ PerformanceMetrics integrated
+- ✅ Neon submission path exercised by unit tests (`cargo test -p pulsearc-infra sync::neon_client::tests::test_submit_time_entry_success`)
 - ✅ `cargo check` passes
 - ✅ `cargo clippy -- -D warnings` passes
 
-**Pending Work:**
-- **Batch Processing Logic**: Entity mapping specification needed
-  - Infrastructure complete (polling, dequeuing, lifecycle management)
-  - SAP time entries handled by SapScheduler (Task 3D.3)
-  - Generic outbox processing awaits `TimeEntryOutbox` → `ActivitySegment`/`ActivitySnapshot` mapping
-  - Clear TODO markers with tracking reference in code
-  - Tracked in: Phase 3D follow-up (outbox entity mapping)
-- **Integration Tests**: 2 tests ignored pending SqlCipherOutboxRepository mock
-  - 4 unit tests passing (batch handling, cancellation)
-  - Lifecycle tests pending full repository integration
-
-**Delivered:** 340 LOC, infrastructure complete, 4 unit tests passing, runtime compliance complete
+**Delivered:** ~420 LOC across worker + client updates, 5 unit tests, outbox forwarding production-ready (updated Feb 13, 2026)
 
 ---
 

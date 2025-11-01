@@ -18,9 +18,7 @@
 //!
 //! # Example
 //! ```rust,no_run
-//! use pulsearc_infra::platform::macos::event_listener::{
-//!     MacOsEventListener, OsEventListener,
-//! };
+//! use pulsearc_infra::platform::macos::event_listener::{MacOsEventListener, OsEventListener};
 //!
 //! fn main() -> Result<(), String> {
 //!     #[cfg(target_os = "macos")]

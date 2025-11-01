@@ -8,6 +8,7 @@
 //! # Example
 //! ```rust,no_run
 //! use std::time::Duration;
+//!
 //! use pulsearc_infra::platform::macos::enrichers::applescript_helpers::execute_applescript;
 //!
 //! fn main() -> pulsearc_domain::Result<()> {

@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use pulsearc_common::security::KeychainProvider;
-use pulsearc_domain::types::ActivitySegment;
+use pulsearc_domain::types::{ActivitySegment, PrismaTimeEntryDto};
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
@@ -89,6 +89,19 @@ pub struct BatchSegmentsResponse {
     failed: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct CreateTimeEntryRequest {
+    time_entry: PrismaTimeEntryDto,
+    idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CreateTimeEntryResponse {
+    id: String,
+    #[serde(default)]
+    created: bool,
+}
+
 impl NeonClient {
     /// Create a new Neon client with default configuration
     ///
@@ -126,6 +139,13 @@ impl NeonClient {
     ///
     /// Returns error if token is not found in keychain
     fn get_api_token(&self) -> Result<String, SyncError> {
+        if let Ok(token) = std::env::var("PULSARC_NEON_API_TOKEN") {
+            if !token.is_empty() {
+                debug!("Using Neon API token from environment override");
+                return Ok(token);
+            }
+        }
+
         self.keychain
             .get_secret("api_token")
             .map_err(|e| SyncError::Auth(format!("Failed to get API token: {}", e)))
@@ -243,6 +263,50 @@ impl NeonClient {
         );
 
         Ok(result)
+    }
+
+    /// Submit a time entry payload to Neon.
+    ///
+    /// Returns the backend identifier for the created (or existing) entry.
+    #[instrument(skip(self, dto), fields(idempotency_key = %idempotency_key))]
+    pub async fn submit_time_entry(
+        &self,
+        dto: &PrismaTimeEntryDto,
+        idempotency_key: &str,
+    ) -> Result<String, SyncError> {
+        let token = self.get_api_token()?;
+        let url = format!("{}/time-entries", self.config.base_url);
+
+        let request_body = CreateTimeEntryRequest {
+            time_entry: dto.clone(),
+            idempotency_key: idempotency_key.to_string(),
+        };
+
+        debug!(url = %url, "Submitting time entry to Neon");
+
+        let request_builder = self
+            .http_client
+            .request(Method::POST, &url)
+            .header("Authorization", format!("Bearer {}", token))
+            .header("Content-Type", "application/json")
+            .json(&request_body);
+
+        let response = self.send_request(request_builder).await?;
+        let status = response.status();
+
+        if status == StatusCode::NO_CONTENT || status == StatusCode::RESET_CONTENT {
+            return Err(SyncError::Client(
+                "Expected identifier in response body but received empty response".into(),
+            ));
+        }
+
+        let result: CreateTimeEntryResponse = response
+            .json()
+            .await
+            .map_err(|e| SyncError::Client(format!("Failed to parse response: {}", e)))?;
+
+        info!(created = result.created, "Time entry submitted to Neon");
+        Ok(result.id)
     }
 
     /// Health check for Neon API
@@ -414,5 +478,85 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), SyncError::Auth(_)));
+    }
+
+    fn sample_time_entry() -> PrismaTimeEntryDto {
+        PrismaTimeEntryDto {
+            id: None,
+            org_id: "org-123".to_string(),
+            project_id: "proj-123".to_string(),
+            task_id: Some("task-456".to_string()),
+            user_id: "user-123".to_string(),
+            entry_date: "2025-01-01".to_string(),
+            duration_minutes: 60,
+            notes: Some("Work session".to_string()),
+            billable: Some(true),
+            source: "pulsearc".to_string(),
+            status: Some("pending".to_string()),
+            start_time: Some("2025-01-01T09:00:00Z".to_string()),
+            end_time: Some("2025-01-01T10:00:00Z".to_string()),
+            duration_sec: Some(3_600),
+            display_project: Some("Project Alpha".to_string()),
+            display_workstream: Some("analysis".to_string()),
+            display_task: None,
+            confidence: Some(0.85),
+            context_breakdown: None,
+            wbs_code: Some("WBS-123".to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_submit_time_entry_success() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/time-entries"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "remote-123",
+                "created": true
+            })))
+            .mount(&mock_server)
+            .await;
+
+        let config = NeonClientConfig {
+            base_url: mock_server.uri(),
+            keychain_service_name: "PulseArc.neon.test.timeentry".to_string(),
+            ..Default::default()
+        };
+
+        let client = NeonClient::with_config(config).unwrap();
+        std::env::set_var("PULSARC_NEON_API_TOKEN", "test-token");
+
+        let dto = sample_time_entry();
+        let result = client.submit_time_entry(&dto, "idem-123").await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "remote-123");
+    }
+
+    #[tokio::test]
+    async fn test_submit_time_entry_server_error() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/time-entries"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock_server)
+            .await;
+
+        let config = NeonClientConfig {
+            base_url: mock_server.uri(),
+            keychain_service_name: "PulseArc.neon.test.timeentry.error".to_string(),
+            ..Default::default()
+        };
+
+        let client = NeonClient::with_config(config).unwrap();
+        std::env::set_var("PULSARC_NEON_API_TOKEN", "test-token");
+
+        let dto = sample_time_entry();
+        let result = client.submit_time_entry(&dto, "idem-500").await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), SyncError::Server(_)));
     }
 }

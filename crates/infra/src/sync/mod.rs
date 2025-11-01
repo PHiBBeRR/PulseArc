@@ -19,4 +19,4 @@ pub use cleanup::{CleanupConfig, CleanupService, CleanupStats};
 pub use cost_tracker::{CostMetrics, CostRateConfig, CostTracker, DailyCost};
 pub use errors::SyncError;
 pub use neon_client::{NeonClient, NeonClientConfig};
-pub use outbox_worker::{OutboxWorker, OutboxWorkerConfig};
+pub use outbox_worker::{OutboxWorker, OutboxWorkerConfig, TimeEntryForwarder};

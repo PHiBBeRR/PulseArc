@@ -377,14 +377,26 @@ impl SyncScheduler {
             // Check if this segment failed
             let failed = result.errors.iter().any(|(err_idx, _)| *err_idx == idx);
 
-            if !failed {
-                if let Err(e) = tokio::time::timeout(
-                    config.mark_synced_timeout,
-                    segment_repo.mark_synced(&segment.id),
-                )
-                .await
-                {
-                    warn!(id = %segment.id, error = ?e, "Failed to mark segment as synced");
+            if failed {
+                continue;
+            }
+
+            match tokio::time::timeout(
+                config.mark_synced_timeout,
+                segment_repo.mark_synced(&segment.id),
+            )
+            .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => {
+                    warn!(id = %segment.id, error = ?err, "Failed to mark segment as synced");
+                }
+                Err(timeout) => {
+                    warn!(
+                        id = %segment.id,
+                        error = ?timeout,
+                        "Timed out marking segment as synced"
+                    );
                 }
             }
         }
@@ -441,14 +453,26 @@ impl SyncScheduler {
             // Check if this snapshot failed
             let failed = result.errors.iter().any(|(err_idx, _)| *err_idx == idx);
 
-            if !failed {
-                if let Err(e) = tokio::time::timeout(
-                    config.mark_synced_timeout,
-                    snapshot_repo.mark_synced(&snapshot.id),
-                )
-                .await
-                {
-                    warn!(id = %snapshot.id, error = ?e, "Failed to mark snapshot as synced");
+            if failed {
+                continue;
+            }
+
+            match tokio::time::timeout(
+                config.mark_synced_timeout,
+                snapshot_repo.mark_synced(&snapshot.id),
+            )
+            .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => {
+                    warn!(id = %snapshot.id, error = ?err, "Failed to mark snapshot as synced");
+                }
+                Err(timeout) => {
+                    warn!(
+                        id = %snapshot.id,
+                        error = ?timeout,
+                        "Timed out marking snapshot as synced"
+                    );
                 }
             }
         }

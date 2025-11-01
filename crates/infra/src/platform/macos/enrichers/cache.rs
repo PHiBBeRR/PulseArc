@@ -12,6 +12,7 @@
 //! # Example
 //! ```rust,no_run
 //! use std::time::Duration;
+//!
 //! use pulsearc_infra::platform::macos::enrichers::cache::EnrichmentCache;
 //!
 //! let cache = EnrichmentCache::new(Duration::from_secs(300));
