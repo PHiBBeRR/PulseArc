@@ -11,7 +11,6 @@ pub mod classification;
 pub use classification::{ClassificationMetrics, MetricsTracker};
 
 /// Performance metrics placeholder
-/// TODO: Port remaining metrics from macos-production as needed
 #[derive(Debug, Default)]
 pub struct PerformanceMetrics {
     // Placeholder for future expansion

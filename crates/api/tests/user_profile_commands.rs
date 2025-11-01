@@ -52,6 +52,7 @@ fn create_test_profile() -> UserProfile {
         id: "test-profile-123".to_string(),
         auth0_id: "auth0|test123".to_string(),
         email: "test@pulsearc.com".to_string(),
+        org_id: "org-test-123".to_string(),
         name: Some("Test User".to_string()),
         first_name: Some("Test".to_string()),
         last_name: Some("User".to_string()),

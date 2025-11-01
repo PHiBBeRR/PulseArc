@@ -174,10 +174,7 @@ pub async fn accept_proposed_block(
     })?;
 
     let user_id = user_profile.auth0_id;
-    let org_id = std::env::var("ORG_ID").unwrap_or_else(|_| {
-        warn!("ORG_ID not set in environment, using default");
-        "default_org".to_string()
-    });
+    let org_id = user_profile.org_id;
 
     // Convert block to time entry DTO for SAP
     let dto = block_to_time_entry_dto(&block, &user_id, &org_id)

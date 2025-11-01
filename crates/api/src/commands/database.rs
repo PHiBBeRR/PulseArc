@@ -415,7 +415,8 @@ pub async fn get_database_health(ctx: State<'_, Arc<AppContext>>) -> Result<Heal
 /// operation that deletes all activity snapshots.
 ///
 /// # Warning
-/// This operation is irreversible. All activity data will be permanently deleted.
+/// This operation is irreversible. All activity data will be permanently
+/// deleted.
 #[tauri::command]
 pub async fn clear_snapshots(
     ctx: State<'_, Arc<AppContext>>,

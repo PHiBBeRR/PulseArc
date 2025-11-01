@@ -46,9 +46,8 @@ export GOOGLE_CALENDAR_CLIENT_SECRET="your-client-secret"
 export MICROSOFT_CALENDAR_CLIENT_ID="your-application-id"
 export MICROSOFT_CALENDAR_CLIENT_SECRET="your-client-secret"
 
-# User/Org IDs (required for sync)
-export USER_ID="user-uuid"
-export ORG_ID="org-uuid"
+# Note: org_id is now retrieved from the Auth0 user profile
+# (org_id claim or app_metadata) - no need to set ORG_ID environment variable
 ```
 
 ### Database Schema

@@ -131,16 +131,19 @@ fn run_prettier() -> anyhow::Result<()> {
 
 /// Run Clippy lints
 fn run_clippy() -> anyhow::Result<()> {
-    if env::var_os("XTASK_FORCE_CLIPPY").is_none() {
-        println!(
-            "Skipping Clippy (legacy workspace rules block configuration). \
-             Set XTASK_FORCE_CLIPPY=1 to run anyway. TODO: re-enable once LEGACY-CLIPPY-CONFIG is resolved."
-        );
-        return Ok(());
-    }
-
-    let status =
-        Command::new("cargo").args(["clippy", "--all-targets", "--all-features"]).status()?;
+    let status = Command::new("cargo")
+        .args([
+            "clippy",
+            "--workspace",
+            "--exclude",
+            "xtask",
+            "--all-targets",
+            "--all-features",
+            "--",
+            "-D",
+            "warnings",
+        ])
+        .status()?;
 
     if status.success() {
         Ok(())

@@ -36,7 +36,7 @@ impl UserProfileRepositoryPort for SqlCipherUserProfileRepository {
             let conn = db.get_connection()?;
 
             let result = conn.query_row(
-                "SELECT id, auth0_id, email, name, first_name, last_name, display_name,
+                "SELECT id, auth0_id, email, org_id, name, first_name, last_name, display_name,
                         avatar_url, phone_number, title, department, location, bio,
                         timezone, language, locale, date_format, is_active, email_verified,
                         two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
@@ -63,7 +63,7 @@ impl UserProfileRepositoryPort for SqlCipherUserProfileRepository {
             let conn = db.get_connection()?;
 
             let result = conn.query_row(
-                "SELECT id, auth0_id, email, name, first_name, last_name, display_name,
+                "SELECT id, auth0_id, email, org_id, name, first_name, last_name, display_name,
                         avatar_url, phone_number, title, department, location, bio,
                         timezone, language, locale, date_format, is_active, email_verified,
                         two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
@@ -90,7 +90,7 @@ impl UserProfileRepositoryPort for SqlCipherUserProfileRepository {
             let conn = db.get_connection()?;
 
             let result = conn.query_row(
-                "SELECT id, auth0_id, email, name, first_name, last_name, display_name,
+                "SELECT id, auth0_id, email, org_id, name, first_name, last_name, display_name,
                         avatar_url, phone_number, title, department, location, bio,
                         timezone, language, locale, date_format, is_active, email_verified,
                         two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
@@ -140,7 +140,7 @@ impl UserProfileRepositoryPort for SqlCipherUserProfileRepository {
             let conn = db.get_connection()?;
 
             let result = conn.query_row(
-                "SELECT id, auth0_id, email, name, first_name, last_name, display_name,
+                "SELECT id, auth0_id, email, org_id, name, first_name, last_name, display_name,
                         avatar_url, phone_number, title, department, location, bio,
                         timezone, language, locale, date_format, is_active, email_verified,
                         two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
@@ -199,27 +199,28 @@ fn map_user_profile_row(row: &Row) -> rusqlite::Result<UserProfile> {
         id: row.get(0)?,
         auth0_id: row.get(1)?,
         email: row.get(2)?,
-        name: row.get(3)?,
-        first_name: row.get(4)?,
-        last_name: row.get(5)?,
-        display_name: row.get(6)?,
-        avatar_url: row.get(7)?,
-        phone_number: row.get(8)?,
-        title: row.get(9)?,
-        department: row.get(10)?,
-        location: row.get(11)?,
-        bio: row.get(12)?,
-        timezone: row.get(13)?,
-        language: row.get(14)?,
-        locale: row.get(15)?,
-        date_format: row.get(16)?,
-        is_active: int_to_bool(row.get(17)?),
-        email_verified: int_to_bool(row.get(18)?),
-        two_factor_enabled: int_to_bool(row.get(19)?),
-        last_login_at: row.get(20)?,
-        last_synced_at: row.get(21)?,
-        created_at: row.get(22)?,
-        updated_at: row.get(23)?,
+        org_id: row.get(3)?,
+        name: row.get(4)?,
+        first_name: row.get(5)?,
+        last_name: row.get(6)?,
+        display_name: row.get(7)?,
+        avatar_url: row.get(8)?,
+        phone_number: row.get(9)?,
+        title: row.get(10)?,
+        department: row.get(11)?,
+        location: row.get(12)?,
+        bio: row.get(13)?,
+        timezone: row.get(14)?,
+        language: row.get(15)?,
+        locale: row.get(16)?,
+        date_format: row.get(17)?,
+        is_active: int_to_bool(row.get(18)?),
+        email_verified: int_to_bool(row.get(19)?),
+        two_factor_enabled: int_to_bool(row.get(20)?),
+        last_login_at: row.get(21)?,
+        last_synced_at: row.get(22)?,
+        created_at: row.get(23)?,
+        updated_at: row.get(24)?,
     })
 }
 
@@ -228,10 +229,11 @@ fn insert_user_profile(
     conn: &SqlCipherConnection,
     profile: &UserProfile,
 ) -> Result<(), StorageError> {
-    let params: [&dyn ToSql; 24] = [
+    let params: [&dyn ToSql; 25] = [
         &profile.id,
         &profile.auth0_id,
         &profile.email,
+        &profile.org_id,
         &profile.name,
         &profile.first_name,
         &profile.last_name,
@@ -257,11 +259,11 @@ fn insert_user_profile(
 
     conn.execute(
         "INSERT INTO user_profiles (
-            id, auth0_id, email, name, first_name, last_name, display_name,
+            id, auth0_id, email, org_id, name, first_name, last_name, display_name,
             avatar_url, phone_number, title, department, location, bio,
             timezone, language, locale, date_format, is_active, email_verified,
             two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
         params.as_slice(),
     )?;
 
@@ -273,9 +275,10 @@ fn update_user_profile(
     conn: &SqlCipherConnection,
     profile: &UserProfile,
 ) -> Result<(), StorageError> {
-    let params: [&dyn ToSql; 23] = [
+    let params: [&dyn ToSql; 24] = [
         &profile.auth0_id,
         &profile.email,
+        &profile.org_id,
         &profile.name,
         &profile.first_name,
         &profile.last_name,
@@ -301,12 +304,12 @@ fn update_user_profile(
 
     conn.execute(
         "UPDATE user_profiles SET
-            auth0_id = ?1, email = ?2, name = ?3, first_name = ?4, last_name = ?5,
-            display_name = ?6, avatar_url = ?7, phone_number = ?8, title = ?9,
-            department = ?10, location = ?11, bio = ?12, timezone = ?13, language = ?14,
-            locale = ?15, date_format = ?16, is_active = ?17, email_verified = ?18,
-            two_factor_enabled = ?19, last_login_at = ?20, last_synced_at = ?21, updated_at = ?22
-         WHERE id = ?23",
+            auth0_id = ?1, email = ?2, org_id = ?3, name = ?4, first_name = ?5, last_name = ?6,
+            display_name = ?7, avatar_url = ?8, phone_number = ?9, title = ?10,
+            department = ?11, location = ?12, bio = ?13, timezone = ?14, language = ?15,
+            locale = ?16, date_format = ?17, is_active = ?18, email_verified = ?19,
+            two_factor_enabled = ?20, last_login_at = ?21, last_synced_at = ?22, updated_at = ?23
+         WHERE id = ?24",
         params.as_slice(),
     )?;
 
@@ -321,10 +324,11 @@ fn upsert_user_profile(
     conn: &SqlCipherConnection,
     profile: &UserProfile,
 ) -> Result<(), StorageError> {
-    let params: [&dyn ToSql; 24] = [
+    let params: [&dyn ToSql; 25] = [
         &profile.id,
         &profile.auth0_id,
         &profile.email,
+        &profile.org_id,
         &profile.name,
         &profile.first_name,
         &profile.last_name,
@@ -350,14 +354,15 @@ fn upsert_user_profile(
 
     conn.execute(
         "INSERT INTO user_profiles (
-            id, auth0_id, email, name, first_name, last_name, display_name,
+            id, auth0_id, email, org_id, name, first_name, last_name, display_name,
             avatar_url, phone_number, title, department, location, bio,
             timezone, language, locale, date_format, is_active, email_verified,
             two_factor_enabled, last_login_at, last_synced_at, created_at, updated_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
          ON CONFLICT(auth0_id) DO UPDATE SET
             id = excluded.id,
             email = excluded.email,
+            org_id = excluded.org_id,
             name = excluded.name,
             first_name = excluded.first_name,
             last_name = excluded.last_name,
@@ -452,6 +457,7 @@ mod tests {
             id: "test-id-123".into(),
             auth0_id: "auth0|123456".into(),
             email: "test@example.com".into(),
+            org_id: "test-org-123".into(),
             name: Some("Test User".into()),
             first_name: Some("Test".into()),
             last_name: Some("User".into()),

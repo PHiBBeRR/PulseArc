@@ -22,7 +22,8 @@ pub struct ParsedEventTitle {
     pub confidence: f32, // 0.0-1.0
 }
 
-/// Parse a calendar event title into structured project/workstream/task components.
+/// Parse a calendar event title into structured project/workstream/task
+/// components.
 ///
 /// This function analyzes calendar event titles to extract meaningful structure
 /// using several pattern-matching strategies:

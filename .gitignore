@@ -41,8 +41,12 @@ node_modules
 *.log
 npm-debug.log*
 
-# Cargo lock (for applications, include it; for libraries, ignore it)
-# Cargo.lock
+# Cargo lock files
+# Root Cargo.lock is tracked (this is an application)
+# Ignore any Cargo.lock files in workspace member crates
+crates/*/Cargo.lock
+xtask/Cargo.lock
+benchmarks/*/Cargo.lock
 
 # Test coverage
 coverage/

@@ -14,6 +14,8 @@ pub struct UserProfile {
     pub id: String,
     pub auth0_id: String,
     pub email: String,
+    /// Organization ID from Auth0 (org_id claim or app_metadata)
+    pub org_id: String,
     pub name: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,

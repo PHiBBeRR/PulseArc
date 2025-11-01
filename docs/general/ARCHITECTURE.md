@@ -396,19 +396,19 @@ pub struct AppContext {
 
 **Activity Tracking**
 - `get_activity()` → ActivityContext (from tracking service)
-- `pause_tracker()` → () [TODO]
-- `resume_tracker()` → () [TODO]
+- `pause_tracker()` → () — calls `TrackingService::pause()` and records command metrics
+- `resume_tracker()` → () — resumes tracking via `TrackingService::resume()` with the same observability hooks
 
 **Projects**
-- `get_user_projects()` → [TODO]
+- `get_user_projects()` → Vec<Project> — fetches the latest SAP projects from `wbs_cache` (max 500 results)
 
 **Suggestions & Blocks**
-- `get_dismissed_suggestions()` → Vec<TimeEntryOutbox> [TODO]
-- `get_proposed_blocks(day_epoch, status?)` → Vec<ProposedBlock> [TODO]
-- `get_outbox_status()` → Vec<TimeEntryOutbox> [TODO]
+- `get_dismissed_suggestions()` → Vec<TimeEntryOutbox> — returns dismissed outbox rows via SqlCipherConnection
+- `get_proposed_blocks(day_epoch, status?)` → Vec<ProposedBlock> — pulls proposed blocks for the given day with optional status filtering
+- `get_outbox_status()` → Vec<TimeEntryOutbox> — legacy outbox view without status filtering
 
 **Calendar**
-- `get_calendar_events_for_timeline(start, end)` → [TODO]
+- `get_calendar_events_for_timeline(start, end)` → Vec<TimelineCalendarEvent> — gated by the `new_calendar_commands` flag; queries encrypted calendar storage when enabled, otherwise returns an empty list
 
 **Feature Flags** (Phase 4)
 - `is_feature_enabled(flag, default)` → bool

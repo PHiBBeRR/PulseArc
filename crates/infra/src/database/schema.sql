@@ -446,6 +446,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
             id TEXT NOT NULL PRIMARY KEY,
             auth0_id TEXT NOT NULL UNIQUE,
             email TEXT NOT NULL UNIQUE,
+            org_id TEXT NOT NULL DEFAULT 'default_org',
             name TEXT,
             first_name TEXT,
             last_name TEXT,
@@ -472,6 +473,8 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_auth0_id
          ON user_profiles(auth0_id);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email
          ON user_profiles(email);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_org_id
+         ON user_profiles(org_id);
 CREATE TABLE IF NOT EXISTS schema_version (
             version INTEGER PRIMARY KEY,
             applied_at INTEGER NOT NULL

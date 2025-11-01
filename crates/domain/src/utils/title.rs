@@ -161,7 +161,8 @@ pub fn truncate_title(title: &str) -> String {
 ///
 /// Parses common IDE title formats to extract the project name, typically
 /// appearing after the filename and a separator (em dash or regular dash).
-/// Validates that the extracted project name is within reasonable length limits.
+/// Validates that the extracted project name is within reasonable length
+/// limits.
 ///
 /// # Arguments
 ///
@@ -213,8 +214,8 @@ pub fn extract_project_context(title: &str) -> Option<String> {
 
 /// Clean browser window titles by removing browser-specific suffixes.
 ///
-/// Strips common browser suffixes like " - Google Chrome", " - Mozilla Firefox",
-/// " - Safari", and " - Arc", then truncates to the maximum length.
+/// Strips common browser suffixes like " - Google Chrome", " - Mozilla
+/// Firefox", " - Safari", and " - Arc", then truncates to the maximum length.
 ///
 /// # Arguments
 ///

@@ -104,15 +104,83 @@ export const analyticsService = {
       }));
     }
 
-    // For other periods, aggregate by week/month as needed
-    // TODO: Implement week/month aggregation logic
-    return analytics.map((a) => ({
-      day: new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      billable: a.adjusted_billable_minutes / 60,
-      nonBillable: a.adjusted_non_billable_minutes / 60,
-      active: (a.total_minutes - a.idle_discarded_minutes) / 60,
-      idle: a.idle_discarded_minutes / 60,
-    }));
+    type GroupedTotals = {
+      billableMinutes: number;
+      nonBillableMinutes: number;
+      activeMinutes: number;
+      idleMinutes: number;
+      label: string;
+      labelKey: 'week' | 'month';
+    };
+
+    const getUtcMidnight = (input: Date): Date => {
+      return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
+    };
+
+    const getWeekGrouping = (date: Date) => {
+      const weekStart = getUtcMidnight(date);
+      const weekday = weekStart.getUTCDay();
+      const mondayOffset = (weekday + 6) % 7; // Monday as start of week
+      weekStart.setUTCDate(weekStart.getUTCDate() - mondayOffset);
+
+      return {
+        key: weekStart.getTime(),
+        label: `Week of ${weekStart.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })}`,
+        labelKey: 'week' as const,
+      };
+    };
+
+    const getMonthGrouping = (date: Date) => {
+      const monthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+      return {
+        key: monthStart.getTime(),
+        label: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        labelKey: 'month' as const,
+      };
+    };
+
+    const grouped = new Map<number, GroupedTotals>();
+
+    for (const entry of analytics) {
+      const parsedDate = new Date(entry.date);
+      if (Number.isNaN(parsedDate.getTime())) {
+        continue;
+      }
+
+      const { key, label, labelKey } =
+        period === 'month' ? getWeekGrouping(parsedDate) : getMonthGrouping(parsedDate);
+
+      const existing = grouped.get(key) ?? {
+        billableMinutes: 0,
+        nonBillableMinutes: 0,
+        activeMinutes: 0,
+        idleMinutes: 0,
+        label,
+        labelKey,
+      };
+
+      existing.billableMinutes += entry.adjusted_billable_minutes;
+      existing.nonBillableMinutes += entry.adjusted_non_billable_minutes;
+      existing.activeMinutes += entry.total_minutes - entry.idle_discarded_minutes;
+      existing.idleMinutes += entry.idle_discarded_minutes;
+      existing.label = label;
+      existing.labelKey = labelKey;
+
+      grouped.set(key, existing);
+    }
+
+    return Array.from(grouped.entries())
+      .sort(([keyA], [keyB]) => keyA - keyB)
+      .map(([, totals]) => ({
+        [totals.labelKey]: totals.label,
+        billable: totals.billableMinutes / 60,
+        nonBillable: totals.nonBillableMinutes / 60,
+        active: totals.activeMinutes / 60,
+        idle: totals.idleMinutes / 60,
+      }));
   },
 
   /**
