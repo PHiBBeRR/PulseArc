@@ -139,26 +139,18 @@ pub struct HashMetricsCollector {
     // Note: telemetry_manager removed - telemetry module not in common crate
     // telemetry_manager: Option<SpanManager>,
     performance_history: Vec<HashPerformanceMetrics>,
-    /// Security events for monitoring and alerting
-    #[allow(dead_code)] // TODO: Implement security event tracking
-    security_events: Vec<SecurityMetrics>,
-    /// Compliance status tracking
-    #[allow(dead_code)] // TODO: Implement compliance status tracking
-    compliance_status: Vec<ComplianceMetrics>,
-    /// How often to collect and aggregate metrics
-    #[allow(dead_code)] // TODO: Implement periodic collection
-    collection_interval: Duration,
+}
+
+impl Default for HashMetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HashMetricsCollector {
     /// Create new metrics collector
-    pub fn new(collection_interval: Duration) -> Self {
-        Self {
-            performance_history: Vec::new(),
-            security_events: Vec::new(),
-            compliance_status: Vec::new(),
-            collection_interval,
-        }
+    pub fn new() -> Self {
+        Self { performance_history: Vec::new() }
     }
 
     /// Initialize with telemetry manager

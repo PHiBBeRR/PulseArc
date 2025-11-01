@@ -16,25 +16,33 @@ type MainResult = Result<(), Box<dyn std::error::Error>>;
 // standard initialization and handles graceful shutdown internally
 #[allow(clippy::disallowed_methods)]
 pub fn run() -> MainResult {
-    // Initialize logging FIRST so we can see .env loading
-    env_logger::init();
+    // Initialize tracing FIRST so we can see .env loading
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with_current_span(false)
+        .with_span_list(false)
+        .init();
 
     // Load environment variables from .env file
     match dotenvy::dotenv() {
-        Ok(path) => log::info!("Loaded .env from: {:?}", path),
-        Err(e) => log::warn!("Could not load .env file: {}", e),
+        Ok(path) => tracing::info!(event = "dotenv_loaded", path = %path.display()),
+        Err(e) => tracing::warn!(event = "dotenv_missing", error = %e),
     }
 
     // Verify encryption key is available
     match std::env::var("DATABASE_ENCRYPTION_KEY") {
-        Ok(key) => log::info!("DATABASE_ENCRYPTION_KEY loaded ({} chars)", key.len()),
-        Err(_) => log::warn!("DATABASE_ENCRYPTION_KEY not found in environment"),
+        Ok(key) => tracing::info!(event = "encryption_key_loaded", key_length = key.len()),
+        Err(_) => tracing::warn!(event = "encryption_key_missing"),
     }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            log::info!("PulseArc starting...");
+            tracing::info!(event = "app_starting");
 
             // Initialize application context
             let ctx = tauri::async_runtime::block_on(AppContext::new())?;
@@ -53,10 +61,10 @@ pub fn run() -> MainResult {
                         .radius(40.0) // Corner radius for main timer
                         .build(),
                 );
-                log::info!("Applied native window effects to main window");
+                tracing::info!(event = "window_effects_applied", window = "main");
             }
 
-            log::info!("PulseArc initialized successfully");
+            tracing::info!(event = "app_initialized");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

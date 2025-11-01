@@ -1,9 +1,12 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
-use log::{Level, LevelFilter, Log, Metadata, Record};
 use pulsearc_common::testing::TempDir;
 use pulsearc_domain::{OutboxStatus, TimeEntryOutbox};
 use pulsearc_infra::database::DbManager;
+use tracing::{Level, Subscriber};
+use tracing_subscriber::layer::{Context, SubscriberExt};
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::Layer;
 
 type LogRecord = (Level, String);
 type LogBuffer = Vec<LogRecord>;
@@ -187,7 +190,7 @@ impl LogHandle {
 }
 
 #[derive(Clone)]
-struct TestLogger {
+struct TestLayer {
     inner: Arc<LoggerInner>,
 }
 
@@ -195,39 +198,56 @@ struct LoggerInner {
     records: Mutex<LogBuffer>,
 }
 
-impl Log for TestLogger {
-    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
-        true
-    }
+impl<S: Subscriber> Layer<S> for TestLayer {
+    fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
+        let metadata = event.metadata();
+        let level = *metadata.level();
 
-    fn log(&self, record: &Record<'_>) {
+        // Extract message from event
+        struct MessageVisitor(String);
+
+        impl tracing::field::Visit for MessageVisitor {
+            fn record_debug(
+                &mut self,
+                _field: &tracing::field::Field,
+                value: &dyn std::fmt::Debug,
+            ) {
+                self.0 = format!("{:?}", value);
+            }
+
+            fn record_str(&mut self, _field: &tracing::field::Field, value: &str) {
+                self.0 = value.to_string();
+            }
+        }
+
+        let mut visitor = MessageVisitor(String::new());
+        event.record(&mut visitor);
+
         let mut guard = self.inner.records.lock().expect("log mutex poisoned");
-        guard.push((record.level(), record.args().to_string()));
+        guard.push((level, visitor.0));
     }
-
-    fn flush(&self) {}
 }
 
-static LOGGER: OnceLock<TestLogger> = OnceLock::new();
+static LOGGER_INITIALIZED: OnceLock<Arc<LoggerInner>> = OnceLock::new();
 
 /// Install the test logger (idempotent) and obtain a handle for reading log
 /// messages.
 pub fn init_test_logger() -> LogHandle {
-    let logger = LOGGER.get_or_init(|| {
-        let logger = TestLogger {
-            inner: Arc::new(LoggerInner { records: Mutex::new(Vec::<LogRecord>::new()) }),
-        };
+    let inner = LOGGER_INITIALIZED.get_or_init(|| {
+        let inner = Arc::new(LoggerInner { records: Mutex::new(Vec::<LogRecord>::new()) });
 
-        if log::set_boxed_logger(Box::new(logger.clone())).is_ok() {
-            log::set_max_level(LevelFilter::Trace);
-        }
+        let layer = TestLayer { inner: Arc::clone(&inner) };
 
-        logger
+        // Initialize tracing subscriber with our custom layer
+        let _ = tracing_subscriber::registry().with(layer).try_init();
+
+        inner
     });
 
-    if let Ok(mut guard) = logger.inner.records.lock() {
+    // Clear previous records for this test
+    if let Ok(mut guard) = inner.records.lock() {
         guard.clear();
     }
 
-    LogHandle { inner: Arc::clone(&logger.inner) }
+    LogHandle { inner: Arc::clone(inner) }
 }

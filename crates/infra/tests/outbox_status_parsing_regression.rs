@@ -10,9 +10,9 @@
 mod support;
 
 use chrono::Utc;
-use log::Level;
 use pulsearc_domain::OutboxStatus;
 use pulsearc_infra::database::SqliteOutboxRepository;
+use tracing::Level;
 
 #[tokio::test]
 async fn test_outbox_status_parsing_handles_invalid_values() {
@@ -52,7 +52,7 @@ async fn test_outbox_status_parsing_handles_invalid_values() {
 
     let warnings = log_handle.entries();
     assert!(
-        warnings.iter().filter(|(level, _)| *level == Level::Warn).count() >= 3,
+        warnings.iter().filter(|(level, _)| *level == Level::WARN).count() >= 3,
         "Invalid statuses should emit warnings ({warnings:?})"
     );
 }
@@ -90,7 +90,7 @@ async fn test_outbox_status_parsing_handles_valid_values() {
     }
 
     assert!(
-        !log_handle.contains(Level::Warn, "Invalid outbox status"),
+        !log_handle.contains(Level::WARN, "Invalid outbox status"),
         "Valid statuses must not emit warnings"
     );
 }

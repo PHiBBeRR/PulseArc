@@ -24,18 +24,19 @@ impl InstanceLock {
         if pid_file.exists() {
             if let Ok(content) = fs::read_to_string(&pid_file) {
                 if let Ok(pid) = content.trim().parse::<u32>() {
-                    // Check if process is still running
                     if Self::is_process_running(pid) {
+                        tracing::warn!(existing_pid = pid, "instance_lock.process_active");
                         return Err(PulseArcError::Database(format!(
                             "Another instance is already running (PID: {}). Please stop it first.",
                             pid
                         )));
                     }
-                    log::warn!("Stale PID file found (PID: {}), cleaning up", pid);
+                    tracing::warn!(stale_pid = pid, "instance_lock.stale_pid_file_detected");
                 }
             }
-            // Remove stale PID file
-            let _ = fs::remove_file(&pid_file);
+            if let Err(err) = fs::remove_file(&pid_file) {
+                tracing::warn!(error = %err, path = %pid_file.display(), "instance_lock.remove_stale_pid_failed");
+            }
         }
 
         // Write current PID
@@ -43,7 +44,7 @@ impl InstanceLock {
         fs::write(&pid_file, current_pid.to_string())
             .map_err(|e| PulseArcError::Database(format!("Failed to create PID file: {}", e)))?;
 
-        log::info!("Instance lock acquired (PID: {})", current_pid);
+        tracing::info!(pid = current_pid, path = %pid_file.display(), "instance_lock.acquired");
 
         Ok(Self { pid_file })
     }
@@ -65,8 +66,25 @@ impl InstanceLock {
     /// Check if a process is running on other platforms
     #[cfg(not(target_os = "macos"))]
     fn is_process_running(pid: u32) -> bool {
-        // Fallback: assume process is running to be safe
-        true
+        #[cfg(target_os = "linux")]
+        {
+            use std::path::Path;
+
+            let proc_path = Path::new("/proc").join(pid.to_string());
+            return proc_path.exists();
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            tracing::warn!(pid = pid, "instance_lock.process_check_unsupported");
+            return false;
+        }
+
+        #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+        {
+            tracing::warn!(pid = pid, "instance_lock.process_check_unknown_platform");
+            false
+        }
     }
 }
 
@@ -74,9 +92,9 @@ impl Drop for InstanceLock {
     fn drop(&mut self) {
         // Clean up PID file when dropped
         if let Err(e) = fs::remove_file(&self.pid_file) {
-            log::warn!("Failed to remove PID file: {}", e);
+            tracing::warn!(error = %e, path = %self.pid_file.display(), "instance_lock.remove_pid_failed");
         } else {
-            log::info!("Instance lock released");
+            tracing::info!(path = %self.pid_file.display(), "instance_lock.released");
         }
     }
 }

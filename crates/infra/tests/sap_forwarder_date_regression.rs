@@ -12,11 +12,11 @@ mod support;
 #[cfg(feature = "sap")]
 use chrono::Utc;
 #[cfg(feature = "sap")]
-use log::Level;
-#[cfg(feature = "sap")]
 use pulsearc_domain::OutboxStatus;
 #[cfg(feature = "sap")]
 use pulsearc_infra::integrations::sap::SapForwarder;
+#[cfg(feature = "sap")]
+use tracing::Level;
 
 #[tokio::test]
 #[cfg(feature = "sap")]
@@ -31,7 +31,7 @@ async fn test_sap_forwarder_derives_date_from_created_at() {
 
     assert_eq!(result.date, "2024-11-01", "Date should be derived from created_at");
     assert!(
-        log_handle.contains(Level::Warn, "deriving from created_at"),
+        log_handle.contains(Level::WARN, "deriving from created_at"),
         "Missing date should produce a warning"
     );
 }
@@ -50,7 +50,7 @@ async fn test_sap_forwarder_uses_payload_date_when_present() {
 
     assert_eq!(result.date, "2025-10-30", "Payload date should take precedence");
     assert!(
-        !log_handle.contains(Level::Warn, "deriving from created_at"),
+        !log_handle.contains(Level::WARN, "deriving from created_at"),
         "Explicit date should not produce a fallback warning"
     );
 }
@@ -71,7 +71,7 @@ async fn test_sap_forwarder_handles_invalid_created_at() {
     let after = Utc::now().format("%Y-%m-%d").to_string();
     assert!(result.date == before || result.date == after, "Fallback should use current UTC date");
     assert!(
-        log_handle.contains(Level::Warn, "invalid created_at"),
+        log_handle.contains(Level::WARN, "invalid created_at"),
         "Invalid timestamp should emit warning"
     );
 }

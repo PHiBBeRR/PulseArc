@@ -36,15 +36,6 @@ pub struct QualityMetricsParams {
     pub confidence_score: ConfidenceScore,
 }
 
-/// Parameters for recording internal metrics
-struct InternalMetricsParams<'a> {
-    entities_detected: &'a [PiiType],
-    processing_time: Duration,
-    avg_confidence: f64,
-    cache_hit: bool,
-    compliance_frameworks: &'a [ComplianceFramework],
-}
-
 #[derive(Debug, Clone)]
 pub struct PiiMetricsCollector {
     organization_id: String,
@@ -54,16 +45,13 @@ pub struct PiiMetricsCollector {
     compliance_monitor: Arc<RwLock<ComplianceMonitor>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct MetricsCache {
     operation_counts: HashMap<String, u64>,
     entity_type_counts: HashMap<PiiType, u64>,
     confidence_distribution: HashMap<String, u64>,
     processing_times: Vec<Duration>,
     error_counts: HashMap<String, u64>,
-    /// Timestamp of last metrics reset (for periodic reporting)
-    #[allow(dead_code)] // TODO: Implement periodic metrics reset
-    last_reset: DateTime<Utc>,
 }
 
 /// Performance tracking for pattern matching operations
@@ -73,76 +61,35 @@ struct MetricsCache {
 struct PerformanceTracker {
     total_operations: u64,
     total_processing_time: Duration,
-    /// Per-pattern timing data for performance optimization
-    #[allow(dead_code)] // TODO: Implement per-pattern timing analysis
-    pattern_match_times: HashMap<String, Vec<Duration>>,
     cache_hits: u64,
     cache_misses: u64,
-    /// Memory usage samples for leak detection and optimization
-    #[allow(dead_code)] // TODO: Implement memory monitoring
-    memory_usage_samples: Vec<MemoryUsageSample>,
-    #[allow(dead_code)] // TODO: Implement throughput monitoring
     throughput_samples: Vec<ThroughputSample>,
-    /// Latency percentile calculations for SLA monitoring
-    #[allow(dead_code)] // TODO: Implement latency percentile calculation
-    latency_percentiles: LatencyPercentiles,
-}
-
-/// Memory usage sample for monitoring
-///
-/// TODO: Use for memory leak detection and cache optimization
-#[derive(Debug)]
-#[allow(dead_code)] // TODO: Implement memory monitoring
-struct MemoryUsageSample {
-    timestamp: DateTime<Utc>,
-    heap_size_bytes: usize,
-    pattern_cache_size: usize,
-    regex_cache_size: usize,
 }
 
 /// Throughput sample for performance monitoring
-///
-/// TODO: Use for capacity planning and performance alerting
 #[derive(Debug)]
-#[allow(dead_code)] // TODO: Implement throughput monitoring
 struct ThroughputSample {
+    #[allow(dead_code)]
     timestamp: DateTime<Utc>,
     operations_per_second: f64,
+    #[allow(dead_code)]
     entities_per_second: f64,
+    #[allow(dead_code)]
     bytes_processed_per_second: f64,
 }
 
-/// Latency percentiles for SLA monitoring
-///
-/// TODO: Integrate with alerting system for SLA violations
-#[derive(Debug, Default)]
-#[allow(dead_code)] // TODO: Implement latency percentile tracking
-struct LatencyPercentiles {
-    p50: Duration,
-    p95: Duration,
-    p99: Duration,
-    p999: Duration,
-    last_calculated: DateTime<Utc>,
-}
-
 /// Quality analyzer for PII detection accuracy
-///
-/// TODO: Implement confidence calibration and accuracy tracking
 #[derive(Debug, Default)]
-#[allow(dead_code)] // TODO: Implement quality analysis
 struct QualityAnalyzer {
     true_positives: u64,
     false_positives: u64,
     true_negatives: u64,
     false_negatives: u64,
-    /// Maps confidence levels to accuracy metrics for calibration
-    confidence_accuracy_map: HashMap<String, AccuracyMetrics>,
     entity_type_accuracy: HashMap<PiiType, AccuracyMetrics>,
     detection_method_performance: HashMap<DetectionMethod, MethodPerformance>,
 }
 
 #[derive(Debug, Default)]
-#[allow(dead_code)] // TODO: Implement accuracy tracking
 struct AccuracyMetrics {
     correct_predictions: u64,
     total_predictions: u64,
@@ -151,30 +98,25 @@ struct AccuracyMetrics {
 }
 
 /// Performance metrics for a detection method
-///
-/// TODO: Use for method selection and optimization
 #[derive(Debug, Default)]
-#[allow(dead_code)] // TODO: Implement method performance tracking
 struct MethodPerformance {
     accuracy: f64,
     precision: f64,
     recall: f64,
     f1_score: f64,
     /// Average time for this method to process a document
+    #[allow(dead_code)]
     avg_processing_time: Duration,
     /// Complexity score for balancing accuracy vs performance
+    #[allow(dead_code)]
     pattern_complexity_score: f64,
 }
 
 #[derive(Debug, Default)]
-#[allow(dead_code)] // TODO: Implement compliance monitoring
 struct ComplianceMonitor {
     framework_violations: HashMap<ComplianceFramework, u64>,
     severity_distribution: HashMap<String, u64>,
     resolution_times: HashMap<String, Duration>,
-    audit_trail_completeness: f64,
-    data_retention_compliance: f64,
-    encryption_compliance: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1005,10 +947,8 @@ impl PiiMetricsCollector {
             high_severity_violations,
             avg_resolution_time_hours: avg_resolution_time,
             compliance_score,
-            audit_completeness: monitor.audit_trail_completeness,
-            data_protection_score: (monitor.encryption_compliance
-                + monitor.data_retention_compliance)
-                / 2.0,
+            audit_completeness: 0.0,    // Not yet implemented
+            data_protection_score: 0.0, // Not yet implemented
         })
     }
 
@@ -1053,46 +993,6 @@ impl PiiMetricsCollector {
     async fn start_background_collection(&self) -> PiiResult<()> {
         // Start background task for periodic metrics collection and cleanup
         Ok(())
-    }
-
-    /// Record internal metrics for performance analysis
-    ///
-    /// TODO: Integrate with telemetry system for comprehensive metrics
-    /// collection
-    #[allow(dead_code)] // TODO: Integrate with telemetry system
-    async fn record_internal_metrics(&self, params: InternalMetricsParams<'_>) {
-        let InternalMetricsParams {
-            entities_detected,
-            processing_time,
-            avg_confidence,
-            cache_hit,
-            compliance_frameworks,
-        } = params;
-        // Internal metrics recording - simplified
-        // Only output in debug builds to avoid production side effects
-        #[cfg(debug_assertions)]
-        {
-            eprintln!(
-                "PII Detection: {} entities, {:.2}ms, confidence: {:.2}, cache_hit: {}, frameworks: {:?}",
-                entities_detected.len(),
-                processing_time.as_millis(),
-                avg_confidence,
-                cache_hit,
-                compliance_frameworks
-            );
-        }
-
-        // Silence unused variable warnings in release builds
-        #[cfg(not(debug_assertions))]
-        {
-            let _ = (
-                entities_detected,
-                processing_time,
-                avg_confidence,
-                cache_hit,
-                compliance_frameworks,
-            );
-        }
     }
 
     fn get_confidence_bucket(&self, confidence: f64) -> String {
@@ -1275,18 +1175,5 @@ impl PiiMetricsCollector {
             compliance_trends: HashMap::new(),
             predictive_insights: vec![],
         })
-    }
-}
-
-impl Default for MetricsCache {
-    fn default() -> Self {
-        Self {
-            operation_counts: HashMap::new(),
-            entity_type_counts: HashMap::new(),
-            confidence_distribution: HashMap::new(),
-            processing_times: Vec::new(),
-            error_counts: HashMap::new(),
-            last_reset: Utc::now(),
-        }
     }
 }

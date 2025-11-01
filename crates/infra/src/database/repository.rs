@@ -5,12 +5,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use log::warn;
 use pulsearc_core::TimeEntryRepository;
 use pulsearc_domain::{
     OutboxStatus, PulseArcError, Result, TimeEntry, TimeEntryOutbox, TimeEntryParams,
 };
 use rusqlite::{params, Row};
+use tracing::warn;
 use uuid::Uuid;
 
 use super::manager::DbManager;
@@ -65,38 +65,68 @@ impl TimeEntryRepository for SqliteTimeEntryRepository {
             let mut stmt = conn.inner().prepare("SELECT id, start_time, end_time, duration_seconds, description, project_id, wbs_code FROM time_entries WHERE start_time BETWEEN ?1 AND ?2")
                 .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
-            let entries = stmt
-                .query_map((start.timestamp(), end.timestamp()), |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, Option<i64>>(2)?,
-                        row.get::<_, Option<i64>>(3)?,
-                        row.get::<_, String>(4)?,
-                        row.get::<_, Option<String>>(5)?,
-                        row.get::<_, Option<String>>(6)?,
-                    ))
-                })
-                .map_err(|e| PulseArcError::Database(e.to_string()))?
-                .collect::<rusqlite::Result<Vec<_>>>()
-                .map_err(|e| PulseArcError::Database(e.to_string()))?
-                .into_iter()
-                .filter_map(|(id, start_time, end_time, duration_seconds, description, project_id, wbs_code)| {
-                    let id = Uuid::parse_str(&id).ok()?;
-                    let start_time = DateTime::from_timestamp(start_time, 0)?;
-                    let end_time = end_time.and_then(|ts| DateTime::from_timestamp(ts, 0));
+            let mut rows = stmt
+                .query((start.timestamp(), end.timestamp()))
+                .map_err(|e| PulseArcError::Database(e.to_string()))?;
 
-                    Some(TimeEntry::new(TimeEntryParams {
-                        id,
-                        start_time,
-                        end_time,
-                        duration_seconds,
-                        description,
-                        project_id,
-                        wbs_code,
-                    }))
-                })
-                .collect();
+            let mut entries = Vec::new();
+
+            while let Some(row) = rows
+                .next()
+                .map_err(|e| PulseArcError::Database(e.to_string()))?
+            {
+                let raw_id: String =
+                    row.get(0).map_err(|e| PulseArcError::Database(e.to_string()))?;
+                let id = Uuid::parse_str(&raw_id).map_err(|e| {
+                    PulseArcError::Database(format!("invalid time entry id '{}': {}", raw_id, e))
+                })?;
+
+                let start_time_ts: i64 =
+                    row.get(1).map_err(|e| PulseArcError::Database(e.to_string()))?;
+                let start_time = DateTime::from_timestamp(start_time_ts, 0).ok_or_else(|| {
+                    PulseArcError::Database(format!(
+                        "invalid start timestamp '{}' for time entry {}",
+                        start_time_ts, id
+                    ))
+                })?;
+
+                let end_time = match row
+                    .get::<_, Option<i64>>(2)
+                    .map_err(|e| PulseArcError::Database(e.to_string()))?
+                {
+                    Some(ts) => Some(
+                        DateTime::from_timestamp(ts, 0).ok_or_else(|| {
+                            PulseArcError::Database(format!(
+                                "invalid end timestamp '{}' for time entry {}",
+                                ts, id
+                            ))
+                        })?,
+                    ),
+                    None => None,
+                };
+
+                let duration_seconds = row
+                    .get::<_, Option<i64>>(3)
+                    .map_err(|e| PulseArcError::Database(e.to_string()))?;
+                let description: String =
+                    row.get(4).map_err(|e| PulseArcError::Database(e.to_string()))?;
+                let project_id = row
+                    .get::<_, Option<String>>(5)
+                    .map_err(|e| PulseArcError::Database(e.to_string()))?;
+                let wbs_code = row
+                    .get::<_, Option<String>>(6)
+                    .map_err(|e| PulseArcError::Database(e.to_string()))?;
+
+                entries.push(TimeEntry::new(TimeEntryParams {
+                    id,
+                    start_time,
+                    end_time,
+                    duration_seconds,
+                    description,
+                    project_id,
+                    wbs_code,
+                }));
+            }
 
             Ok(entries)
         })
