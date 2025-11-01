@@ -96,9 +96,17 @@ impl CalendarProviderTrait for MicrosoftCalendarProvider {
                      series_master_id,
                      calendar_id: calendar_opt,
                      online_meeting,
+                     attendees,
                  }| {
                     let subject = subject.filter(|s| !s.trim().is_empty());
                     let calendar_id = calendar_opt.or_else(|| Some(calendar_id.to_owned()));
+
+                    // Parse attendees with validation
+                    let parsed_attendees = attendees.map(|list| {
+                        list.into_iter()
+                            .filter_map(|a| validate_and_log_email(&a.email_address.address, &id))
+                            .collect()
+                    });
 
                     RawCalendarEvent {
                         id,
@@ -116,6 +124,7 @@ impl CalendarProviderTrait for MicrosoftCalendarProvider {
                         meeting_id: None,
                         attendee_count: None,
                         external_attendee_count: None,
+                        attendees: parsed_attendees,
                     }
                 },
             )
