@@ -24,3 +24,5 @@ pub mod utils;
 pub use config::*;
 pub use errors::*;
 pub use types::*;
+// Re-export calendar parser utilities
+pub use utils::calendar_parser::{parse_event_title, ParsedEventTitle};

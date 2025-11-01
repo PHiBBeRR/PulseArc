@@ -8,7 +8,6 @@
 
 pub mod client;
 pub mod oauth;
-pub mod parser;
 pub mod platform;
 pub mod provider_impl;
 pub mod providers;
@@ -20,10 +19,11 @@ pub use oauth::{
     extract_email_from_id_token, generate_token_reference_id, CalendarOAuthManager,
     CalendarOAuthSettings, OAuthCallbackServer, OAuthLoginSession, TokenResponse,
 };
-pub use parser::{parse_event_title, ParsedEventTitle};
 pub use platform::detect_meeting_platform;
 pub use provider_impl::CalendarProviderImpl;
 pub use providers::{create_provider, CalendarProviderTrait};
+// Re-export parser from domain (for backwards compatibility)
+pub use pulsearc_domain::{parse_event_title, ParsedEventTitle};
 pub use sync::CalendarSyncWorker;
 pub use types::{
     CalendarConnectionStatus, CalendarEvent, CalendarSyncSettings, TimelineCalendarEvent,

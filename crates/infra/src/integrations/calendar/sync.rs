@@ -10,13 +10,14 @@ use pulsearc_core::calendar_ports::SyncStatus;
 use pulsearc_core::tracking::ports::CalendarEventRepository;
 use pulsearc_core::OutboxQueue;
 use pulsearc_domain::types::database::{ParsedFields, TimeRange};
-use pulsearc_domain::{CalendarEventParams, PulseArcError, Result};
+use pulsearc_domain::{
+    parse_event_title, CalendarEventParams, ParsedEventTitle, PulseArcError, Result,
+};
 use tracing::{debug, error, info, instrument, warn};
 use url::{form_urlencoded, Url};
 use uuid::Uuid;
 
 use super::client::CalendarClient;
-use super::parser::parse_event_title;
 use super::platform::detect_meeting_platform;
 use super::providers::RawCalendarEvent;
 use super::types::{CalendarEvent, CalendarSyncSettings};
@@ -351,7 +352,7 @@ impl CalendarSyncWorker {
             if !subject.is_empty() {
                 parse_event_title(subject)
             } else {
-                super::parser::ParsedEventTitle {
+                ParsedEventTitle {
                     project: Some("General".to_string()),
                     workstream: None,
                     task: Some("untitled event".to_string()),
@@ -359,7 +360,7 @@ impl CalendarSyncWorker {
                 }
             }
         } else {
-            super::parser::ParsedEventTitle {
+            ParsedEventTitle {
                 project: Some("General".to_string()),
                 workstream: None,
                 task: Some("untitled event".to_string()),

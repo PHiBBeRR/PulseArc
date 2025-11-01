@@ -2,6 +2,11 @@
 //!
 //! Extracts project, workstream, and task from calendar event titles while
 //! providing a confidence score that mirrors the legacy heuristics.
+//!
+//! This module contains domain logic for parsing calendar event titles into
+//! structured components. It was moved from
+//! `infra/integrations/calendar/parser.rs` to properly align with clean
+//! architecture principles (business logic belongs in the domain layer).
 
 const EN_DASH: char = '\u{2013}';
 const EM_DASH: char = '\u{2014}';
