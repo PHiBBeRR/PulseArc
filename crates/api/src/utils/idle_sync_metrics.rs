@@ -196,11 +196,7 @@ impl IdleSyncMetrics {
     }
 
     /// Get state transition duration histogram for a specific transition
-    pub fn transition_duration_snapshot(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> Option<HistogramSnapshot> {
+    pub fn transition_duration_snapshot(&self, from: &str, to: &str) -> Option<HistogramSnapshot> {
         let key = (from.to_string(), to.to_string());
         self.transition_durations
             .read()

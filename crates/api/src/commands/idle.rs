@@ -393,9 +393,7 @@ pub async fn set_idle_threshold(
              ON CONFLICT(id) DO UPDATE SET idle_threshold_secs = ?1",
             rusqlite::params![threshold_secs],
         )
-        .map_err(|e| {
-            PulseArcError::Database(format!("Failed to update idle threshold: {}", e))
-        })?;
+        .map_err(|e| PulseArcError::Database(format!("Failed to update idle threshold: {}", e)))?;
 
         Ok(())
     })

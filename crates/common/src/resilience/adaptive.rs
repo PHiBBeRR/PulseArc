@@ -580,6 +580,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_adaptive_threshold_adjustment() {
+        use crate::testing::MockClock;
+
+        let clock = MockClock::new();
         let config = AdaptiveCircuitBreakerConfig::builder()
             .initial_failure_threshold(5)
             .min_failure_threshold(2)
@@ -590,7 +593,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let breaker = AdaptiveCircuitBreaker::new(config).unwrap();
+        let breaker = AdaptiveCircuitBreaker::with_clock(config, clock.clone()).unwrap();
 
         // Generate high error rate (50%)
         for i in 0..20 {
@@ -603,11 +606,19 @@ mod tests {
             }
         }
 
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Advance the mock clock past the adjustment interval
+        clock.advance(Duration::from_millis(150));
+
+        // Trigger one more operation to invoke maybe_adjust_threshold
+        let _ = breaker.execute(|| async { Err::<(), _>(std::io::Error::other("error")) }).await;
 
         let metrics = breaker.metrics();
         // Should have adjusted threshold down due to high error rate
-        assert!(metrics.threshold_adjustments > 0);
+        assert!(
+            metrics.threshold_adjustments > 0,
+            "Expected threshold adjustments but got 0. Metrics: {:?}",
+            metrics
+        );
     }
 
     #[tokio::test]
