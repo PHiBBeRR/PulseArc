@@ -62,14 +62,15 @@ pub fn error_label(error: &PulseArcError) -> &'static str {
 ///
 /// Any failure to record metrics is logged and ignored so command execution
 /// is never blocked by observability plumbing.
-pub async fn record_command_metric(
-    context: &Arc<AppContext>,
-    command: &str,
-    implementation: &str,
-    elapsed: Duration,
-    success: bool,
-    error_type: Option<&str>,
-) {
+pub struct MetricRecord<'a> {
+    pub command: &'a str,
+    pub implementation: &'a str,
+    pub elapsed: Duration,
+    pub success: bool,
+    pub error_type: Option<&'a str>,
+}
+
+pub async fn record_command_metric(context: &Arc<AppContext>, record: MetricRecord<'_>) {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|dur| dur.as_secs() as i64)
@@ -77,18 +78,18 @@ pub async fn record_command_metric(
 
     let metric = CommandMetric {
         id: uuid::Uuid::new_v4().to_string(),
-        command: command.to_string(),
-        implementation: implementation.to_string(),
+        command: record.command.to_string(),
+        implementation: record.implementation.to_string(),
         timestamp,
-        duration_ms: elapsed.as_millis() as u64,
-        success,
-        error_type: error_type.map(|label| label.to_string()),
+        duration_ms: record.elapsed.as_millis() as u64,
+        success: record.success,
+        error_type: record.error_type.map(|label| label.to_string()),
     };
 
     if let Err(err) = context.command_metrics.record_execution(metric).await {
         error!(
-            command,
-            implementation,
+            command = record.command,
+            implementation = record.implementation,
             error = %err,
             "failed to record command metric"
         );

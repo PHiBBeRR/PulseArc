@@ -676,12 +676,12 @@ Prepare `crates/api/pulsearc-app` for command migration by expanding AppContext 
   - ✅ Invocation count (legacy vs new) - via `get_stats()`
   - ✅ Error count - via `get_stats()` and `compare_implementations()`
   - ✅ P50/P95/P99 latency - calculated via `calculate_percentiles()`
-  - ✅ Feature flag states - logged via `log_feature_flag_check()`
+  - ✅ Feature flag states - logged via `log_feature_flag_check()` (captures fallback usage via `FeatureFlagService::evaluate`)
 
 **Acceptance Criteria:**
 - [x] Logging helper created and documented (`crates/api/src/utils/logging.rs`, exported via `utils/mod.rs`)
 - [x] All commands log execution (implementation + timing) - feature_flags commands updated with timing, existing commands updated to use tracing
-- [x] No sensitive data logged (verified via audit) - all logging uses structured fields, no PII/tokens/secrets
+- [x] No sensitive data logged (verified via audit) - all logging uses structured fields, no PII/tokens/secrets; feature flag logs only report fallback booleans
 - [x] Metrics strategy decided and documented in decision log (Option B: Database storage)
 - [x] If using metrics: Repository created and wired to AppContext (`SqlCipherCommandMetricsRepository` in infra, `command_metrics` field in AppContext)
 - [x] Health check infrastructure added with HealthStatus/ComponentHealth types

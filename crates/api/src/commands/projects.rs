@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::info;
 
-use crate::utils::logging::{log_command_execution, record_command_metric};
+use crate::utils::logging::{log_command_execution, record_command_metric, MetricRecord};
 use crate::AppContext;
 
 /// Minimal project info for frontend display
@@ -33,7 +33,17 @@ pub async fn get_user_projects(ctx: State<'_, Arc<AppContext>>) -> Result<Vec<Pr
     let elapsed = start.elapsed();
 
     log_command_execution(command_name, implementation, elapsed, true);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, true, None).await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success: true,
+            error_type: None,
+        },
+    )
+    .await;
 
     result
 }

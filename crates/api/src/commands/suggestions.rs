@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tracing::info;
 
-use crate::utils::logging::{log_command_execution, record_command_metric};
+use crate::utils::logging::{log_command_execution, record_command_metric, MetricRecord};
 use crate::AppContext;
 
 /// Outbox entry for time suggestions
@@ -46,7 +46,17 @@ pub async fn get_dismissed_suggestions(
     let elapsed = start.elapsed();
 
     log_command_execution(command_name, implementation, elapsed, true);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, true, None).await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success: true,
+            error_type: None,
+        },
+    )
+    .await;
 
     result
 }
@@ -75,7 +85,17 @@ pub async fn get_proposed_blocks(
     let elapsed = start.elapsed();
 
     log_command_execution(command_name, implementation, elapsed, true);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, true, None).await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success: true,
+            error_type: None,
+        },
+    )
+    .await;
 
     result
 }
@@ -94,7 +114,17 @@ pub async fn get_outbox_status(ctx: State<'_, Arc<AppContext>>) -> Result<Vec<Ti
     let elapsed = start.elapsed();
 
     log_command_execution(command_name, implementation, elapsed, true);
-    record_command_metric(&app_ctx, command_name, implementation, elapsed, true, None).await;
+    record_command_metric(
+        &app_ctx,
+        MetricRecord {
+            command: command_name,
+            implementation,
+            elapsed,
+            success: true,
+            error_type: None,
+        },
+    )
+    .await;
 
     result
 }

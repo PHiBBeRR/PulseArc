@@ -248,40 +248,45 @@ impl CommandMetricsPort for SqlCipherCommandMetricsRepository {
 }
 
 /// Calculate percentiles (P50, P95, P99) for command latency
+type LatencyPercentiles = (u64, u64, u64);
+
 fn calculate_percentiles(
     conn: &SqlCipherConnection,
     command: &str,
     implementation: Option<&str>,
     start_ts: i64,
     end_ts: i64,
-) -> DomainResult<(u64, u64, u64)> {
+) -> DomainResult<LatencyPercentiles> {
+    type QueryParts = (&'static str, Vec<Box<dyn rusqlite::ToSql>>);
+
     // Build query with optional implementation filter
-    let (query, params): (&str, Vec<Box<dyn rusqlite::ToSql>>) =
-        if let Some(impl_name) = implementation {
-            (
-                "SELECT duration_ms FROM command_metrics
+    let query_parts: QueryParts = if let Some(impl_name) = implementation {
+        (
+            "SELECT duration_ms FROM command_metrics
              WHERE command = ?1 AND implementation = ?2
                AND timestamp >= ?3 AND timestamp <= ?4
              ORDER BY duration_ms",
-                vec![
-                    Box::new(command.to_string()) as Box<dyn rusqlite::ToSql>,
-                    Box::new(impl_name.to_string()),
-                    Box::new(start_ts),
-                    Box::new(end_ts),
-                ],
-            )
-        } else {
-            (
-                "SELECT duration_ms FROM command_metrics
+            vec![
+                Box::new(command.to_string()) as Box<dyn rusqlite::ToSql>,
+                Box::new(impl_name.to_string()),
+                Box::new(start_ts),
+                Box::new(end_ts),
+            ],
+        )
+    } else {
+        (
+            "SELECT duration_ms FROM command_metrics
              WHERE command = ?1 AND timestamp >= ?2 AND timestamp <= ?3
              ORDER BY duration_ms",
-                vec![
-                    Box::new(command.to_string()) as Box<dyn rusqlite::ToSql>,
-                    Box::new(start_ts),
-                    Box::new(end_ts),
-                ],
-            )
-        };
+            vec![
+                Box::new(command.to_string()) as Box<dyn rusqlite::ToSql>,
+                Box::new(start_ts),
+                Box::new(end_ts),
+            ],
+        )
+    };
+
+    let (query, params) = query_parts;
 
     let mut stmt = conn.prepare(query).map_err(map_storage_error)?;
 

@@ -1,38 +1,9 @@
-//! Feature flag service with in-memory caching.
+//! Feature flag service with in-memory caching and fallback awareness.
 //!
-//! Provides a high-level interface to feature flags with caching for
-//! performance. All database operations are delegated to the repository layer.
-//!
-//! # Caching Strategy
-//!
-//! - **Read-through**: Check cache first, query DB on miss, populate cache
-//! - **Write-through invalidation**: Update DB, then remove cache entry
-//!   immediately
-//! - **No stale data**: Cache is invalidated on every write to prevent stale
-//!   reads
-//! - **Lazy loading**: Cache is populated on demand (no preloading at startup)
-//!
-//! # Example
-//!
-//! ```no_run
-//! use std::sync::Arc;
-//!
-//! use pulsearc_infra::database::DbManager;
-//! use pulsearc_infra::services::FeatureFlagService;
-//!
-//! # async fn example() {
-//! let db_manager = Arc::new(DbManager::new("app.db", 4, Some("key")).unwrap());
-//! let service = FeatureFlagService::new(db_manager);
-//!
-//! // Check if feature is enabled
-//! if service.is_enabled("new_blocks_cmd", false).await.unwrap_or(false) {
-//!     // Use new infrastructure
-//! }
-//!
-//! // Toggle feature for rollback
-//! service.set_enabled("use_new_infra", false).await.unwrap();
-//! # }
-//! ```
+//! Provides a high-level interface to database-backed feature flags with
+//! caching for performance. The service exposes both a simple `is_enabled`
+//! helper (for existing call-sites) and an `evaluate` method that reports when
+//! the default fallback value was used, enabling precise observability.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -43,13 +14,22 @@ use tokio::sync::Mutex;
 
 use crate::database::{DbManager, SqlCipherFeatureFlagsRepository};
 
-type FlagCache = Arc<Mutex<HashMap<String, bool>>>;
+/// Cached feature flag evaluation result.
+#[derive(Debug, Clone, Copy)]
+pub struct FeatureFlagEvaluation {
+    /// Whether the flag should be considered enabled.
+    pub enabled: bool,
+    /// Whether the returned value came from the provided fallback (i.e. the
+    /// flag was missing from persistent storage).
+    pub fallback_used: bool,
+}
+
+type FlagCache = Arc<Mutex<HashMap<String, FeatureFlagEvaluation>>>;
 
 /// Feature flag service with in-memory caching.
 ///
-/// This service wraps the repository layer and provides caching for
-/// performance. The repository is kept private - external code should only
-/// interact via this service.
+/// The repository is kept internal; consumers interact via the service to gain
+/// caching and fallback context.
 pub struct FeatureFlagService {
     repository: Arc<SqlCipherFeatureFlagsRepository>,
     cache: FlagCache,
@@ -57,9 +37,6 @@ pub struct FeatureFlagService {
 
 impl FeatureFlagService {
     /// Create a new feature flag service.
-    ///
-    /// The repository is created internally and kept private.
-    /// All database operations are handled through the repository layer.
     pub fn new(db: Arc<DbManager>) -> Self {
         Self {
             repository: Arc::new(SqlCipherFeatureFlagsRepository::new(db)),
@@ -67,84 +44,46 @@ impl FeatureFlagService {
         }
     }
 
-    /// Check if a feature flag is enabled (cached).
-    ///
-    /// Returns the `default` value if the flag doesn't exist in the database.
-    /// Uses read-through caching: checks cache first, queries DB on miss.
-    ///
-    /// # Performance
-    ///
-    /// - Cached queries: <1ms (in-memory lookup)
-    /// - Database queries: <5ms (spawn_blocking + SQLite query)
-    ///
-    /// # Arguments
-    ///
-    /// * `flag_name` - The unique identifier for the feature flag
-    /// * `default` - The value to return if the flag doesn't exist
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use pulsearc_infra::services::FeatureFlagService;
-    /// # async fn example(service: &FeatureFlagService) {
-    /// // Check if new blocks command is enabled (default to false)
-    /// let enabled = service.is_enabled("new_blocks_cmd", false).await.unwrap_or(false);
-    /// # }
-    /// ```
-    pub async fn is_enabled(&self, flag_name: &str, default: bool) -> DomainResult<bool> {
-        // Check cache first (fast path)
+    /// Evaluate a feature flag, returning both the computed value and whether
+    /// the default fallback was used.
+    pub async fn evaluate(
+        &self,
+        flag_name: &str,
+        default: bool,
+    ) -> DomainResult<FeatureFlagEvaluation> {
+        // Fast path: cache hit.
         {
             let cache = self.cache.lock().await;
-            if let Some(&enabled) = cache.get(flag_name) {
-                return Ok(enabled);
+            if let Some(entry) = cache.get(flag_name) {
+                return Ok(*entry);
             }
         }
 
-        // Cache miss - query DB (inside spawn_blocking in repository)
-        let enabled = self.repository.is_enabled(flag_name, default).await?;
+        // Cache miss: fetch from repository (which handles spawn_blocking).
+        let state = self.repository.get_flag_state(flag_name, default).await?;
 
-        // Populate cache for next time
+        let evaluation =
+            FeatureFlagEvaluation { enabled: state.enabled, fallback_used: state.fallback_used };
+
+        // Populate cache with the evaluation result.
         {
             let mut cache = self.cache.lock().await;
-            cache.insert(flag_name.to_string(), enabled);
+            cache.insert(flag_name.to_owned(), evaluation);
         }
 
-        Ok(enabled)
+        Ok(evaluation)
     }
 
-    /// Set a feature flag's enabled status.
-    ///
-    /// Creates the flag if it doesn't exist (upsert semantics).
-    /// Invalidates the cache entry immediately to prevent stale reads.
-    ///
-    /// # Cache Invalidation
-    ///
-    /// This method uses **write-through cache invalidation**:
-    /// 1. Update the database first (inside spawn_blocking in repository)
-    /// 2. Remove the cache entry immediately
-    ///
-    /// This ensures the cache never holds stale data longer than a single
-    /// toggle operation.
-    ///
-    /// # Arguments
-    ///
-    /// * `flag_name` - The unique identifier for the feature flag
-    /// * `enabled` - The new enabled status
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use pulsearc_infra::services::FeatureFlagService;
-    /// # async fn example(service: &FeatureFlagService) {
-    /// // Disable new infrastructure for quick rollback
-    /// service.set_enabled("use_new_infra", false).await.unwrap();
-    /// # }
-    /// ```
+    /// Check if a feature flag is enabled, using read-through caching.
+    pub async fn is_enabled(&self, flag_name: &str, default: bool) -> DomainResult<bool> {
+        self.evaluate(flag_name, default).await.map(|evaluation| evaluation.enabled)
+    }
+
+    /// Set a feature flag's enabled status (write-through invalidation).
     pub async fn set_enabled(&self, flag_name: &str, enabled: bool) -> DomainResult<()> {
-        // Update DB first (inside spawn_blocking in repository)
         self.repository.set_enabled(flag_name, enabled).await?;
 
-        // Invalidate cache entry immediately (write-through invalidation)
+        // Invalidate cache entry immediately to avoid stale reads.
         {
             let mut cache = self.cache.lock().await;
             cache.remove(flag_name);
@@ -153,43 +92,12 @@ impl FeatureFlagService {
         Ok(())
     }
 
-    /// List all feature flags (uncached - always fresh).
-    ///
-    /// Returns all flags currently in the database, including their current
-    /// state and metadata. This method bypasses the cache to ensure freshness.
-    ///
-    /// Useful for admin UI or debugging.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use pulsearc_infra::services::FeatureFlagService;
-    /// # async fn example(service: &FeatureFlagService) {
-    /// let all_flags = service.list_all().await.unwrap();
-    /// for flag in all_flags {
-    ///     println!("{}: {}", flag.flag_name, flag.enabled);
-    /// }
-    /// # }
-    /// ```
+    /// List all feature flags (always hits the repository for freshness).
     pub async fn list_all(&self) -> DomainResult<Vec<FeatureFlag>> {
-        // Always query DB for freshness (bypasses cache)
         self.repository.list_all().await
     }
 
-    /// Clear the entire cache.
-    ///
-    /// Useful for testing or manual cache refresh. In production, the cache
-    /// should stay warm as flags are queried and updated normally.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use pulsearc_infra::services::FeatureFlagService;
-    /// # async fn example(service: &FeatureFlagService) {
-    /// // Force cache refresh (for testing/debugging)
-    /// service.clear_cache().await;
-    /// # }
-    /// ```
+    /// Clear the in-memory cache (useful for tests or manual refresh).
     pub async fn clear_cache(&self) {
         let mut cache = self.cache.lock().await;
         cache.clear();
@@ -205,108 +113,104 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use crate::database::DbManager;
 
     const TEST_KEY: &str = "test_key_64_chars_long_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_cache_hit_after_first_query() {
+    async fn cache_hit_after_miss() {
         let (service, _mgr, _dir) = setup().await;
 
-        // First query - cache miss, populates cache
-        let enabled =
-            service.is_enabled("new_blocks_cmd", false).await.expect("first query succeeded");
-        assert!(enabled);
+        // First call populates cache.
+        let first = service.evaluate("new_blocks_cmd", false).await.expect("initial evaluation");
+        assert!(first.enabled);
+        assert!(!first.fallback_used);
 
-        // Second query - cache hit (fast path)
-        let enabled =
-            service.is_enabled("new_blocks_cmd", false).await.expect("second query succeeded");
-        assert!(enabled);
-
-        // Verify cache contains the entry
-        let cache = service.cache.lock().await;
-        assert!(cache.contains_key("new_blocks_cmd"));
+        // Second call should be served from cache.
+        let second = service.evaluate("new_blocks_cmd", false).await.expect("cached evaluation");
+        assert!(second.enabled);
+        assert!(!second.fallback_used);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_cache_invalidation_on_write() {
+    async fn cache_invalidation_on_write() {
         let (service, _mgr, _dir) = setup().await;
 
-        // Populate cache
-        service.is_enabled("new_blocks_cmd", false).await.expect("query succeeded");
+        // Populate cache.
+        service.evaluate("new_blocks_cmd", false).await.expect("initial evaluation");
 
-        // Verify cache is populated
-        {
-            let cache = service.cache.lock().await;
-            assert!(cache.contains_key("new_blocks_cmd"));
-        }
+        // Ensure cache entry exists.
+        assert!(service.cache.lock().await.contains_key("new_blocks_cmd"));
 
-        // Update flag - should invalidate cache
+        // Update flag (write-through invalidation).
         service.set_enabled("new_blocks_cmd", false).await.expect("update succeeded");
 
-        // Verify cache was invalidated
-        {
-            let cache = service.cache.lock().await;
-            assert!(
-                !cache.contains_key("new_blocks_cmd"),
-                "cache should be invalidated after write"
-            );
-        }
+        // Cache entry should be gone.
+        assert!(
+            !service.cache.lock().await.contains_key("new_blocks_cmd"),
+            "cache entry should be invalidated after write"
+        );
 
-        // Next query should return updated value
-        let enabled = service.is_enabled("new_blocks_cmd", true).await.expect("query succeeded");
-        assert!(!enabled, "should return updated value from DB");
+        // Subsequent evaluation reflects new value.
+        let evaluation =
+            service.evaluate("new_blocks_cmd", true).await.expect("evaluation after update");
+        assert!(!evaluation.enabled);
+        assert!(!evaluation.fallback_used);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_clear_cache() {
+    async fn clear_cache_empties_store() {
         let (service, _mgr, _dir) = setup().await;
 
-        // Populate cache with multiple entries
-        service.is_enabled("new_blocks_cmd", false).await.unwrap();
-        service.is_enabled("use_new_infra", false).await.unwrap();
+        service.evaluate("new_blocks_cmd", false).await.expect("evaluation");
+        service.evaluate("use_new_infra", false).await.expect("evaluation");
+        assert_eq!(service.cache.lock().await.len(), 2);
 
-        // Verify cache has entries
-        {
-            let cache = service.cache.lock().await;
-            assert_eq!(cache.len(), 2);
-        }
-
-        // Clear cache
         service.clear_cache().await;
-
-        // Verify cache is empty
-        {
-            let cache = service.cache.lock().await;
-            assert_eq!(cache.len(), 0);
-        }
+        assert!(service.cache.lock().await.is_empty());
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_list_all_bypasses_cache() {
+    async fn list_all_bypasses_cache() {
         let (service, _mgr, _dir) = setup().await;
 
-        // Populate cache with one entry
-        service.is_enabled("new_blocks_cmd", false).await.unwrap();
+        // Populate cache with one entry.
+        service.evaluate("new_blocks_cmd", false).await.expect("evaluation");
 
-        // list_all should return all flags, not just cached ones
-        let all_flags = service.list_all().await.expect("list_all succeeded");
-        assert_eq!(all_flags.len(), 2, "should return all flags from DB");
+        // list_all should still return all flags from the repository.
+        let all_flags = service.list_all().await.expect("list_all");
+        assert_eq!(all_flags.len(), 2);
 
-        // Cache should still only have one entry
-        let cache = service.cache.lock().await;
-        assert_eq!(cache.len(), 1, "list_all should not populate cache");
+        // Cache should still only have the one entry.
+        assert_eq!(service.cache.lock().await.len(), 1);
     }
 
-    /// Set up a test service with fresh database.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn fallback_flag_detected() {
+        let (service, _mgr, _dir) = setup().await;
+
+        // Use a flag that doesn't exist yet.
+        let evaluation = service.evaluate("brand_new_flag", true).await.expect("evaluation");
+        assert!(evaluation.enabled);
+        assert!(evaluation.fallback_used);
+
+        // After setting the flag it should no longer use fallback.
+        service.set_enabled("brand_new_flag", false).await.expect("set flag");
+
+        let evaluation = service.evaluate("brand_new_flag", true).await.expect("evaluation");
+        assert!(!evaluation.enabled);
+        assert!(!evaluation.fallback_used);
+    }
+
     async fn setup() -> (FeatureFlagService, Arc<DbManager>, TempDir) {
         let temp_dir = TempDir::new().expect("temp dir created");
         let db_path = temp_dir.path().join("flags.db");
 
-        let mgr =
+        let manager =
             Arc::new(DbManager::new(&db_path, 4, Some(TEST_KEY)).expect("db manager created"));
-        mgr.run_migrations().expect("migrations run");
+        manager.run_migrations().expect("migrations executed");
 
-        let service = FeatureFlagService::new(mgr.clone());
-        (service, mgr, temp_dir)
+        let service = FeatureFlagService::new(manager.clone());
+        (service, manager, temp_dir)
     }
 }

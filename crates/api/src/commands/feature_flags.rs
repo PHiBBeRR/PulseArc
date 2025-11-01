@@ -20,21 +20,22 @@ pub async fn is_feature_enabled(
     let start = Instant::now();
     let app_ctx = Arc::clone(ctx.inner());
 
-    let result = app_ctx
+    let evaluation = app_ctx
         .feature_flags
-        .is_enabled(&flag, default)
+        .evaluate(&flag, default)
         .await
         .map_err(|e| format!("Failed to check feature flag: {e}"));
 
     let elapsed = start.elapsed();
-    let success = result.is_ok();
+    let success = evaluation.is_ok();
 
     log_command_execution(command_name, implementation, elapsed, success);
 
-    if let Ok(is_enabled) = &result {
-        log_feature_flag_check(&flag, *is_enabled, false);
+    if let Ok(eval) = &evaluation {
+        log_feature_flag_check(&flag, eval.enabled, eval.fallback_used);
     }
 
+    let result = evaluation.map(|eval| eval.enabled);
     let error_type = if success { None } else { Some("feature_flag_error") };
 
     record_command_metric(&app_ctx, command_name, implementation, elapsed, success, error_type)
