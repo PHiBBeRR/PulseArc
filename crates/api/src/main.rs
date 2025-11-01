@@ -8,11 +8,14 @@ use pulsearc_lib::AppContext;
 use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::Manager;
 
+/// Type alias for main result to reduce complexity
+type MainResult = Result<(), Box<dyn std::error::Error>>;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 // Allow std::process::exit in tauri::generate_context! macro - it's part of Tauri's
 // standard initialization and handles graceful shutdown internally
 #[allow(clippy::disallowed_methods)]
-pub fn run() {
+pub fn run() -> MainResult {
     // Initialize logging FIRST so we can see .env loading
     env_logger::init();
 
@@ -123,9 +126,9 @@ pub fn run() {
             pulsearc_lib::seed_activity_snapshots,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
 }
 
-fn main() {
-    run();
+fn main() -> MainResult {
+    run()
 }

@@ -60,15 +60,23 @@ pub async fn build_my_day(
     let app_ctx = Arc::clone(&ctx);
 
     // Determine target day (default to today)
-    let target_day = day_epoch.unwrap_or_else(|| {
-        Local::now()
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .expect("Valid time")
-            .and_local_timezone(Local)
-            .unwrap()
-            .timestamp()
-    });
+    let target_day = match day_epoch {
+        Some(epoch) => epoch,
+        None => {
+            // Calculate today at midnight
+            let today = Local::now().date_naive();
+            let midnight = today.and_hms_opt(0, 0, 0).ok_or_else(|| {
+                PulseArcError::Internal("Failed to construct midnight time".to_string())
+            })?;
+            midnight
+                .and_local_timezone(Local)
+                .single()
+                .ok_or_else(|| {
+                    PulseArcError::Internal("Ambiguous local timezone conversion".to_string())
+                })?
+                .timestamp()
+        }
+    };
 
     let date = DateTime::from_timestamp(target_day, 0)
         .ok_or_else(|| PulseArcError::InvalidInput(format!("Invalid day_epoch: {}", target_day)))?

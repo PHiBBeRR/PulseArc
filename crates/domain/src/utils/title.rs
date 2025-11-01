@@ -2,8 +2,32 @@
 
 use crate::constants::*;
 
-/// Generic helper to extract text by splitting on a delimiter and taking a
-/// specific part
+/// Extract text by splitting on a delimiter and taking a specific part.
+///
+/// Splits the input string on the delimiter, trims whitespace, and returns
+/// the part at the specified position (0-indexed).
+///
+/// # Arguments
+///
+/// * `title` - The input string to split
+/// * `delimiter` - The delimiter to split on (e.g., " | ", " - ")
+/// * `position` - Zero-based index of the part to extract
+///
+/// # Returns
+///
+/// * `Some(String)` - The extracted and trimmed part
+/// * `None` - If the position is out of bounds or the result is empty
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::extract_by_delimiter;
+///
+/// let title = "Part1 | Part2 | Part3";
+/// assert_eq!(extract_by_delimiter(title, " | ", 0), Some("Part1".to_string()));
+/// assert_eq!(extract_by_delimiter(title, " | ", 1), Some("Part2".to_string()));
+/// assert_eq!(extract_by_delimiter(title, " | ", 99), None);
+/// ```
 pub fn extract_by_delimiter(title: &str, delimiter: &str, position: usize) -> Option<String> {
     title
         .split(delimiter)
@@ -13,7 +37,35 @@ pub fn extract_by_delimiter(title: &str, delimiter: &str, position: usize) -> Op
         .map(|s| s.to_string())
 }
 
-/// Generic helper to extract text by splitting and filtering with a predicate
+/// Extract text by splitting and filtering with a predicate.
+///
+/// Similar to `extract_by_delimiter`, but additionally applies a filter
+/// function to validate the extracted part.
+///
+/// # Arguments
+///
+/// * `title` - The input string to split
+/// * `delimiter` - The delimiter to split on
+/// * `position` - Zero-based index of the part to extract
+/// * `filter` - Predicate function returning true if the part should be kept
+///
+/// # Returns
+///
+/// * `Some(String)` - The extracted part if it passes the filter
+/// * `None` - If extraction failed or filter rejected the result
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::extract_with_filter;
+///
+/// let title = "#channel | Workspace";
+/// let result = extract_with_filter(title, " | ", 0, |s| s.starts_with('#'));
+/// assert_eq!(result, Some("#channel".to_string()));
+///
+/// let result = extract_with_filter("channel | Workspace", " | ", 0, |s| s.starts_with('#'));
+/// assert_eq!(result, None);
+/// ```
 pub fn extract_with_filter<F>(
     title: &str,
     delimiter: &str,
@@ -26,7 +78,30 @@ where
     extract_by_delimiter(title, delimiter, position).filter(|s| filter(s))
 }
 
-// Helper function to extract just the filename from editor titles
+/// Extract just the filename from editor window titles.
+///
+/// Handles common editor title formats by removing project names and paths,
+/// supporting both em dash (—) and regular dash (-) separators, as well as
+/// Unix (/) and Windows (\) path separators.
+///
+/// # Arguments
+///
+/// * `title` - The editor window title
+///
+/// # Returns
+///
+/// The extracted filename, or the original title if no pattern matches
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::extract_filename;
+///
+/// assert_eq!(extract_filename("main.rs — Project"), "main.rs");
+/// assert_eq!(extract_filename("main.rs - VSCode"), "main.rs");
+/// assert_eq!(extract_filename("/path/to/file.rs"), "file.rs");
+/// assert_eq!(extract_filename("C:\\path\\to\\file.rs"), "file.rs");
+/// ```
 pub fn extract_filename(title: &str) -> String {
     // Try em dash first, then regular dash
     if title.contains(" — ") {
@@ -45,7 +120,31 @@ pub fn extract_filename(title: &str) -> String {
     title.to_string()
 }
 
-// Helper function to truncate long titles
+/// Truncate long titles to a maximum length with ellipsis.
+///
+/// If the title exceeds `MAX_TITLE_LENGTH`, truncates it and appends
+/// `TITLE_TRUNCATE_SUFFIX` (typically "...").
+///
+/// # Arguments
+///
+/// * `title` - The title string to potentially truncate
+///
+/// # Returns
+///
+/// The original title if within limits, or a truncated version with suffix
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::truncate_title;
+///
+/// let short = "Short Title";
+/// assert_eq!(truncate_title(short), "Short Title");
+///
+/// let long = "x".repeat(200);
+/// let result = truncate_title(&long);
+/// assert!(result.len() <= 100); // Assuming MAX_TITLE_LENGTH is 100
+/// ```
 pub fn truncate_title(title: &str) -> String {
     if title.len() > MAX_TITLE_LENGTH {
         format!(
@@ -58,7 +157,35 @@ pub fn truncate_title(title: &str) -> String {
     }
 }
 
-// Extract project context from IDE window titles
+/// Extract project context from IDE window titles.
+///
+/// Parses common IDE title formats to extract the project name, typically
+/// appearing after the filename and a separator (em dash or regular dash).
+/// Validates that the extracted project name is within reasonable length limits.
+///
+/// # Arguments
+///
+/// * `title` - The IDE window title
+///
+/// # Returns
+///
+/// * `Some(String)` - The extracted project name
+/// * `None` - If no project pattern found or the name exceeds maximum length
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::extract_project_context;
+///
+/// let title = "main.rs - MyProject [~/path]";
+/// assert_eq!(extract_project_context(title), Some("MyProject".to_string()));
+///
+/// let title = "main.rs — VSCode";
+/// assert_eq!(extract_project_context(title), Some("VSCode".to_string()));
+///
+/// let title = "just a file";
+/// assert_eq!(extract_project_context(title), None);
+/// ```
 pub fn extract_project_context(title: &str) -> Option<String> {
     // Common patterns: "file.rs - project [~/path]" or "file.rs - project"
     // Handle both em dash " — " and regular dash " - "
@@ -84,7 +211,28 @@ pub fn extract_project_context(title: &str) -> Option<String> {
     None
 }
 
-// Clean browser window title
+/// Clean browser window titles by removing browser-specific suffixes.
+///
+/// Strips common browser suffixes like " - Google Chrome", " - Mozilla Firefox",
+/// " - Safari", and " - Arc", then truncates to the maximum length.
+///
+/// # Arguments
+///
+/// * `title` - The browser window title
+///
+/// # Returns
+///
+/// A cleaned title with browser suffix removed and truncated if necessary
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::title::clean_browser_title;
+///
+/// assert_eq!(clean_browser_title("GitHub - Google Chrome"), "GitHub");
+/// assert_eq!(clean_browser_title("My Site - Safari"), "My Site");
+/// assert_eq!(clean_browser_title("Plain Title"), "Plain Title");
+/// ```
 pub fn clean_browser_title(title: &str) -> String {
     // Remove common browser suffixes
     let suffixes = [" - Google Chrome", " - Mozilla Firefox", " - Safari", " - Arc"];

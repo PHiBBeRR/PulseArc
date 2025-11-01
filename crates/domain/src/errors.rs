@@ -37,9 +37,3 @@ pub enum PulseArcError {
 
 /// Result type alias for PulseArc operations
 pub type Result<T> = std::result::Result<T, PulseArcError>;
-
-impl From<anyhow::Error> for PulseArcError {
-    fn from(err: anyhow::Error) -> Self {
-        PulseArcError::Internal(err.to_string())
-    }
-}

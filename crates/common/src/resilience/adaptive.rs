@@ -580,7 +580,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_adaptive_threshold_adjustment() {
-        use crate::testing::MockClock;
+        use crate::resilience::MockClock;
 
         let clock = MockClock::new();
         let config = AdaptiveCircuitBreakerConfig::builder()

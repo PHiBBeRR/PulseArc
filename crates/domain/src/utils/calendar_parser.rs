@@ -22,7 +22,36 @@ pub struct ParsedEventTitle {
     pub confidence: f32, // 0.0-1.0
 }
 
-/// Parse an event title into project/workstream/task components.
+/// Parse a calendar event title into structured project/workstream/task components.
+///
+/// This function analyzes calendar event titles to extract meaningful structure
+/// using several pattern-matching strategies:
+/// - Bracket notation: `[Project] Workstream - Task`
+/// - Hyphen separation: `Project - Workstream - Task`
+/// - Colon separation: `Project: Workstream - Task`
+/// - Pipe separation: `Project | Workstream - Task`
+///
+/// # Arguments
+///
+/// * `title` - The raw calendar event title to parse
+///
+/// # Returns
+///
+/// A `ParsedEventTitle` containing extracted components and a confidence score
+/// (0.5-0.9) indicating parsing quality. Higher scores indicate more structured
+/// input matching recognized patterns.
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::calendar_parser::parse_event_title;
+///
+/// let result = parse_event_title("Acme Corp - Q4 Planning - Review budget");
+/// assert_eq!(result.project, Some("Acme Corp".to_string()));
+/// assert_eq!(result.workstream, Some("Q4 Planning".to_string()));
+/// assert_eq!(result.task, Some("review budget".to_string()));
+/// assert!(result.confidence >= 0.88);
+/// ```
 pub fn parse_event_title(title: &str) -> ParsedEventTitle {
     let cleaned = remove_prefix(title);
     let trimmed = cleaned.trim();
@@ -288,7 +317,29 @@ fn extract_workstream_task(input: &str) -> WorkstreamTaskPieces {
     WorkstreamTaskPieces { workstream, task, segments: parts.len() }
 }
 
-/// Remove common meeting prefixes from a title.
+/// Remove common meeting prefixes from a calendar event title.
+///
+/// Strips prefixes like "call:", "meeting:", "sync:", "1:1:", and "project_"
+/// to normalize calendar event titles before parsing. Handles multiple nested
+/// prefixes iteratively.
+///
+/// # Arguments
+///
+/// * `title` - The calendar event title potentially containing prefixes
+///
+/// # Returns
+///
+/// The title with all recognized prefixes removed and trimmed
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::calendar_parser::remove_prefix;
+///
+/// assert_eq!(remove_prefix("Call: Project Alpha - Sync"), "Project Alpha - Sync");
+/// assert_eq!(remove_prefix("Meeting: Standup"), "Standup");
+/// assert_eq!(remove_prefix("project_client_sync"), "client sync");
+/// ```
 pub fn remove_prefix(title: &str) -> String {
     let prefixes = ["call:", "meeting:", "sync:", "1:1:", "1-1:", "call -", "meeting -", "sync -"];
 
@@ -347,6 +398,32 @@ fn categorize_event(title: &str) -> String {
 }
 
 /// Normalize project/workstream names to title case while preserving acronyms.
+///
+/// Converts text to title case (first letter capitalized) but intelligently
+/// preserves existing capitalization patterns for acronyms and proper nouns.
+///
+/// # Arguments
+///
+/// * `input` - The raw project or workstream name
+///
+/// # Returns
+///
+/// A normalized name with appropriate capitalization
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::calendar_parser::normalize_name;
+///
+/// // Regular words become title case
+/// assert_eq!(normalize_name("api q4 planning"), "Api Q4 Planning");
+///
+/// // Acronyms are preserved
+/// assert_eq!(normalize_name("API Q4"), "API Q4");
+///
+/// // Mixed case proper nouns are preserved
+/// assert_eq!(normalize_name("ClientX"), "ClientX");
+/// ```
 pub fn normalize_name(input: &str) -> String {
     input
         .split_whitespace()
@@ -375,11 +452,61 @@ pub fn normalize_name(input: &str) -> String {
 }
 
 /// Normalize task descriptions to lowercase.
+///
+/// Converts task text to lowercase and trims whitespace for consistent
+/// storage and comparison.
+///
+/// # Arguments
+///
+/// * `input` - The raw task description
+///
+/// # Returns
+///
+/// A normalized task string in lowercase with trimmed whitespace
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::calendar_parser::normalize_task;
+///
+/// assert_eq!(normalize_task("  Review Budget "), "review budget");
+/// assert_eq!(normalize_task("SEND EMAIL"), "send email");
+/// ```
 pub fn normalize_task(input: &str) -> String {
     input.trim().to_lowercase()
 }
 
-/// Calculate confidence score for recognised parsing patterns.
+/// Calculate confidence score for recognized parsing patterns.
+///
+/// Returns a confidence score (0.0-1.0) based on the pattern type and number
+/// of components extracted. Higher scores indicate more structured input.
+///
+/// # Pattern Scores
+///
+/// - `pattern1` (hyphen-separated): 0.88-0.90 (based on part count)
+/// - `pattern2` (colon-separated): 0.85
+/// - `pattern3` (bracket notation): 0.80
+/// - `pattern4` (pipe-separated): 0.75
+/// - `fallback` (unstructured): 0.50
+///
+/// # Arguments
+///
+/// * `pattern` - The parsing pattern identifier
+/// * `parts_count` - Number of components extracted (affects pattern1 score)
+///
+/// # Returns
+///
+/// Confidence score between 0.0 and 1.0
+///
+/// # Examples
+///
+/// ```
+/// use pulsearc_domain::utils::calendar_parser::calculate_confidence;
+///
+/// assert_eq!(calculate_confidence("pattern1", 3), 0.90);
+/// assert_eq!(calculate_confidence("pattern2", 2), 0.85);
+/// assert_eq!(calculate_confidence("fallback", 1), 0.50);
+/// ```
 pub fn calculate_confidence(pattern: &str, parts_count: usize) -> f32 {
     match pattern {
         "pattern1" => {
