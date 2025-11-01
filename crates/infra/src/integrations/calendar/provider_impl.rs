@@ -164,7 +164,7 @@ impl CalendarProviderImpl {
             title: raw.subject.unwrap_or_else(|| "Untitled Event".to_string()),
             start_time,
             end_time,
-            attendees: Vec::new(), // TODO: Parse attendees from provider response
+            attendees: raw.attendees.unwrap_or_default(),
         })
     }
 
