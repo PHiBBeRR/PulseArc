@@ -126,7 +126,7 @@ pub fn run() -> MainResult {
             pulsearc_lib::seed_activity_snapshots,
         ])
         .run(tauri::generate_context!())
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+        .map_err(Into::into)
 }
 
 fn main() -> MainResult {
