@@ -15,9 +15,6 @@ use crate::classification::ports::CalendarEventRepository;
 #[derive(Debug, Clone, Deserialize, Default)]
 struct ActivityContext {
     pub active_app: ActiveApp,
-    #[serde(default)]
-    #[allow(dead_code)] // Reserved for future screen analytics
-    pub screen_info: Option<ScreenInfo>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -30,12 +27,6 @@ struct ActiveApp {
     pub url: Option<String>,
     #[serde(default)]
     pub document_name: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code)] // Reserved for future screen analytics
-struct ScreenInfo {
-    // Fields as needed for future enhancement
 }
 
 /// File path information (path, project_folder)
